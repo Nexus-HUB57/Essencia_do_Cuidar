@@ -1,0 +1,33 @@
+version: '3.9'
+
+# Exemplo opcional de orquestração.
+# Para rodar local sem Docker, basta `npm run install:all && npm run seed && npm run dev:backend`
+# em um terminal e `npm run dev:frontend` em outro.
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-prod-please}
+      - FRONTEND_URL=http://localhost:5173
+      - NETLIFY_AI_URL=https://netlify.ai
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:4000/api
