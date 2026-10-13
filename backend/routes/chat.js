@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { authRequired } from '../middleware/auth.js';
+import { json } from '../middleware/body.js';
 
 const router = Router();
 
@@ -32,7 +33,7 @@ router.get('/', authRequired, (req, res) => {
 });
 
 // POST /api/chat  -> envia mensagem
-router.post('/', authRequired, (req, res) => {
+router.post('/', authRequired, json, (req, res) => {
   const { id_vaga, corpo } = req.body || {};
   if (!id_vaga || !corpo) return res.status(400).json({ error: 'id_vaga e corpo obrigatórios' });
   const access = ensureAccess(req, Number(id_vaga));

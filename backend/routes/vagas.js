@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { authRequired, requireRole } from '../middleware/auth.js';
 import { fireWebhook } from './webhook.js';
+import { json } from '../middleware/body.js';
 
 const router = Router();
 
@@ -37,7 +38,7 @@ router.get('/:id', authRequired, (req, res) => {
 });
 
 // POST /api/vagas  -> contratante cria
-router.post('/', authRequired, requireRole('contratante'), (req, res) => {
+router.post('/', authRequired, requireRole('contratante'), json, (req, res) => {
   const b = req.body || {};
   if (!b.servico_descricao) return res.status(400).json({ error: 'servico_descricao obrigatório' });
   if (!b.complexidade || !['baixa', 'media'].includes(b.complexidade)) {
@@ -82,7 +83,7 @@ router.get('/minhas/list', authRequired, requireRole('contratante'), (req, res) 
 });
 
 // PATCH /api/vagas/:id/status  -> pausar/fechar
-router.patch('/:id/status', authRequired, requireRole('contratante'), (req, res) => {
+router.patch('/:id/status', authRequired, requireRole('contratante'), json, (req, res) => {
   const id = Number(req.params.id);
   const v = db.prepare('SELECT * FROM vagas WHERE id = ? AND id_contratante = ?').get(id, req.user.id);
   if (!v) return res.status(404).json({ error: 'vaga não encontrada' });

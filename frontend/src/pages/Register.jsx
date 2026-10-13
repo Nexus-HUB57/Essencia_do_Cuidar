@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -15,6 +15,25 @@ const DIAS = [
   { v: 'seg', t: 'Seg' }, { v: 'ter', t: 'Ter' }, { v: 'qua', t: 'Qua' },
   { v: 'qui', t: 'Qui' }, { v: 'sex', t: 'Sex' }, { v: 'sab', t: 'Sáb' }, { v: 'dom', t: 'Dom' },
 ];
+const MAX_SIZE = 10 * 1024 * 1024;
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ALLOWED_EXTS = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+
+function formatSize(b) {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function validateFile(file) {
+  if (!file) return 'Arquivo obrigatório';
+  if (file.size > MAX_SIZE) return `Arquivo acima de 10 MB (${formatSize(file.size)})`;
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!ALLOWED_EXTS.includes(ext) && !ALLOWED_TYPES.includes(file.type)) {
+    return 'Formato não permitido (use PDF, JPG, PNG ou WEBP)';
+  }
+  return null;
+}
 
 export default function Register() {
   const [params] = useSearchParams();
@@ -24,7 +43,9 @@ export default function Register() {
   const [form, setForm] = useState({
     nome: '', email: '', senha: '', telefone: '',
     // profissional
-    diploma_nome: '', registro_conselho: '',
+    registro_conselho: '',
+    diploma: null,             // File object
+    registro_conselho_doc: null, // File object
     especialidades: [],
     periodos: [], dias: [],
     // contratante
@@ -40,18 +61,35 @@ export default function Register() {
   function set(k, v) { setForm(prev => ({ ...prev, [k]: v })); }
   function toggle(arr, v) { return arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]; }
 
-  function next() {
-    setErro('');
-    if (step === 0) {
-      if (!tipo) return setErro('Escolha um tipo de cadastro.');
-    }
+  // Validação por passo
+  const errors = useMemo(() => {
+    const e = {};
     if (step === 1) {
-      if (!form.nome || !form.email || !form.senha) return setErro('Preencha nome, e-mail e senha.');
-      if (form.senha.length < 6) return setErro('Senha deve ter ao menos 6 caracteres.');
+      if (!form.nome) e.nome = 'Informe seu nome completo';
+      if (!form.email) e.email = 'Informe seu e-mail';
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'E-mail inválido';
+      if (!form.senha) e.senha = 'Crie uma senha';
+      else if (form.senha.length < 6) e.senha = 'Mínimo 6 caracteres';
+      if (!form.telefone || form.telefone.replace(/\D/g, '').length < 10) e.telefone = 'Informe DDD + número';
     }
     if (step === 2 && tipo === 'profissional') {
-      if (!form.registro_conselho) return setErro('Informe o número de registro do conselho (COREN, CRM, etc.).');
-      if (form.especialidades.length === 0) return setErro('Selecione ao menos uma especialização.');
+      if (!form.registro_conselho) e.registro_conselho = 'Informe o número do conselho';
+      if (form.especialidades.length === 0) e.especialidades = 'Selecione ao menos uma';
+      if (validateFile(form.diploma)) e.diploma = validateFile(form.diploma);
+      if (validateFile(form.registro_conselho_doc)) e.registro_conselho_doc = validateFile(form.registro_conselho_doc);
+    }
+    if (step === 3 && tipo === 'profissional') {
+      if (form.periodos.length === 0) e.periodos = 'Selecione ao menos um período';
+      if (form.dias.length === 0) e.dias = 'Selecione ao menos um dia';
+    }
+    return e;
+  }, [step, form, tipo]);
+
+  function next() {
+    setErro('');
+    if (Object.keys(errors).length > 0) {
+      const first = Object.values(errors)[0];
+      return setErro(first);
     }
     setStep(s => s + 1);
   }
@@ -68,12 +106,11 @@ export default function Register() {
         telefone: form.telefone,
       };
       if (tipo === 'profissional') {
-        payload.detalhes = {
-          diploma_url: form.diploma_nome ? `local:${form.diploma_nome}` : null,
-          registro_conselho: form.registro_conselho,
-          especialidades: form.especialidades,
-          disponibilidade: { periodos: form.periodos, dias: form.dias },
-        };
+        payload.registro_conselho = form.registro_conselho;
+        payload.especialidades = form.especialidades;
+        payload.disponibilidade = { periodos: form.periodos, dias: form.dias };
+        payload.diploma = form.diploma;
+        payload.registro_conselho_doc = form.registro_conselho_doc;
       }
       const u = await register(payload);
       navigate(u.tipo_usuario === 'profissional' ? '/dashboard-profissional' : '/dashboard-contratante', { replace: true });
@@ -117,22 +154,27 @@ export default function Register() {
           {step === 1 && (
             <div>
               <h2 className="text-lg font-semibold">Seus dados</h2>
+              <p className="text-sm text-brand-slate">Informações básicas de contato e acesso.</p>
               <div className="mt-4 grid sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="label">Nome completo</label>
+                  <label className="label">Nome completo *</label>
                   <input className="input" value={form.nome} onChange={e => set('nome', e.target.value)} required />
+                  {errors.nome && <p className="mt-1 text-xs text-rose-600">{errors.nome}</p>}
                 </div>
                 <div>
-                  <label className="label">E-mail</label>
+                  <label className="label">E-mail *</label>
                   <input type="email" className="input" value={form.email} onChange={e => set('email', e.target.value)} required />
+                  {errors.email && <p className="mt-1 text-xs text-rose-600">{errors.email}</p>}
                 </div>
                 <div>
-                  <label className="label">Senha</label>
+                  <label className="label">Senha * <span className="text-brand-slate font-normal">(mín. 6 caracteres)</span></label>
                   <input type="password" className="input" value={form.senha} onChange={e => set('senha', e.target.value)} minLength={6} required />
+                  {errors.senha && <p className="mt-1 text-xs text-rose-600">{errors.senha}</p>}
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="label">Telefone / WhatsApp</label>
-                  <input className="input" value={form.telefone} onChange={e => set('telefone', e.target.value)} placeholder="(11) 99999-9999" />
+                  <label className="label">Contato / WhatsApp *</label>
+                  <input className="input" value={form.telefone} onChange={e => set('telefone', e.target.value)} placeholder="(11) 99999-9999" required />
+                  {errors.telefone && <p className="mt-1 text-xs text-rose-600">{errors.telefone}</p>}
                 </div>
               </div>
             </div>
@@ -141,24 +183,37 @@ export default function Register() {
           {step === 2 && tipo === 'profissional' && (
             <div>
               <h2 className="text-lg font-semibold">Sua qualificação</h2>
+              <p className="text-sm text-brand-slate">Para manter a segurança da plataforma, exigimos o registro no conselho e o diploma.</p>
+
               <div className="mt-4 grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Registro Profissional</label>
-                  <input className="input" value={form.registro_conselho} onChange={e => set('registro_conselho', e.target.value)} placeholder="Ex: COREN-SP 123456" />
-                </div>
-                <div>
-                  <label className="label">Diploma (PDF/JPG) — opcional na demo</label>
-                  <input type="file" className="input file:mr-3 file:rounded-lg file:border-0 file:bg-brand-blue/10 file:px-3 file:py-1.5 file:text-brand-blue"
-                    onChange={e => set('diploma_nome', e.target.files?.[0]?.name || '')} />
-                  {form.diploma_nome && <p className="mt-1 text-xs text-brand-slate">{form.diploma_nome}</p>}
-                </div>
                 <div className="sm:col-span-2">
-                  <label className="label">Especializações</label>
+                  <label className="label">Número de Registro no Conselho *</label>
+                  <input className="input" value={form.registro_conselho} onChange={e => set('registro_conselho', e.target.value)} placeholder="Ex: COREN-SP 123456" />
+                  <p className="mt-1 text-xs text-brand-slate">COREN, CRM, CREFITO, CRP, etc.</p>
+                  {errors.registro_conselho && <p className="mt-1 text-xs text-rose-600">{errors.registro_conselho}</p>}
+                </div>
+
+                <FileField
+                  label="Diploma / Certificado *"
+                  file={form.diploma}
+                  onChange={f => set('diploma', f)}
+                  error={errors.diploma}
+                />
+                <FileField
+                  label="Registro no Conselho (comprovante) *"
+                  file={form.registro_conselho_doc}
+                  onChange={f => set('registro_conselho_doc', f)}
+                  error={errors.registro_conselho_doc}
+                />
+
+                <div className="sm:col-span-2">
+                  <label className="label">Especializações *</label>
                   <div className="flex flex-wrap gap-2">
                     {ESPECIALIDADES.map(e => (
                       <Chip key={e} active={form.especialidades.includes(e)} onClick={() => set('especialidades', toggle(form.especialidades, e))}>{e}</Chip>
                     ))}
                   </div>
+                  {errors.especialidades && <p className="mt-1 text-xs text-rose-600">{errors.especialidades}</p>}
                 </div>
               </div>
             </div>
@@ -180,20 +235,22 @@ export default function Register() {
               <h2 className="text-lg font-semibold">Sua disponibilidade</h2>
               <p className="text-sm text-brand-slate">Selecione os períodos e dias em que você pode atender.</p>
               <div className="mt-4">
-                <label className="label">Períodos</label>
+                <label className="label">Períodos *</label>
                 <div className="flex flex-wrap gap-2">
                   {PERIODOS.map(p => (
                     <Chip key={p.v} active={form.periodos.includes(p.v)} onClick={() => set('periodos', toggle(form.periodos, p.v))}>{p.t}</Chip>
                   ))}
                 </div>
+                {errors.periodos && <p className="mt-1 text-xs text-rose-600">{errors.periodos}</p>}
               </div>
               <div className="mt-4">
-                <label className="label">Dias da semana</label>
+                <label className="label">Dias da semana *</label>
                 <div className="flex flex-wrap gap-2">
                   {DIAS.map(d => (
                     <Chip key={d.v} active={form.dias.includes(d.v)} onClick={() => set('dias', toggle(form.dias, d.v))}>{d.t}</Chip>
                   ))}
                 </div>
+                {errors.dias && <p className="mt-1 text-xs text-rose-600">{errors.dias}</p>}
               </div>
             </div>
           )}
@@ -205,9 +262,17 @@ export default function Register() {
               <ul className="mt-4 text-sm text-brand-ink/80 space-y-1">
                 <li><b>Nome:</b> {form.nome}</li>
                 <li><b>E-mail:</b> {form.email}</li>
-                <li><b>Telefone:</b> {form.telefone || '—'}</li>
+                <li><b>Contato/WhatsApp:</b> {form.telefone || '—'}</li>
                 {tipo === 'profissional' && <>
                   <li><b>Registro:</b> {form.registro_conselho}</li>
+                  <li>
+                    <b>Diploma:</b>{' '}
+                    {form.diploma ? <span className="text-emerald-700">{form.diploma.name} ({formatSize(form.diploma.size)})</span> : <span className="text-rose-600">faltando</span>}
+                  </li>
+                  <li>
+                    <b>Doc. Conselho:</b>{' '}
+                    {form.registro_conselho_doc ? <span className="text-emerald-700">{form.registro_conselho_doc.name} ({formatSize(form.registro_conselho_doc.size)})</span> : <span className="text-rose-600">faltando</span>}
+                  </li>
                   <li><b>Especialidades:</b> {form.especialidades.join(', ') || '—'}</li>
                   <li><b>Disponibilidade:</b> {form.periodos.join(', ') || '—'} · {form.dias.join(', ') || '—'}</li>
                 </>}
@@ -221,7 +286,7 @@ export default function Register() {
             <button onClick={back} disabled={step === 0} className="btn-ghost disabled:opacity-40">Voltar</button>
             {step < (tipo === 'profissional' ? 4 : 3)
               ? <button onClick={next} className="btn-primary">Continuar</button>
-              : <button onClick={submit} disabled={loading} className="btn-primary disabled:opacity-60">{loading ? 'Criando…' : 'Finalizar cadastro'}</button>
+              : <button onClick={submit} disabled={loading} className="btn-primary disabled:opacity-60">{loading ? 'Enviando documentos…' : 'Finalizar cadastro'}</button>
             }
           </div>
         </div>
@@ -231,6 +296,30 @@ export default function Register() {
         </p>
       </div>
     </section>
+  );
+}
+
+function FileField({ label, file, onChange, error }) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <div className={`flex items-center gap-3 rounded-xl border-2 border-dashed p-3 ${error ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200 hover:border-brand-blue/40'}`}>
+        <input
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+          className="block w-full text-sm text-brand-slate file:mr-3 file:rounded-lg file:border-0 file:bg-brand-blue file:px-3 file:py-2 file:text-white file:cursor-pointer"
+          onChange={e => onChange(e.target.files?.[0] || null)}
+        />
+        {file && (
+          <button type="button" onClick={() => onChange(null)} className="text-xs text-rose-600 hover:underline">remover</button>
+        )}
+      </div>
+      {file
+        ? <p className="mt-1 text-xs text-emerald-700">✓ {file.name} · {formatSize(file.size)}</p>
+        : <p className="mt-1 text-xs text-brand-slate">PDF, JPG, PNG ou WEBP · até 10 MB</p>
+      }
+      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+    </div>
   );
 }
 

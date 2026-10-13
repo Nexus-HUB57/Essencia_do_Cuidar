@@ -2,13 +2,25 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { db, transaction } from '../db.js';
 import { signToken, authRequired } from '../middleware/auth.js';
+import { uploadForRegister, persistPendingUploads } from '../middleware/upload.js';
+import { json } from '../middleware/body.js';
 
 const router = Router();
 
 // POST /api/auth/register
-// body: { tipo_usuario, nome, email, senha, telefone, ...detalhes }
-router.post('/register', async (req, res) => {
-  const { tipo_usuario, nome, email, senha, telefone } = req.body || {};
+// Aceita multipart/form-data com campos:
+//   texto: tipo_usuario, nome, email, senha, telefone, registro_conselho,
+//          especialidades (JSON string), disponibilidade (JSON string)
+//   arquivo: diploma (PDF/JPG/PNG/WEBP, até 10MB), registro_conselho_doc
+// Também aceita application/json (sem arquivos) — campos idênticos.
+router.post('/register', (req, res, next) => {
+  const ct = (req.headers['content-type'] || '').toLowerCase();
+  if (ct.startsWith('multipart/form-data')) return uploadForRegister(req, res, next);
+  return json(req, res, next);
+}, async (req, res) => {
+  const b = req.body || {};
+  const files = req.files || {};
+  const { tipo_usuario, nome, email, senha, telefone } = b;
 
   if (!tipo_usuario || !['profissional', 'contratante'].includes(tipo_usuario)) {
     return res.status(400).json({ error: 'tipo_usuario deve ser "profissional" ou "contratante"' });
@@ -28,6 +40,13 @@ router.post('/register', async (req, res) => {
 
   const senha_hash = await bcrypt.hash(senha, 10);
 
+  // Helpers de parsing seguro para campos que podem vir como JSON string
+  function safeJSON(v, fallback) {
+    if (v == null || v === '') return fallback;
+    if (typeof v !== 'string') return v;
+    try { return JSON.parse(v); } catch { return fallback; }
+  }
+
   const tx = transaction(() => {
     const info = db.prepare(`
       INSERT INTO users (tipo_usuario, nome, email, senha_hash, telefone)
@@ -36,17 +55,29 @@ router.post('/register', async (req, res) => {
     const userId = info.lastInsertRowid;
 
     if (tipo_usuario === 'profissional') {
-      const d = req.body.detalhes || {};
+      const persisted = persistPendingUploads(userId, files);
+      const diploma = persisted.diploma;
+      const registro = persisted.registro;
+      const especialidades = safeJSON(b.especialidades, []);
+      const disponibilidade = safeJSON(b.disponibilidade, {});
+
       db.prepare(`
         INSERT INTO profissionais_detalhes
-          (id_user, diploma_url, registro_conselho, especialidades, disponibilidade)
-        VALUES (?, ?, ?, ?, ?)
+          (id_user, diploma_url, diploma_original_name, diploma_uploaded_at,
+           registro_conselho, registro_conselho_url, registro_conselho_original_name, registro_conselho_uploaded_at,
+           especialidades, disponibilidade)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         userId,
-        d.diploma_url || null,
-        d.registro_conselho || null,
-        JSON.stringify(d.especialidades || []),
-        JSON.stringify(d.disponibilidade || {})
+        diploma?.url || null,
+        diploma?.originalName || null,
+        diploma?.uploadedAt || null,
+        b.registro_conselho || null,
+        registro?.url || null,
+        registro?.originalName || null,
+        registro?.uploadedAt || null,
+        JSON.stringify(Array.isArray(especialidades) ? especialidades : []),
+        JSON.stringify(disponibilidade && typeof disponibilidade === 'object' ? disponibilidade : {})
       );
     }
     return userId;
@@ -58,7 +89,7 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', json, async (req, res) => {
   const { email, senha } = req.body || {};
   if (!email || !senha) return res.status(400).json({ error: 'email e senha obrigatórios' });
 

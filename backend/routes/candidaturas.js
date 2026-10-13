@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { authRequired } from '../middleware/auth.js';
 import { fireWebhook } from './webhook.js';
+import { json } from '../middleware/body.js';
 
 const router = Router();
 
 // POST /api/candidaturas  -> profissional se candidata a uma vaga
-router.post('/', authRequired, (req, res) => {
+router.post('/', authRequired, json, (req, res) => {
   if (req.user.tipo_usuario !== 'profissional') {
     return res.status(403).json({ error: 'apenas profissionais podem se candidatar' });
   }
@@ -54,7 +55,10 @@ router.get('/', authRequired, (req, res) => {
   const rows = db.prepare(`
     SELECT c.id, c.status_candidatura, c.mensagem, c.criado_em,
            u.id AS profissional_id, u.nome, u.email, u.telefone,
-           p.registro_conselho, p.especialidades, p.disponibilidade
+           p.registro_conselho,
+           p.diploma_url, p.diploma_original_name, p.diploma_uploaded_at,
+           p.registro_conselho_url, p.registro_conselho_original_name, p.registro_conselho_uploaded_at,
+           p.especialidades, p.disponibilidade
     FROM candidaturas c
     JOIN users u ON u.id = c.id_profissional
     LEFT JOIN profissionais_detalhes p ON p.id_user = u.id
@@ -65,11 +69,15 @@ router.get('/', authRequired, (req, res) => {
     ...r,
     especialidades: r.especialidades ? JSON.parse(r.especialidades) : [],
     disponibilidade: r.disponibilidade ? JSON.parse(r.disponibilidade) : {},
+    documentos: {
+      diploma: !!r.diploma_url,
+      registro_conselho: !!r.registro_conselho_url,
+    },
   })));
 });
 
 // PATCH /api/candidaturas/:id  -> contratante aceita/recusa
-router.patch('/:id', authRequired, (req, res) => {
+router.patch('/:id', authRequired, json, (req, res) => {
   const id = Number(req.params.id);
   const { status_candidatura } = req.body || {};
   if (!['visualizada', 'aceita', 'recusada'].includes(status_candidatura)) {

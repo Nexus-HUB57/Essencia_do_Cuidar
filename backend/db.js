@@ -46,7 +46,12 @@ export function initSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       id_user INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
       diploma_url TEXT,
+      diploma_original_name TEXT,
+      diploma_uploaded_at TEXT,
       registro_conselho TEXT,
+      registro_conselho_url TEXT,
+      registro_conselho_original_name TEXT,
+      registro_conselho_uploaded_at TEXT,
       especialidades TEXT,
       disponibilidade TEXT
     );
@@ -94,6 +99,15 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_cand_prof ON candidaturas(id_profissional);
     CREATE INDEX IF NOT EXISTS idx_msg_vaga ON mensagens(id_vaga);
   `);
+
+  // Migrações aditivas para bancos que já existem do commit anterior.
+  const cols = db.prepare("PRAGMA table_info(profissionais_detalhes)").all();
+  const has = (name) => cols.some(c => c.name === name);
+  if (!has('diploma_original_name'))        db.exec("ALTER TABLE profissionais_detalhes ADD COLUMN diploma_original_name TEXT");
+  if (!has('diploma_uploaded_at'))          db.exec("ALTER TABLE profissionais_detalhes ADD COLUMN diploma_uploaded_at TEXT");
+  if (!has('registro_conselho_url'))        db.exec("ALTER TABLE profissionais_detalhes ADD COLUMN registro_conselho_url TEXT");
+  if (!has('registro_conselho_original_name')) db.exec("ALTER TABLE profissionais_detalhes ADD COLUMN registro_conselho_original_name TEXT");
+  if (!has('registro_conselho_uploaded_at'))   db.exec("ALTER TABLE profissionais_detalhes ADD COLUMN registro_conselho_uploaded_at TEXT");
 }
 
 initSchema();

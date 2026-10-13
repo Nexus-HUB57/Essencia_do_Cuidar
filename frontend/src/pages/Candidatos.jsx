@@ -40,8 +40,11 @@ export default function Candidatos() {
             {cands.map(c => (
               <li key={c.id} className="card">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{c.nome}</p>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">{c.nome}</p>
+                      <DocBadges docs={c.documentos} />
+                    </div>
                     <p className="text-xs text-brand-slate">{c.email} · {c.telefone || 's/ telefone'}</p>
                     <p className="mt-1 text-xs"><b>Registro:</b> {c.registro_conselho || '—'}</p>
                     {c.especialidades?.length > 0 && (
@@ -50,6 +53,9 @@ export default function Candidatos() {
                       </div>
                     )}
                     {c.mensagem && <p className="mt-2 text-sm text-brand-ink/80 whitespace-pre-line">"{c.mensagem}"</p>}
+
+                    {/* Links para os documentos enviados */}
+                    <DocumentosLinks c={c} />
                   </div>
                   <div className="flex flex-col gap-2 sm:items-end">
                     <span className={statusBadge(c.status_candidatura)}>{c.status_candidatura}</span>
@@ -67,6 +73,41 @@ export default function Candidatos() {
       </div>
     </section>
   );
+}
+
+function DocBadges({ docs }) {
+  if (!docs) return null;
+  return (
+    <span className="inline-flex gap-1">
+      {docs.diploma && <span className="badge-green" title="Diploma enviado">✓ Diploma</span>}
+      {docs.registro_conselho && <span className="badge-green" title="Registro conselho enviado">✓ Conselho</span>}
+      {!docs.diploma && !docs.registro_conselho && (
+        <span className="badge-amber" title="Sem documentos">⚠ Sem docs</span>
+      )}
+    </span>
+  );
+}
+
+function DocumentosLinks({ c }) {
+  const items = [];
+  if (c.diploma_url) {
+    items.push(
+      <a key="dip" href={c.diploma_url} target="_blank" rel="noreferrer"
+         className="inline-flex items-center gap-1 text-xs text-brand-blue hover:underline">
+        📄 Diploma{c.diploma_original_name ? `: ${c.diploma_original_name}` : ''}
+      </a>
+    );
+  }
+  if (c.registro_conselho_url) {
+    items.push(
+      <a key="con" href={c.registro_conselho_url} target="_blank" rel="noreferrer"
+         className="inline-flex items-center gap-1 text-xs text-brand-blue hover:underline">
+        📄 Doc. Conselho{c.registro_conselho_original_name ? `: ${c.registro_conselho_original_name}` : ''}
+      </a>
+    );
+  }
+  if (items.length === 0) return null;
+  return <div className="mt-2 flex flex-wrap gap-3">{items}</div>;
 }
 
 function statusBadge(s) {

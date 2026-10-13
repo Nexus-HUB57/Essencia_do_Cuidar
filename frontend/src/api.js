@@ -4,8 +4,12 @@ function getToken() {
   return localStorage.getItem('edc_token');
 }
 
+/** Request com JSON (default). Não seta Content-Type manualmente quando usa FormData. */
 async function request(path, options = {}) {
-  const headers = { 'content-type': 'application/json', ...(options.headers || {}) };
+  const headers = { ...(options.headers || {}) };
+  if (!(options.body instanceof FormData) && options.body != null) {
+    headers['content-type'] = 'application/json';
+  }
   const token = getToken();
   if (token) headers.authorization = `Bearer ${token}`;
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
@@ -18,15 +22,55 @@ async function request(path, options = {}) {
   return res.json();
 }
 
+/**
+ * Monta FormData com os campos textuais e arquivos.
+ * Importante: cada campo de texto vira um append() simples — o browser usa text/plain
+ * por padrão, evitando o bug do curl com auto-detect de application/json em multer 2.x.
+ */
+function buildRegisterForm({ tipo_usuario, nome, email, senha, telefone,
+                              registro_conselho, especialidades, disponibilidade,
+                              diploma, registro_conselho_doc }) {
+  const fd = new FormData();
+  fd.append('tipo_usuario', String(tipo_usuario || ''));
+  fd.append('nome', String(nome || ''));
+  fd.append('email', String(email || ''));
+  fd.append('senha', String(senha || ''));
+  if (telefone) fd.append('telefone', String(telefone));
+  if (tipo_usuario === 'profissional') {
+    if (registro_conselho) fd.append('registro_conselho', String(registro_conselho));
+    fd.append('especialidades', JSON.stringify(especialidades || []));
+    fd.append('disponibilidade', JSON.stringify(disponibilidade || {}));
+    if (diploma instanceof File) fd.append('diploma', diploma);
+    if (registro_conselho_doc instanceof File) fd.append('registro_conselho_doc', registro_conselho_doc);
+  }
+  return fd;
+}
+
+/** Upload avulso de documento (PUT /api/profissionais/me/documentos) */
+function buildDocumentoForm(tipo, arquivo) {
+  const fd = new FormData();
+  fd.append('tipo', tipo); // 'diploma' | 'registro_conselho'
+  fd.append('arquivo', arquivo);
+  return fd;
+}
+
 export const api = {
   // auth
-  register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  register: (data) => {
+    if (data.diploma || data.registro_conselho_doc) {
+      const fd = buildRegisterForm(data);
+      return request('/auth/register', { method: 'POST', body: fd });
+    }
+    return request('/auth/register', { method: 'POST', body: JSON.stringify(data) });
+  },
   login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
   me: () => request('/auth/me'),
 
   // profissionais
   getMeuPerfil: () => request('/profissionais/me'),
   atualizarMeuPerfil: (data) => request('/profissionais/me', { method: 'PUT', body: JSON.stringify(data) }),
+  uploadDocumento: (tipo, arquivo) =>
+    request('/profissionais/me/documentos', { method: 'PUT', body: buildDocumentoForm(tipo, arquivo) }),
   getProfissional: (id) => request(`/profissionais/${id}`),
 
   // vagas

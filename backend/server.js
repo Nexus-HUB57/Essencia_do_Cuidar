@@ -18,7 +18,9 @@ app.use(cors({
   origin: (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map(s => s.trim()),
   credentials: false,
 }));
-app.use(express.json({ limit: '2mb' }));
+
+// NOTA: JSON parser é aplicado por rota (ver middleware/body.js) para não conflitar
+// com multer nas rotas multipart.
 
 // uploads de diploma servidos em /uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
