@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
 import api from '../utils/api';
-import type { Vaga, Candidatura, ProfissionalDetalhes } from '../types';
+import type { Vaga, Candidatura, ProfissionalDetalhes, AvaliacaoPendente } from '../types';
 import Chat from '../components/Chat';
+import AvaliacaoModal from '../components/AvaliacaoModal';
 
 export default function DashboardProfissional() {
   const { user, refreshUser } = useAuth();
-  const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'perfil'>('buscar');
+  const toast = useToast();
+  const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'perfil' | 'avaliacoes'>('buscar');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [cands, setCands] = useState<Candidatura[]>([]);
   const [detalhes, setDetalhes] = useState<ProfissionalDetalhes | null>(null);
+  const [avPendentes, setAvPendentes] = useState<AvaliacaoPendente[]>([]);
   const [loading, setLoading] = useState(false);
   const [chatCom, setChatCom] = useState<{ id: number; nome: string } | null>(null);
+  const [avaliar, setAvaliar] = useState<AvaliacaoPendente | null>(null);
 
   // filtros
   const [fProf, setFProf] = useState('');
@@ -24,6 +29,7 @@ export default function DashboardProfissional() {
   useEffect(() => { if (tab === 'buscar') carregarVagas(); }, [tab, fProf, fCx, fReg]);
 
   useEffect(() => { if (tab === 'candidaturas') carregarCands(); }, [tab]);
+  useEffect(() => { if (tab === 'avaliacoes') carregarAvPendentes(); }, [tab]);
 
   async function carregarDetalhes() {
     try {
@@ -61,9 +67,21 @@ export default function DashboardProfissional() {
   async function candidatar(vagaId: number) {
     try {
       await api.post('/candidaturas', { id_vaga: vagaId });
-      alert('Candidatura enviada! Acompanhe na aba "Minhas candidaturas".');
+      toast.success('Candidatura enviada! Acompanhe na aba "Minhas candidaturas".');
     } catch (err) {
-      alert(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
+    }
+  }
+
+  async function carregarAvPendentes() {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/avaliacoes/pendentes');
+      setAvPendentes(data.pendentes);
+    } catch (err) {
+      console.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -82,16 +100,17 @@ export default function DashboardProfissional() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200 mb-6">
+      <div className="flex gap-1 border-b border-slate-200 mb-6 overflow-x-auto">
         {[
           { k: 'buscar', l: '🔍 Buscar vagas' },
           { k: 'candidaturas', l: '📋 Minhas candidaturas' },
+          { k: 'avaliacoes', l: `⭐ Avaliações${avPendentes.length ? ` (${avPendentes.length})` : ''}` },
           { k: 'perfil', l: '👤 Meu perfil' }
         ].map((t) => (
           <button
             key={t.k}
             onClick={() => setTab(t.k as any)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
               tab === t.k
                 ? 'border-serenity-500 text-serenity-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -198,6 +217,40 @@ export default function DashboardProfissional() {
         </div>
       )}
 
+      {/* TAB: AVALIAÇÕES PENDENTES */}
+      {tab === 'avaliacoes' && (
+        <div>
+          {loading ? (
+            <p className="text-center text-slate-400 py-12">Carregando...</p>
+          ) : avPendentes.length === 0 ? (
+            <div className="card text-center py-12 text-slate-500">
+              <div className="text-4xl mb-2">⭐</div>
+              <p>Nenhuma avaliação pendente.</p>
+              <p className="text-xs mt-1">Quando uma vaga for encerrada, você poderá avaliar o contratante aqui.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {avPendentes.map((p) => (
+                <div key={p.candidatura_id} className="card flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="font-semibold">{p.profissional_desejado}</h3>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      {p.regiao || '—'} • Com <strong>{p.outro_nome}</strong>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setAvaliar(p)}
+                    className="btn-primary text-sm"
+                  >
+                    ⭐ Avaliar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* TAB: PERFIL */}
       {tab === 'perfil' && detalhes && (
         <div className="card max-w-2xl">
@@ -240,6 +293,12 @@ export default function DashboardProfissional() {
           onClose={() => setChatCom(null)}
         />
       )}
+
+      <AvaliacaoModal
+        pendente={avaliar}
+        onClose={() => setAvaliar(null)}
+        onSuccess={carregarAvPendentes}
+      />
     </div>
   );
 }

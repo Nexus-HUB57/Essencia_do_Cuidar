@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api, { getErrorMessage } from '../utils/api';
+import StarRating from '../components/StarRating';
+import type { Avaliacao, AvaliacaoStats } from '../types';
 
 interface ProfDetalhes {
   id_user: number;
@@ -29,21 +31,28 @@ export default function ProfissionalPerfil() {
   const { id } = useParams();
   const [user, setUser] = useState<ProfUser | null>(null);
   const [detalhes, setDetalhes] = useState<ProfDetalhes | null>(null);
+  const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
+  const [stats, setStats] = useState<AvaliacaoStats>({ total: 0, media: 0 });
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
 
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await api.get(`/profissionais/${id}`);
-        setUser(data.user);
-        // Parse JSON
-        const d = data.detalhes;
+        // Carrega perfil + reviews em paralelo
+        const [perfilRes, reviewsRes] = await Promise.all([
+          api.get(`/profissionais/${id}`),
+          api.get(`/avaliacoes/profissional/${id}`)
+        ]);
+        setUser(perfilRes.data.user);
+        const d = perfilRes.data.detalhes;
         if (d) {
           try { d.especialidades = JSON.parse(d.especialidades || '[]'); } catch { d.especialidades = []; }
           try { d.disponibilidade = JSON.parse(d.disponibilidade || '[]'); } catch { d.disponibilidade = []; }
           setDetalhes(d);
         }
+        if (perfilRes.data.stats) setStats(perfilRes.data.stats);
+        setAvaliacoes(reviewsRes.data.avaliacoes || []);
       } catch (err) {
         setErro(getErrorMessage(err));
       } finally {
@@ -82,6 +91,14 @@ export default function ProfissionalPerfil() {
                   <span className="badge-green ml-2">✓ Registro verificado</span>
                 )}
               </p>
+            )}
+            {/* Avaliação em destaque */}
+            {stats.total > 0 ? (
+              <div className="mt-1.5 flex items-center gap-2">
+                <StarRating value={stats.media} count={stats.total} size="sm" />
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 mt-1">Sem avaliações ainda</p>
             )}
             <p className="text-xs text-slate-400 mt-1">
               {anosNaPlataforma > 0 ? `${anosNaPlataforma} ${anosNaPlataforma > 1 ? 'anos' : 'ano'} na plataforma` : 'Novo na plataforma'}
@@ -135,6 +152,42 @@ export default function ProfissionalPerfil() {
             <p className="text-sm text-slate-400">Não informada.</p>
           )}
         </div>
+      </div>
+
+      {/* Avaliações */}
+      <div className="card mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold">Avaliações</h2>
+          {stats.total > 0 && (
+            <div className="flex items-center gap-2">
+              <StarRating value={stats.media} count={stats.total} size="sm" />
+            </div>
+          )}
+        </div>
+        {avaliacoes.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-6">
+            Este profissional ainda não recebeu avaliações. 😊
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {avaliacoes.map((a) => (
+              <div key={a.id} className="border-b border-slate-100 last:border-0 pb-3 last:pb-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <StarRating value={a.nota} mode="display" size="sm" showNumber={false} />
+                    <span className="text-xs text-slate-500">— {a.avaliador_nome}</span>
+                  </div>
+                  <span className="text-xs text-slate-400">
+                    {new Date(a.criado_em + 'Z').toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+                {a.comentario && (
+                  <p className="text-sm text-slate-700 mt-1.5 leading-relaxed">{a.comentario}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Documentos */}

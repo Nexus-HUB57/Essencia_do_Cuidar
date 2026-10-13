@@ -70,3 +70,42 @@ export interface Mensagem {
   lida: 0 | 1;
   criado_em: string;
 }
+
+export interface Avaliacao {
+  id: number;
+  id_candidatura: number;
+  id_avaliador: number;
+  id_avaliado: number;
+  avaliador_tipo: 'contratante' | 'profissional';
+  nota: 1 | 2 | 3 | 4 | 5;
+  comentario: string | null;
+  criado_em: string;
+  avaliador_nome?: string;
+}
+
+export interface AvaliacaoPendente {
+  candidatura_id: number;
+  vaga_id: number;
+  profissional_desejado: string;
+  servico_descricao: string;
+  regiao: string | null;
+  candidatura_criado_em: string;
+  vaga_criado_em: string;
+  outro_id: number;
+  outro_nome: string;
+  registro_conselho?: string | null;
+  tipo_registro?: string | null;
+}
+
+export interface AvaliacaoStats {
+  total: number;
+  media: number;
+}
+
+export interface Conversa {
+  outro_id: number;
+  outro_nome: string;
+  ultima_mensagem: string;
+  ultima_em: string;
+  nao_lidas: number;
+}

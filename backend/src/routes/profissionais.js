@@ -99,6 +99,7 @@ router.post('/me/diploma', authRequired, requireTipo('profissional'),
 
 /**
  * GET /api/profissionais/:id  — perfil público de um profissional
+ * Inclui estatísticas de avaliação (média e total).
  */
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
@@ -107,7 +108,22 @@ router.get('/:id', (req, res) => {
   ).get(id);
   if (!user) return res.status(404).json({ error: 'Profissional não encontrado' });
   const detalhes = db.prepare('SELECT * FROM profissionais_detalhes WHERE id_user = ?').get(id);
-  res.json({ user, detalhes });
+  // Parse JSON
+  if (detalhes) {
+    try { detalhes.especialidades = JSON.parse(detalhes.especialidades || '[]'); } catch { detalhes.especialidades = []; }
+    try { detalhes.disponibilidade = JSON.parse(detalhes.disponibilidade || '[]'); } catch { detalhes.disponibilidade = []; }
+  }
+  // Estatísticas de avaliação (somente as que o profissional recebeu de contratantes)
+  const stats = db.prepare(`
+    SELECT COUNT(*) AS total, ROUND(AVG(nota), 1) AS media
+      FROM avaliacoes
+     WHERE id_avaliado = ? AND avaliador_tipo = 'contratante'
+  `).get(id);
+  res.json({
+    user,
+    detalhes,
+    stats: { total: stats?.total || 0, media: stats?.media || 0 }
+  });
 });
 
 export default router;

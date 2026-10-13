@@ -38,6 +38,8 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
         (m.id_remetente === user?.id && m.id_destinatario === outroId)
       ) {
         setMsgs((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
+        // Atualiza o badge de não-lidas no navbar
+        window.dispatchEvent(new Event('essencia:refresh-unread'));
       }
     });
     return () => { s.disconnect(); };
@@ -65,6 +67,7 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
     try {
       const { data } = await api.post('/mensagens', { id_destinatario: outroId, conteudo: t });
       setMsgs((prev) => prev.some((x) => x.id === data.mensagem.id) ? prev : [...prev, data.mensagem]);
+      // Como o backend já emite via socket, o badge atualiza via listener
     } catch (e) {
       console.error(e);
     }

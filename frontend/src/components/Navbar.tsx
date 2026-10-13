@@ -1,8 +1,10 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useUnreadCount } from '../hooks/useUnreadCount';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const unread = useUnreadCount();
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -38,9 +40,14 @@ export default function Navbar() {
             <>
               <Link
                 to={user.tipo_usuario === 'profissional' ? '/dashboard/profissional' : '/dashboard/contratante'}
-                className="btn-ghost text-xs sm:text-sm"
+                className="btn-ghost text-xs sm:text-sm relative"
               >
                 {user.nome.split(' ')[0]}
+                {unread > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
               </Link>
               <button onClick={handleLogout} className="text-sm text-slate-500 hover:text-rose-500 px-2">
                 Sair

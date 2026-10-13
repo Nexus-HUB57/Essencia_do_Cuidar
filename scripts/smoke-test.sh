@@ -125,6 +125,55 @@ CODE=$(http_code -X PATCH "$BASE/api/candidaturas/$CAND_ID" \
   -d '{"status_candidatura":"aceita"}')
 assert_eq 200 "$CODE" "Aceitar candidatura retorna 200"
 
+# --- 9b. Avaliação: tentar antes de fechar (deve falhar)
+echo "[9b] Avaliação bloqueada com vaga ativa"
+CODE=$(http_code -X POST "$BASE/api/avaliacoes" \
+  -H "Authorization: Bearer $CONT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"id_candidatura\":$CAND_ID,\"nota\":5,\"comentario\":\"ainda nao\"}")
+assert_eq 400 "$CODE" "Avaliação com vaga ativa retorna 400"
+
+# --- 9c. Fechar vaga
+echo "[9c] Fechar vaga para permitir avaliação"
+CODE=$(http_code -X PATCH "$BASE/api/vagas/$VAGA_ID/status" \
+  -H "Authorization: Bearer $CONT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"fechada"}')
+assert_eq 200 "$CODE" "Fechar vaga retorna 200"
+
+# --- 9d. Contratante avalia o profissional
+echo "[9d] Contratante avalia profissional"
+CODE=$(http_code -X POST "$BASE/api/avaliacoes" \
+  -H "Authorization: Bearer $CONT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"id_candidatura\":$CAND_ID,\"nota\":5,\"comentario\":\"Excelente!\"}")
+assert_eq 201 "$CODE" "Avaliação criada retorna 201"
+
+# --- 9e. Duplicata bloqueada
+echo "[9e] Avaliação duplicada bloqueada"
+CODE=$(http_code -X POST "$BASE/api/avaliacoes" \
+  -H "Authorization: Bearer $CONT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"id_candidatura\":$CAND_ID,\"nota\":3}")
+assert_eq 409 "$CODE" "Avaliação duplicada retorna 409"
+
+# --- 9f. Pendentes (profissional deve ter 1 pendente agora)
+echo "[9f] Lista de avaliações pendentes do profissional"
+RESP=$(http_body "$BASE/api/avaliacoes/pendentes" -H "Authorization: Bearer $PROF_TOKEN")
+N_PEND=$(echo "$RESP" | python3 -c "import json,sys;print(len(json.load(sys.stdin)['pendentes']))" 2>/dev/null || echo "0")
+echo "  pendentes: $N_PEND"
+[ "$N_PEND" -ge 1 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+# --- 9g. Stats públicas do profissional (deve ter 1 avaliação, média 5)
+echo "[9g] Stats públicas do profissional"
+PROF_ID=$(echo "$PROF_TOKEN" | cut -d'.' -f2 | base64 -d 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin)['id'])" 2>/dev/null || echo "")
+if [ -n "$PROF_ID" ]; then
+  RESP=$(http_body "$BASE/api/avaliacoes/profissional/$PROF_ID")
+  MEDIA=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['stats']['media'])" 2>/dev/null || echo "0")
+  echo "  média: $MEDIA"
+  [ "$MEDIA" = "5" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+fi
+
 # --- 10. Chat
 echo "[10] Chat entre contratante e profissional"
 MSG=$(http_body -X POST "$BASE/api/mensagens" \
