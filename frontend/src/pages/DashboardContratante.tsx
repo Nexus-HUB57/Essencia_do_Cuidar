@@ -223,6 +223,9 @@ export default function DashboardContratante() {
                 )}
 
                 <div className="mt-4 flex gap-2 flex-wrap">
+                  <Link to={`/profissional/${c.profissional_id}`} className="btn-ghost text-xs">
+                    👤 Ver perfil
+                  </Link>
                   {(c.status_candidatura === 'pendente' || c.status_candidatura === 'visualizada') && (
                     <>
                       <button onClick={() => setStatusCandidatura(c.id, 'aceita')} className="btn-primary text-xs">✓ Aceitar</button>

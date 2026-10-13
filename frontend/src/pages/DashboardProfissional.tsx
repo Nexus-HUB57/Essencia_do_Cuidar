@@ -201,7 +201,12 @@ export default function DashboardProfissional() {
       {/* TAB: PERFIL */}
       {tab === 'perfil' && detalhes && (
         <div className="card max-w-2xl">
-          <h2 className="font-semibold mb-4">Resumo do perfil</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold">Resumo do perfil</h2>
+            <Link to={`/profissional/${user.id}`} className="btn-ghost text-xs">
+              👁️ Ver perfil público
+            </Link>
+          </div>
           <div className="space-y-3 text-sm">
             <div><span className="text-slate-400">Nome:</span> {user.nome}</div>
             <div><span className="text-slate-400">E-mail:</span> {user.email}</div>

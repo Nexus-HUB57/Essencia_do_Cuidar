@@ -1,7 +1,14 @@
 import axios, { AxiosError } from 'axios';
 
+// Em produção, a URL da API pode ser sobrescrita por window.__API_URL__
+// (definida em runtime) ou por VITE_API_URL (build-time).
+const API_BASE: string =
+  (typeof window !== 'undefined' && (window as any).__API_URL__) ||
+  (import.meta as any).env?.VITE_API_URL ||
+  '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
   timeout: 15000
 });
 

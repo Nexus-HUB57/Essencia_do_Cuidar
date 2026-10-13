@@ -1,0 +1,59 @@
+# Configuração Netlify para o frontend Essência do Cuidar
+# O backend é uma aplicação Node.js stateful (SQLite), portanto precisa
+# ser hospedada em serviço que suporte processos persistentes:
+#   - Render.com (free tier, plano web service)
+#   - Railway.app
+#   - fly.io
+#   - Heroku (pago)
+#
+# Para o deploy full E2E:
+#   1. Suba o backend em um dos hosts acima
+#   2. Defina a URL em frontend/.env.production: VITE_API_URL=https://api.seu-dominio.com/api
+#   3. Faça o build do frontend (npm run build) e deploy via Netlify
+
+[build]
+  base    = "frontend"
+  publish = "dist"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA fallback: qualquer rota volta pro index.html (PWA)
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+  force  = false
+
+# Cache de assets com hash (vite gera nomes com hash)
+[[headers]]
+  for   = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache do service worker com no-cache (sempre busca versão nova)
+[[headers]]
+  for   = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# Se quiser proxy transparente para um backend hospedado em outro lugar,
+# descomente e ajuste a URL:
+# [[redirects]]
+#   from   = "/api/*"
+#   to     = "https://essencia-backend.onrender.com/api/:splat"
+#   status = 200
+#   force  = true
+#
+# [[redirects]]
+#   from   = "/uploads/*"
+#   to     = "https://essencia-backend.onrender.com/uploads/:splat"
+#   status = 200
+#   force  = true
+#
+# [[redirects]]
+#   from   = "/socket.io/*"
+#   to     = "https://essencia-backend.onrender.com/socket.io/:splat"
+#   status = 200
+#   force  = true

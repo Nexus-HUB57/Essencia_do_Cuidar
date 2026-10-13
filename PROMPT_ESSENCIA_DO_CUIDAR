@@ -1,0 +1,110 @@
+Prompt para Desenvolvimento do App: Essência do Cuidar
+Copie e cole o texto abaixo na ferramenta de IA ou entregue ao desenvolvedor:
+
+Contexto e Objetivo:
+Crie a estrutura completa (Frontend e Backend) de um aplicativo web responsivo chamado "Essência do Cuidar" . O objetivo é ser um marketplace de contratação de profissionais de saúde para atendimento domiciliar de idosos e pacientes de baixa e média complexidade.
+
+Identidade Visual e Tom:
+
+Cores: Paleta que transmita confiança, saúde e acolhimento. Sugestão: Azul Serenidade (#4A90E2), Verde Esmeralda (#50E3C2) e branco para limpeza visual.
+
+Tipografia: Fontes legíveis e modernas (Ex: Inter ou Poppins).
+
+Tom: Profissional, empático e seguro.
+
+Referências de Mercado (UX):
+
+Inspire-se na facilidade de busca e filtros do GetNinjas.
+
+Inspire-se na fluidez de cadastro e painel do profissional do Parafuzo.
+
+1. Arquitetura Técnica e Integração
+Tipo: Aplicação Web Progressiva (PWA) ou App Nativo (React Native/Flutter).
+
+Sincronização: O sistema deve ser online e operar com sincronização de dados em tempo real.
+
+Requisição Técnica: O sistema deve estar preparado para realizar um fetch assíncrono para o endpoint https://netlify.ai (simular integração de backend/serverless functions ou webhooks para notificações).
+
+Autenticação: Cadastro prévio obrigatório com Nome, E-mail e Senha (Auth JWT).
+
+2. Fluxo do Usuário e Funcionalidades
+O app deve ter duas entradas distintas no cadastro:
+
+A) Perfil: Profissional da Saúde
+Área destinada a: Acompanhantes/Cuidadores de Idosos, Enfermeiros, Técnicos/Auxiliares de Enfermagem, Fisioterapeutas, Psicólogos, Terapeutas Ocupacionais, Nutricionistas e Médicos.
+
+Tela de Cadastro do Profissional:
+
+Dados Pessoais: Nome Completo, E-mail, Telefone/WhatsApp.
+
+Qualificação: Upload de Diploma (PDF/JPG).
+
+Registro Profissional: Campo para número do CRM, COREN, CREFITO, CRP, etc.
+
+Especializações: Tags de seleção (Ex: Alzheimer, Cuidados Paliativos, Pós-operatório, Geriatria).
+
+Disponibilidade: Grade de horários (Manhã, Tarde, Noite, 12h, 24h) e dias da semana.
+
+Dashboard do Profissional:
+
+Buscar Vagas: Acesso à lista de vagas publicadas pelo público "+Saúde".
+
+Filtros: Tipo de profissional, Complexidade (Baixa/Média), Região, Remuneração.
+
+Candidatura: Botão para demonstrar interesse na vaga.
+
+B) Perfil: +Saúde (Contratante)
+Área destinada a famílias, clínicas ou instituições que buscam profissionais.
+
+Tela de Cadastro de Vagas:
+
+Dados do Contratante: Nome, E-mail, Telefone.
+
+Descrição da Vaga (Campos Obrigatórios):
+
+Característica do Paciente: Sexo, Idade, Diagnóstico (Campo de texto), Nível de Complexidade (Baixa/Média - Nota: O sistema não aceita alta complexidade/UTI).
+
+Serviço a ser Prestado: Descrição detalhada + Seleção do Profissional desejado (Ex: "Preciso de um Técnico de Enfermagem para curativos").
+
+Jornada de Trabalho: Horário (Ex: 08h às 20h), Escala (Ex: 12x36, Segunda a Sexta).
+
+Formato de Contratação: Menu suspenso (PJ ou CLT).
+
+Formato de Remuneração: (Valor por Plantão ou Valor por Hora).
+
+Dashboard do +Saúde:
+
+Minhas Vagas: Lista de vagas ativas.
+
+Candidatos: Visualizar profissionais que se candidataram e seus perfis.
+
+Chat Interno: Canal para negociação (Diferencial).
+
+3. Requisitos de Design e Interface (UI/UX)
+Home Pública: Deve conter um resumo do serviço, "Como Funciona" (Passos para contratar e para trabalhar) e botões de CTA (Call to Action) destacados: "Sou Profissional" e "Busco Profissional".
+
+Segurança: Exibir selos de verificação de documentos e avisos sobre a importância da checagem de registro profissional.
+
+Responsividade: Layout adaptável para celular (mobile-first), tablet e desktop.
+
+4. Estrutura de Banco de Dados (Sugestão)
+Crie tabelas para:
+
+users (id, tipo_usuario [profissional/contratante], nome, email, senha_hash, telefone)
+
+profissionais_detalhes (id_user, diploma_url, registro_conselho, especialidades, disponibilidade)
+
+vagas (id, id_contratante, descricao_paciente, complexidade, jornada, tipo_contrato, remuneracao, status)
+
+candidaturas (id_vaga, id_profissional, status_candidatura)
+
+5. Instruções de Execução para a IA
+Gere o código inicial para uma Landing Page moderna usando React/Tailwind ou HTML/CSS avançado.
+
+Crie o formulário de cadastro dividido em etapas (Wizard) para não sobrecarregar o usuário.
+
+Implemente a lógica de fetch para o endereço https://netlify.ai sempre que uma nova vaga for criada ou uma candidatura for enviada (simulando um webhook de notificação).
+
+Garanta que a validação de campos seja rigorosa, especialmente para o upload de documentos e campos de registro de classe.
+
+O design deve passar confiança para familiares que estão deixando seus entes queridos aos cuidados de um profissional terceirizado.

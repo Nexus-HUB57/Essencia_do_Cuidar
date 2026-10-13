@@ -20,7 +20,16 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
   useEffect(() => {
     const token = localStorage.getItem('essencia_token');
     if (!token) return;
-    const s = io('/', { auth: { token } });
+    // Detecta URL do backend a partir do api.ts (mesma origem ou override).
+    const apiBase: string =
+      (window as any).__API_URL__ ||
+      (import.meta as any).env?.VITE_API_URL ||
+      '';
+    // Deriva a URL do socket: se apiBase é absoluto, usa ele; senão, mesma origem.
+    const socketUrl = apiBase
+      ? apiBase.replace(/\/api\/?$/, '')
+      : (typeof window !== 'undefined' ? window.location.origin : '');
+    const s = io(socketUrl, { auth: { token } });
     setSocket(s);
     s.on('mensagem:nova', (m: Mensagem) => {
       // Só atualiza se a mensagem é entre este user e o outro
