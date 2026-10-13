@@ -60,11 +60,13 @@ Acesse `http://localhost:5173`. O Vite faz proxy de `/api` e `/uploads` para o b
 
 | Método | Rota                              | Quem                       |
 |--------|-----------------------------------|----------------------------|
-| POST   | `/api/auth/register`              | público (com payload de detalhes) |
+| POST   | `/api/auth/register`              | público (multipart c/ 2 arquivos ou JSON puro) |
 | POST   | `/api/auth/login`                 | público                    |
 | GET    | `/api/auth/me`                    | autenticado                |
 | GET    | `/api/profissionais/me`           | profissional               |
 | PUT    | `/api/profissionais/me`           | profissional               |
+| PUT    | `/api/profissionais/me/documentos` | profissional (upload avulso de diploma OU doc conselho) |
+| GET    | `/api/profissionais/:id`          | autenticado                |
 | GET    | `/api/vagas?complexidade=&regiao=&q=` | autenticado           |
 | GET    | `/api/vagas/:id`                  | autenticado                |
 | POST   | `/api/vagas`                      | contratante                |
@@ -72,16 +74,42 @@ Acesse `http://localhost:5173`. O Vite faz proxy de `/api` e `/uploads` para o b
 | PATCH  | `/api/vagas/:id/status`           | contratante (dono)         |
 | POST   | `/api/candidaturas`               | profissional               |
 | GET    | `/api/candidaturas/minhas`        | profissional               |
-| GET    | `/api/candidaturas?vaga=X`        | contratante (dono da vaga) |
+| GET    | `/api/candidaturas?vaga=X`        | contratante (dono da vaga) — inclui URLs dos documentos |
 | PATCH  | `/api/candidaturas/:id`           | contratante (dono)         |
 | GET    | `/api/chat?vaga=X`                | contratante ou candidato   |
 | POST   | `/api/chat`                       | contratante ou candidato   |
 | GET    | `/api/webhook/health`             | público                    |
 
+## Upload de documentos (profissional)
+
+O cadastro do profissional **exige** dois arquivos (upload multipart, até 10 MB cada):
+
+- **Diploma / Certificado** — PDF/JPG/PNG/WEBP
+- **Registro no Conselho** — comprovante (carteira, declaração, etc.)
+
+Os arquivos são salvos em `backend/uploads/{userId}/` com nome gerado (`{timestamp}-{random}-{nome-sanitizado}.{ext}`), e as URLs ficam gravadas em `profissionais_detalhes.diploma_url` e `registro_conselho_url`. Servidos via `GET /uploads/{userId}/{arquivo}`.
+
+Para trocar um documento individualmente após o cadastro:
+
+```bash
+curl -X PUT -H "Authorization: Bearer $TOKEN" \
+  -F "tipo=diploma" \
+  -F "arquivo=@/caminho/novo-diploma.pdf" \
+  http://localhost:3001/api/profissionais/me/documentos
+```
+
+Validações aplicadas:
+- Tipo MIME ou extensão precisa estar em `{pdf, jpg, jpeg, png, webp}`
+- Tamanho ≤ 10 MB
+- `multer` 2.x com fileFilter e errorHandler (responde 400/413 com mensagem clara)
+
 ## O que está implementado
 
 - ✅ Landing pública (Home, Como Funciona) com paleta e tom do brief
 - ✅ Cadastro em **wizard multi-etapa** (4 passos para contratante, 5 para profissional) com tags de especialização e grade de disponibilidade
+- ✅ **Upload de documentos do profissional**: diploma + registro do conselho (PDF/JPG/PNG/WEBP, até 10 MB cada), com preview, validação em tempo real, e storage em `backend/uploads/{userId}/`
+- ✅ Endpoint para trocar documento depois (`PUT /api/profissionais/me/documentos`)
+- ✅ Contratante vê selos de verificação (`✓ Diploma`, `✓ Conselho`) e links de download na lista de candidatos
 - ✅ Login com JWT (Bearer) e refresh de contexto
 - ✅ Regras do brief: complexidade apenas **baixa** ou **média** (validação backend e UI)
 - ✅ Dashboards distintos:
@@ -90,13 +118,13 @@ Acesse `http://localhost:5173`. O Vite faz proxy de `/api` e `/uploads` para o b
 - ✅ Candidatura com mensagem e proteção contra duplicidade
 - ✅ Chat interno por vaga (apenas contratante e candidatos), com polling 5s (substituível por SSE/WS depois)
 - ✅ Webhook simulado para `https://netlify.ai` em `vaga.created` e `candidatura.created`, com `AbortController` 5s e log
-- ✅ Validações de campo (registro conselho, idade, valor monetário, complexidade)
+- ✅ Validações de campo (registro conselho, idade, valor monetário, complexidade, tipo e tamanho de arquivo)
 - ✅ Hash de senha (bcrypt)
 - ✅ Mobile-first com `container-page` e breakpoints
 
 ## O que **não** está implementado (próximas iterações sugeridas)
 
-- ⏳ Upload real de diploma para disco (o `multer` está nas deps mas o endpoint de register não está com `upload.single()` aplicado — o front guarda só o nome do arquivo no momento)
+- ⏳ Página "Meus Documentos" no dashboard do profissional para re-upload fácil (hoje o `PUT /me/documentos` já funciona via API, falta UI dedicada)
 - ⏳ Sistema de avaliações dos profissionais após o serviço
 - ⏳ PWA (manifest + service worker) — estrutura já é mobile-first
 - ⏳ Notificações em tempo real (SSE/WebSocket) — hoje o chat usa polling
