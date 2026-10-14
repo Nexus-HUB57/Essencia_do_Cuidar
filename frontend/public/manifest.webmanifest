@@ -1,0 +1,32 @@
+{
+  "name": "Essência do Cuidar",
+  "short_name": "Cuidar",
+  "description": "Marketplace de profissionais de saúde para atendimento domiciliar de baixa e média complexidade.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#4A90E2",
+  "categories": ["health", "lifestyle", "business"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Buscar vagas",
+      "short_name": "Vagas",
+      "url": "/dashboard-profissional",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Publicar vaga",
+      "short_name": "Nova vaga",
+      "url": "/dashboard-contratante",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
