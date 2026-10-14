@@ -1,0 +1,464 @@
+{
+  "app": {
+    "name": "Essência do Cuidar",
+    "title": "Essência do Cuidar — Cuidado domiciliario con confianza",
+    "description": "Marketplace de profesionales de salud para cuidado domiciliario de personas mayores y pacientes de baja y media complejidad.",
+    "tagline": "Cuidado domiciliario con confianza"
+  },
+  "navbar": {
+    "home": "Inicio",
+    "jobs": "Vacantes",
+    "howItWorks": "Cómo funciona",
+    "login": "Entrar",
+    "signup": "Registrarse",
+    "logout": "Salir",
+    "logoAlt": "Essência do Cuidar"
+  },
+  "footer": {
+    "tagline": "Conectando familias con profesionales de salud cualificados para el cuidado domiciliario con seguridad y empatía.",
+    "forFamilies": "Para Familias",
+    "forFamiliesSearch": "Buscar profesionales",
+    "forFamiliesPostJob": "Publicar vacante",
+    "forFamiliesHowItWorks": "Cómo funciona",
+    "forFamiliesSeals": "Sellos de verificación",
+    "forProfessionals": "Para Profesionales",
+    "forProfessionalsResume": "Crear currículum",
+    "forProfessionalsFindJobs": "Encontrar vacantes",
+    "forProfessionalsDiploma": "Subir diploma",
+    "forProfessionalsVerify": "Verificación de registro",
+    "security": "Seguridad",
+    "securityText": "Verificamos los registros profesionales y recomendamos siempre confirmar la identidad del prestador antes de iniciar la atención.",
+    "copyright": "© {{year}} Essência do Cuidar. Construido con cuidado.",
+    "logoAlt": "logo"
+  },
+  "languageSwitcher": {
+    "label": "Idioma",
+    "selectLabel": "Seleccionar idioma",
+    "current": "Idioma actual: {{lang}}"
+  },
+  "landing": {
+    "hero": {
+      "badge": "🩺 Cuidado domiciliario con confianza",
+      "title1": "Cuidar a quienes amas,",
+      "title2": "con quien entiende.",
+      "subtitle": "Conectamos familias con profesionales de salud verificados para atención domiciliaria de personas mayores y pacientes de baja y media complejidad.",
+      "ctaHire": "🏠 Busco profesional",
+      "ctaPro": "🩺 Soy profesional",
+      "featureVerified": "Verificación de registro",
+      "featurePayment": "Pago seguro"
+    },
+    "exampleCard": {
+      "name": "Cuidadora Ana C.",
+      "registro": "COREN-SP • Verificada",
+      "verified": "✓ Verificada",
+      "quote": "\"8 años cuidando a personas mayores con Alzheimer y cuidados paliativos. Disponible para turnos diurnos y 12h.\"",
+      "tagAlzheimer": "Alzheimer",
+      "tagPalliative": "Cuidados paliativos",
+      "tagElderly": "Mayores",
+      "from": "Desde",
+      "price": "R$ {{value}}",
+      "priceUnit": "/hora",
+      "viewProfile": "Ver perfil"
+    },
+    "floatingCard": {
+      "title": "Diploma verificado",
+      "subtitle": "Última verificación hoy"
+    },
+    "howItWorks": {
+      "title": "Cómo funciona",
+      "subtitle": "En pocos pasos, conectas a quien necesita cuidado con quien puede ofrecerlo.",
+      "familiesTitle": "Para familias y clínicas",
+      "familiesCta": "Contrata en 3 pasos",
+      "familiesCtaButton": "Buscar profesional",
+      "proTitle": "Para profesionales",
+      "proCta": "Trabaja en 3 pasos",
+      "proCtaButton": "Soy profesional"
+    },
+    "stepsFamiles": [
+      { "title": "Crea tu cuenta +Saúde", "desc": "Registro rápido con nombre, e-mail y teléfono." },
+      { "title": "Publica la vacante", "desc": "Describe al paciente, la jornada y el profesional deseado." },
+      { "title": "Elige candidatos", "desc": "Recibe perfiles verificados, chatea y cierra." }
+    ],
+    "stepsProfessionals": [
+      { "title": "Regístrate", "desc": "Envía diploma, registro y tus especialidades." },
+      { "title": "Encuentra vacantes", "desc": "Filtra por región, complejidad y remuneración." },
+      { "title": "Postúlate", "desc": "Muestra tu interés y conversa directamente por el chat." }
+    ],
+    "security": {
+      "badge": "🛡️ Seguridad ante todo",
+      "title": "Por qué confiar en Essência",
+      "items": [
+        { "title": "Registro verificado", "desc": "Validamos CRM, COREN, CREFITO, CRP y CRN." },
+        { "title": "Diploma adjunto", "desc": "Los profesionales suben PDF/foto del diploma." },
+        { "title": "Chat transparente", "desc": "Toda negociación queda registrada en la plataforma." },
+        { "title": "Sin alta complejidad", "desc": "No aceptamos vacantes de UCI. Foco en baja/media." }
+      ]
+    },
+    "finalCta": {
+      "title": "¿Listo para empezar?",
+      "subtitle": "Crea tu cuenta gratis y da el primer paso hacia un cuidado con más confianza y tranquilidad.",
+      "hire": "Quiero contratar",
+      "pro": "Soy profesional"
+    }
+  },
+  "comoFunciona": {
+    "title": "Cómo funciona",
+    "subtitle": "Dos caminos simples, una plataforma segura.",
+    "familiesTitle": "🏠 Para quien busca profesional",
+    "professionalsTitle": "🩺 Para profesionales",
+    "families": [
+      { "title": "Regístrate como +Saúde", "desc": "Crea tu cuenta gratis con nombre, e-mail y teléfono." },
+      { "title": "Publica la vacante", "desc": "Detalla al paciente, jornada deseada y tipo de profesional." },
+      { "title": "Recibe candidatos verificados", "desc": "Los profesionales con diploma y registro aparecen primero." },
+      { "title": "Conversa y cierra", "desc": "Usa el chat interno para acordar detalles con seguridad." },
+      { "title": "Acompaña la atención", "desc": "La vacante queda activa hasta que la pauses o cierres." }
+    ],
+    "professionals": [
+      { "title": "Regístrate gratis", "desc": "Completa tus datos personales, especialidad y disponibilidad." },
+      { "title": "Sube tu diploma", "desc": "PDF o imagen del diploma/registro para obtener el sello verificado." },
+      { "title": "Filtra y postúlate", "desc": "Busca vacantes por región, complejidad y remuneración." },
+      { "title": "Conversa con la familia", "desc": "Chat interno para alinear todo antes de empezar." },
+      { "title": "Recibe el contacto", "desc": "Al ser aceptado, recibes el teléfono del contratante para coordinar la llegada." }
+    ],
+    "safety": {
+      "title": "⚠️ Importante sobre seguridad",
+      "items": [
+        "Verifica siempre el número de registro (COREN, CRM, etc.) en el sitio del consejo.",
+        "Acuerda el primer encuentro en un lugar público o con la familia presente.",
+        "Esta plataforma NO atiende casos de alta complejidad / UCI."
+      ]
+    }
+  },
+  "login": {
+    "title": "Entrar",
+    "subtitle": "Accede a tu panel de Essência do Cuidar",
+    "email": "E-mail",
+    "password": "Contraseña",
+    "submit": "Entrar",
+    "submitting": "Entrando...",
+    "noAccount": "¿No tienes cuenta?",
+    "signupLink": "Regístrate",
+    "demoTitle": "Cuentas demo (contraseña: {{password}})",
+    "demos": [
+      { "email": "maria@demo.com", "label": "contratante +Saúde" },
+      { "email": "ana@demo.com", "label": "profesional" },
+      { "email": "joao@demo.com", "label": "profesional" },
+      { "email": "bia@demo.com", "label": "profesional" }
+    ]
+  },
+  "cadastro": {
+    "title": "Crea tu cuenta",
+    "hasAccount": "¿Ya tienes cuenta?",
+    "loginLink": "Entrar",
+    "toggleHire": "🏠 Busco profesional (+Saúde)",
+    "togglePro": "🩺 Soy profesional",
+    "stepData": "Datos",
+    "stepProfile": "Perfil",
+    "stepDiploma": "Diploma",
+    "step1": {
+      "title": "Datos personales",
+      "name": "Nombre completo",
+      "namePlaceholder": "Ej: Maria Silva",
+      "email": "E-mail",
+      "emailPlaceholder": "tu@email.com",
+      "phone": "Teléfono / WhatsApp",
+      "phonePlaceholder": "(11) 99999-9999",
+      "password": "Contraseña (mín. 6 caracteres)",
+      "passwordPlaceholder": "••••••••"
+    },
+    "step2": {
+      "title": "Perfil profesional",
+      "tipoRegistro": "Tipo de registro",
+      "selectPlaceholder": "Selecciona",
+      "tipoRegistroCrm": "CRM (Medicina)",
+      "tipoRegistroCoren": "COREN (Enfermería)",
+      "tipoRegistroCrefito": "CREFITO (Fisioterapia/TO)",
+      "tipoRegistroCrp": "CRP (Psicología)",
+      "tipoRegistroCrn": "CRN (Nutrición)",
+      "tipoRegistroOutro": "Otro",
+      "registro": "Número de registro",
+      "registroPlaceholder": "Ej: COREN-SP 123456",
+      "especialidades": "Especialidades",
+      "especialidadesHelp": "Selecciona una o más etiquetas.",
+      "disponibilidade": "Disponibilidad",
+      "bio": "Sobre ti (opcional)",
+      "bioPlaceholder": "Cuéntanos un poco sobre tu experiencia..."
+    },
+    "step3": {
+      "title": "Diploma / certificado",
+      "subtitle": "Sube tu diploma o certificado (PDF, JPG o PNG — hasta 5 MB). Los documentos pasan por verificación antes de mostrar el sello de confianza.",
+      "file": "Archivo",
+      "uploaded": "✓ {{name}}",
+      "warning": "⚠️ El diploma es obligatorio para mostrar el sello de verificación. Puedes continuar sin él y enviarlo después desde tu panel."
+    },
+    "errors": {
+      "nameRequired": "El nombre completo es obligatorio",
+      "emailInvalid": "E-mail inválido",
+      "passwordMin": "La contraseña debe tener al menos 6 caracteres",
+      "selectTipoRegistro": "Selecciona el tipo de registro (CRM, COREN, etc.)",
+      "selectEspecialidade": "Selecciona al menos una especialidad",
+      "selectDisponibilidade": "Selecciona al menos una disponibilidad"
+    },
+    "nav": {
+      "back": "← Volver",
+      "next": "Siguiente →",
+      "submit": "Crear cuenta",
+      "submitting": "Guardando..."
+    }
+  },
+  "especialidades": {
+    "Idosos": "Mayores",
+    "Alzheimer": "Alzheimer",
+    "Cuidados Paliativos": "Cuidados paliativos",
+    "Pós-operatório": "Postoperatorio",
+    "Geriatria": "Geriatría",
+    "Fisioterapia": "Fisioterapia",
+    "Psicologia": "Psicología",
+    "Acompanhamento Familiar": "Acompañamiento familiar",
+    "Diabetes": "Diabetes",
+    "Hipertensão": "Hipertensión",
+    "Mobilidade Reduzida": "Movilidad reducida",
+    "Acamados": "Encamados"
+  },
+  "disponibilidade": {
+    "manha": "Mañana",
+    "tarde": "Tarde",
+    "noite": "Noche",
+    "12h": "Turno 12h",
+    "24h": "Turno 24h"
+  },
+  "vagas": {
+    "title": "Vacantes abiertas",
+    "subtitle": "Encuentra oportunidades de cuidado domiciliario",
+    "filterProfessional": "Profesional (ej: Cuidador)",
+    "filterComplexity": "Complejidad",
+    "complexityLow": "Baja",
+    "complexityMed": "Media",
+    "filterRegion": "Región (ej: Zona Sur)",
+    "filterMinPay": "R$ mín.",
+    "filter": "Filtrar",
+    "loading": "Cargando vacantes...",
+    "empty": "No hay vacantes activas en este momento.",
+    "noResults": "No se encontraron vacantes con esos filtros.",
+    "perHour": "h",
+    "perShift": "turno"
+  },
+  "vagaDetalhe": {
+    "back": "← Volver a vacantes",
+    "publishedBy": "Publicada por <strong>{{name}}</strong>",
+    "complexity": "Complejidad {{value}}",
+    "complexityLow": "baja",
+    "complexityMed": "media",
+    "fields": {
+      "regiao": "Región",
+      "horario": "Horario",
+      "escala": "Escala",
+      "tipoContrato": "Tipo de contrato",
+      "remuneracao": "Remuneración",
+      "paciente": "Paciente",
+      "diagnostico": "Diagnóstico / observaciones",
+      "descricao": "Descripción del servicio"
+    },
+    "paciente": {
+      "F": "Femenino",
+      "M": "Masculino",
+      "Outro": "",
+      "idade": ", {{age}} años"
+    },
+    "remuneracao": {
+      "hora": "hora",
+      "plantao": "turno"
+    },
+    "apply": {
+      "title": "Quiero postularme",
+      "messageLabel": "Mensaje al contratante (opcional)",
+      "messagePlaceholder": "Preséntate brevemente...",
+      "cancel": "Cancelar",
+      "submit": "Enviar candidatura",
+      "success": "¡Candidatura enviada con éxito! Puedes seguirla desde tu panel."
+    },
+    "guestCta": {
+      "title": "¿Quieres postularte a esta vacante?",
+      "login": "Entrar",
+      "signup": "Registrarse como profesional"
+    }
+  },
+  "dashboardPro": {
+    "greeting": "Hola, {{name}} 👋",
+    "subtitle": "Encuentra vacantes compatibles con tu perfil",
+    "verified": "✓ Diploma verificado",
+    "tabs": {
+      "search": "🔍 Buscar vacantes",
+      "applications": "📋 Mis candidaturas",
+      "profile": "👤 Mi perfil"
+    },
+    "filterProfessional": "Profesional",
+    "filterComplexity": "Complejidad",
+    "filterRegion": "Región",
+    "filter": "Filtrar",
+    "loadingJobs": "Cargando vacantes...",
+    "emptyJobs": "No se encontraron vacantes con esos filtros.",
+    "viewDetails": "Ver detalles",
+    "apply": "Postularme",
+    "applicationsEmpty": "Aún no te has postulado a ninguna vacante.",
+    "applicationsLoading": "Cargando...",
+    "applicationSentAt": "Enviada el {{date}}",
+    "status": {
+      "pendente": "Pendiente",
+      "visualizada": "Vista",
+      "aceita": "✓ Aceptada",
+      "recusada": "Rechazada"
+    },
+    "chat": "💬 Chat",
+    "profile": {
+      "title": "Resumen del perfil",
+      "viewPublic": "👁️ Ver perfil público",
+      "name": "Nombre:",
+      "email": "E-mail:",
+      "phone": "Teléfono:",
+      "registro": "Registro:",
+      "registroValue": "{{type}} {{number}}",
+      "diploma": "Diploma:",
+      "diplomaNotSent": "no enviado",
+      "verified": "Verificado",
+      "especialidades": "Especialidades:",
+      "disponibilidade": "Disponibilidad:",
+      "emDash": "—"
+    },
+    "alerts": {
+      "applySuccess": "¡Candidatura enviada! Síguiela en la pestaña \"Mis candidaturas\"."
+    }
+  },
+  "dashboardContratante": {
+    "greeting": "Hola, {{name}} 👋",
+    "subtitle": "Gestiona tus vacantes y candidatos",
+    "tabs": {
+      "jobs": "📋 Mis vacantes ({{count}})",
+      "newJob": "➕ Publicar vacante"
+    },
+    "jobsLoading": "Cargando...",
+    "jobsEmpty": "Aún no has publicado vacantes. Haz clic en <strong>Publicar vacante</strong> arriba.",
+    "candidatosTitle": "Candidatos ({{count}})",
+    "candidatosEmpty": "Aún no hay candidatos. Los profesionales verán tu vacante en la búsqueda.",
+    "mensagemLabel": "Mensaje:",
+    "actions": {
+      "verPerfil": "👤 Ver perfil",
+      "aceitar": "✓ Aceptar",
+      "recusar": "Rechazar",
+      "abrirChat": "💬 Abrir chat",
+      "whatsapp": "📱 WhatsApp",
+      "pausar": "Pausar vacante",
+      "reativar": "Reactivar",
+      "encerrar": "Cerrar vacante"
+    },
+    "newJob": {
+      "title": "Publicar nueva vacante",
+      "publicar": "Publicar vacante",
+      "publicada": "¡Vacante publicada con éxito!",
+      "fields": {
+        "sexo": "Sexo del paciente",
+        "sexoPlaceholder": "Prefiero no decirlo",
+        "sexoF": "Femenino",
+        "sexoM": "Masculino",
+        "sexoOutro": "Otro",
+        "idade": "Edad",
+        "complexidade": "Complejidad*",
+        "complexidadeHelp": "No aceptamos alta complejidad/UCI.",
+        "diagnostico": "Diagnóstico / observaciones clínicas",
+        "diagnosticoPlaceholder": "Ej: Alzheimer moderado",
+        "profissional": "Profesional deseado*",
+        "selectPlaceholder": "Selecciona",
+        "descricao": "Descripción del servicio* (mín. 10 caracteres)",
+        "descricaoPlaceholder": "Describe detalladamente el servicio esperado...",
+        "horario": "Horario",
+        "horarioPlaceholder": "Ej: 08h a 18h",
+        "escala": "Escala",
+        "escalaPlaceholder": "Ej: 12x36, Lunes a Viernes",
+        "tipoContrato": "Tipo de contrato",
+        "remuneracaoTipo": "Remuneración por",
+        "remuneracaoValor": "Valor (R$)",
+        "regiao": "Región",
+        "regiaoPlaceholder": "Ej: Zona Sur - São Paulo"
+      },
+      "errors": {
+        "descricaoMin": "Describe el servicio (mínimo 10 caracteres).",
+        "selectProfissional": "Selecciona el profesional deseado."
+      },
+      "contratos": {
+        "PJ": "PJ (Prestador de servicios)",
+        "CLT": "CLT (Empleado formal)"
+      },
+      "remuneracao": {
+        "hora": "Hora",
+        "plantao": "Turno"
+      }
+    },
+    "candidateCount_one": "👥 {{count}} candidato",
+    "candidateCount_other": "👥 {{count}} candidatos",
+    "publicadaEm": "Publicada el {{date}}",
+    "criadoEm": "Enviada el {{date}}",
+    "status": {
+      "ativa": "activa",
+      "pausada": "pausada",
+      "fechada": "cerrada"
+    }
+  },
+  "profissionais": {
+    "back": "← Volver",
+    "loading": "Cargando perfil...",
+    "registroVerificado": "✓ Registro verificado",
+    "anosPlataforma_one": "{{count}} año en la plataforma",
+    "anosPlataforma_other": "{{count}} años en la plataforma",
+    "novoPlataforma": "Nuevo en la plataforma",
+    "whatsapp": "📱 WhatsApp",
+    "sobre": "Sobre",
+    "especialidades": "Especialidades",
+    "especialidadesVazias": "Sin especialidades registradas.",
+    "disponibilidade": "Disponibilidad",
+    "disponibilidadeVazia": "No informada.",
+    "documentos": {
+      "title": "Documentos y verificación",
+      "diploma": "Diploma / certificado",
+      "registro": "Registro profesional",
+      "verificado": "✓ Verificado",
+      "emAnalise": "⏳ En análisis",
+      "naoEnviado": "No enviado",
+      "naoInformado": "No informado",
+      "help": "💡 Las verificaciones se realizan en hasta 24h tras el envío. Si notas algo inconsistente, contáctanos."
+    },
+    "profissionaisOpcoes": {
+      "Cuidador de Idosos": "Cuidador de Mayores",
+      "Enfermeiro": "Enfermero/a",
+      "Técnico de Enfermagem": "Técnico de Enfermería",
+      "Fisioterapeuta": "Fisioterapeuta",
+      "Psicólogo": "Psicólogo/a",
+      "Terapeuta Ocupacional": "Terapeuta Ocupacional",
+      "Nutricionista": "Nutricionista",
+      "Médico": "Médico/a"
+    }
+  },
+  "chat": {
+    "online": "● en línea",
+    "empty": "Aún no hay mensajes. ¡Inicia la conversación!",
+    "placeholder": "Escribe un mensaje...",
+    "send": "Enviar",
+    "close": "Cerrar"
+  },
+  "wizard": {
+    "done": "✓"
+  },
+  "protectedRoute": {
+    "loading": "Cargando..."
+  },
+  "errors": {
+    "network": "Error de red. Verifica tu conexión e inténtalo de nuevo.",
+    "unexpected": "Error inesperado",
+    "loginFailed": "Error al iniciar sesión. Verifica tus credenciales.",
+    "pageNotFound": "Página no encontrada",
+    "sessionExpired": "Sesión expirada. Inicia sesión de nuevo."
+  },
+  "notFound": {
+    "title": "404",
+    "subtitle": "Página no encontrada"
+  }
+}
