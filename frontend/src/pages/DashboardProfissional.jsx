@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Section, EmptyState, Spinner } from '../components/UI.jsx';
+import StarRating from '../components/StarRating.jsx';
 
 export default function DashboardProfissional() {
   const { user } = useAuth();
@@ -44,18 +45,39 @@ export default function DashboardProfissional() {
         subtitle="Encontre vagas compatíveis com seu perfil."
         action={
           <div className="flex gap-2">
+            <Link to="/dashboard-profissional/documentos" className="btn-secondary text-sm">📎 Meus documentos</Link>
             <Link to="/como-funciona" className="btn-ghost text-sm">Como Funciona</Link>
           </div>
         }
       >
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="card lg:col-span-1">
-            <h3 className="font-semibold">Seu perfil</h3>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold">Seu perfil</h3>
+              {perfil?.avaliacao?.total > 0 && (
+                <Link
+                  to={`/profissional/${user.id}/avaliacoes`}
+                  className="inline-flex items-center gap-1 text-xs text-amber-700 hover:underline"
+                  title="Ver avaliações"
+                >
+                  <StarRating value={Math.round(perfil.avaliacao.media)} readOnly size="sm" />
+                  <b>{Number(perfil.avaliacao.media).toFixed(1)}</b>
+                  <span className="text-brand-slate">({perfil.avaliacao.total})</span>
+                </Link>
+              )}
+            </div>
             {perfil ? (
               <ul className="mt-3 text-sm space-y-1 text-brand-ink/80">
                 <li><b>Registro:</b> {perfil.registro_conselho || '—'}</li>
                 <li><b>Especialidades:</b> {(perfil.especialidades || []).join(', ') || '—'}</li>
                 <li><b>Disponibilidade:</b> {(perfil.disponibilidade?.periodos || []).join(', ') || '—'} · {(perfil.disponibilidade?.dias || []).join(', ') || '—'}</li>
+                {perfil.avaliacao?.total > 0 ? (
+                  <li className="pt-2">
+                    <b>Reputação:</b> {perfil.avaliacao.media.toFixed(1)} ★ — {perfil.avaliacao.total} avaliação{perfil.avaliacao.total === 1 ? '' : 'es'}
+                  </li>
+                ) : (
+                  <li className="pt-2 text-xs text-brand-slate">Sem avaliações ainda. As estrelas aparecem quando você concluir serviços.</li>
+                )}
               </ul>
             ) : <p className="mt-2 text-sm text-brand-slate">Carregando…</p>}
           </div>

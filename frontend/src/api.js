@@ -93,4 +93,10 @@ export const api = {
   // chat
   getMensagens: (idVaga) => request(`/chat?vaga=${idVaga}`),
   enviarMensagem: (idVaga, corpo) => request('/chat', { method: 'POST', body: JSON.stringify({ id_vaga: idVaga, corpo }) }),
+
+  // avaliações
+  avaliacoesPendentes: () => request('/avaliacoes/pendentes'),
+  avaliacoesDaVaga: (idVaga) => request(`/avaliacoes?vaga=${idVaga}`),
+  reviewsProfissional: (id) => request(`/avaliacoes/profissional/${id}`),
+  criarAvaliacao: (data) => request('/avaliacoes', { method: 'POST', body: JSON.stringify(data) }),
 };

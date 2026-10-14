@@ -10,6 +10,8 @@ import VagaDetail from './pages/VagaDetail.jsx';
 import Candidatos from './pages/Candidatos.jsx';
 import ChatPage from './pages/ChatPage.jsx';
 import NotFound from './pages/NotFound.jsx';
+import AvaliacoesProfissional from './pages/AvaliacoesProfissional.jsx';
+import MeusDocumentos from './pages/MeusDocumentos.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function App() {
@@ -26,6 +28,14 @@ export default function App() {
           element={
             <ProtectedRoute role="profissional">
               <DashboardProfissional />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard-profissional/documentos"
+          element={
+            <ProtectedRoute role="profissional">
+              <MeusDocumentos />
             </ProtectedRoute>
           }
         />
@@ -50,6 +60,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profissional/:id/avaliacoes"
+          element={
+            <ProtectedRoute>
+              <AvaliacoesProfissional />
             </ProtectedRoute>
           }
         />

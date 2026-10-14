@@ -10,6 +10,7 @@ import vagasRoutes from './routes/vagas.js';
 import candidaturasRoutes from './routes/candidaturas.js';
 import chatRoutes from './routes/chat.js';
 import webhookRoutes from './routes/webhook.js';
+import avaliacoesRoutes from './routes/avaliacoes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -32,6 +33,7 @@ app.use('/api/profissionais', profissionaisRoutes);
 app.use('/api/vagas', vagasRoutes);
 app.use('/api/candidaturas', candidaturasRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/avaliacoes', avaliacoesRoutes);
 app.use('/api/webhook', webhookRoutes);
 
 // error handler

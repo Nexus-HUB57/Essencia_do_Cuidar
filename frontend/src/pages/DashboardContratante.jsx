@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Section, EmptyState, Spinner } from '../components/UI.jsx';
+import AvaliarModal from '../components/AvaliarModal.jsx';
+import StarRating from '../components/StarRating.jsx';
 
 const emptyVaga = {
   paciente_sexo: '', paciente_idade: '', paciente_diagnostico: '',
@@ -16,15 +18,23 @@ const emptyVaga = {
 export default function DashboardContratante() {
   const { user } = useAuth();
   const [vagas, setVagas] = useState([]);
+  const [pendentes, setPendentes] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyVaga);
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(true);
+  const [avaliando, setAvaliando] = useState(null);
 
   async function load() {
     setLoading(true);
-    try { setVagas(await api.minhasVagas()); }
-    finally { setLoading(false); }
+    try {
+      const [vs, ps] = await Promise.all([
+        api.minhasVagas(),
+        api.avaliacoesPendentes().catch(() => []),
+      ]);
+      setVagas(vs);
+      setPendentes(ps);
+    } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
@@ -56,6 +66,39 @@ export default function DashboardContratante() {
           </button>
         }
       >
+        {pendentes.length > 0 && (
+          <div className="mb-6 card border-amber-200 bg-amber-50/60">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl" aria-hidden>⭐</span>
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-900">
+                  {pendentes.length} avaliação{pendentes.length === 1 ? ' pendente' : 'es pendentes'}
+                </h3>
+                <p className="text-sm text-amber-800/80">
+                  Você tem serviços concluídos aguardando sua avaliação. Isso ajuda outros contratantes e valoriza bons profissionais.
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {pendentes.map(p => (
+                    <li key={`${p.id_vaga}-${p.id_profissional}`}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl bg-white p-3 border border-amber-200">
+                      <div>
+                        <p className="font-medium text-brand-ink">{p.profissional_nome}</p>
+                        <p className="text-xs text-brand-slate">{p.servico_descricao} {p.regiao ? `· 📍 ${p.regiao}` : ''}</p>
+                      </div>
+                      <button
+                        onClick={() => setAvaliando(p)}
+                        className="btn-primary text-sm"
+                      >
+                        ⭐ Avaliar
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showForm && (
           <form onSubmit={publicar} className="card mb-6">
             <h3 className="font-semibold">Publicar nova vaga</h3>
@@ -147,6 +190,13 @@ export default function DashboardContratante() {
           </ul>
         )}
       </Section>
+
+      <AvaliarModal
+        open={!!avaliando}
+        onClose={() => setAvaliando(null)}
+        onSuccess={load}
+        pendente={avaliando}
+      />
     </>
   );
 }

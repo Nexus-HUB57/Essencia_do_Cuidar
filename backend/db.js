@@ -93,11 +93,24 @@ export function initSchema() {
       criado_em TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS avaliacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_vaga INTEGER NOT NULL REFERENCES vagas(id) ON DELETE CASCADE,
+      id_contratante INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id_profissional INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      nota INTEGER NOT NULL CHECK (nota BETWEEN 1 AND 5),
+      comentario TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(id_vaga, id_profissional)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_vagas_contratante ON vagas(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
     CREATE INDEX IF NOT EXISTS idx_cand_prof ON candidaturas(id_profissional);
     CREATE INDEX IF NOT EXISTS idx_msg_vaga ON mensagens(id_vaga);
+    CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
+    CREATE INDEX IF NOT EXISTS idx_av_vaga ON avaliacoes(id_vaga);
   `);
 
   // Migrações aditivas para bancos que já existem do commit anterior.

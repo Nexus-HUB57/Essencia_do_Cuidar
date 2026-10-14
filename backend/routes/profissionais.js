@@ -102,6 +102,13 @@ router.get('/:id', authRequired, (req, res) => {
     WHERE u.id = ? AND u.tipo_usuario = 'profissional'
   `).get(id);
   if (!u) return res.status(404).json({ error: 'profissional não encontrado' });
+
+  // Resumo de avaliações (média + total) para exibir no perfil
+  const stats = db.prepare(`
+    SELECT COUNT(*) AS total, AVG(nota) AS media
+    FROM avaliacoes WHERE id_profissional = ?
+  `).get(id);
+
   res.json({
     ...u,
     especialidades: parseJSON(u.especialidades) || [],
@@ -110,6 +117,10 @@ router.get('/:id', authRequired, (req, res) => {
     documentos: {
       diploma: !!u.diploma_url,
       registro_conselho: !!u.registro_conselho_url,
+    },
+    avaliacao: {
+      total: stats.total || 0,
+      media: stats.media ? Number(Number(stats.media).toFixed(2)) : 0,
     },
   });
 });
