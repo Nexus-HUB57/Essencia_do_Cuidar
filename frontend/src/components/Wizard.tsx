@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   steps: { label: string; sublabel?: string }[];
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function Wizard({ steps, current, children }: Props) {
+  const { t } = useTranslation();
   return (
     <div>
       {/* Header do wizard */}
@@ -30,7 +32,7 @@ export default function Wizard({ steps, current, children }: Props) {
                         : 'bg-white border-slate-200 text-slate-400'
                   ].join(' ')}
                 >
-                  {done ? '✓' : i + 1}
+                  {done ? t('wizard.done') : i + 1}
                 </span>
                 <span className={`mt-1.5 text-[11px] font-medium text-center ${active ? 'text-serenity-600' : 'text-slate-400'}`}>
                   {s.label}

@@ -1,6 +1,12 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export default function Landing() {
+  const { t } = useTranslation();
+  const stepsFamiles = t('landing.stepsFamiles', { returnObjects: true }) as Array<{ title: string; desc: string }>;
+  const stepsProfessionals = t('landing.stepsProfessionals', { returnObjects: true }) as Array<{ title: string; desc: string }>;
+  const securityItems = t('landing.security.items', { returnObjects: true }) as Array<{ title: string; desc: string }>;
+
   return (
     <div className="fade-in">
       {/* HERO */}
@@ -12,30 +18,29 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center">
           <div>
             <span className="badge-blue mb-4">
-              🩺 Cuidado domiciliar com confiança
+              {t('landing.hero.badge')}
             </span>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-slate-900">
-              Cuidar de quem você ama,
-              <span className="block text-serenity-500">com quem entende.</span>
+              {t('landing.hero.title1')}
+              <span className="block text-serenity-500">{t('landing.hero.title2')}</span>
             </h1>
             <p className="mt-6 text-lg text-slate-600 max-w-xl">
-              Conectamos famílias a profissionais de saúde verificados para atendimento
-              domiciliar de idosos e pacientes de baixa e média complexidade.
+              {t('landing.hero.subtitle')}
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <Link to="/cadastro?tipo=contratante" className="btn-primary">
-                🏠 Busco profissional
+                {t('landing.hero.ctaHire')}
               </Link>
               <Link to="/cadastro?tipo=profissional" className="btn-secondary">
-                🩺 Sou profissional
+                {t('landing.hero.ctaPro')}
               </Link>
             </div>
             <div className="mt-8 flex items-center gap-6 text-sm text-slate-500">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full" /> Verificação de registro
+                <span className="w-2 h-2 bg-emerald-500 rounded-full" /> {t('landing.hero.featureVerified')}
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-serenity-500 rounded-full" /> Pagamento seguro
+                <span className="w-2 h-2 bg-serenity-500 rounded-full" /> {t('landing.hero.featurePayment')}
               </div>
             </div>
           </div>
@@ -48,26 +53,28 @@ export default function Landing() {
                   👵
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">Cuidadora Ana C.</h3>
-                  <p className="text-xs text-slate-500">COREN-SP • Verificada</p>
+                  <h3 className="font-semibold text-slate-900">{t('landing.exampleCard.name')}</h3>
+                  <p className="text-xs text-slate-500">{t('landing.exampleCard.registro')}</p>
                 </div>
-                <span className="ml-auto badge-green">✓ Verificada</span>
+                <span className="ml-auto badge-green">{t('landing.exampleCard.verified')}</span>
               </div>
               <p className="text-sm text-slate-600 mb-4">
-                "8 anos cuidando de idosos com Alzheimer e cuidados paliativos.
-                Disponível para turnos diurnos e 12h."
+                {t('landing.exampleCard.quote')}
               </p>
               <div className="flex flex-wrap gap-1.5">
-                <span className="badge-blue">Alzheimer</span>
-                <span className="badge-blue">Cuidados Paliativos</span>
-                <span className="badge-blue">Idosos</span>
+                <span className="badge-blue">{t('landing.exampleCard.tagAlzheimer')}</span>
+                <span className="badge-blue">{t('landing.exampleCard.tagPalliative')}</span>
+                <span className="badge-blue">{t('landing.exampleCard.tagElderly')}</span>
               </div>
               <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-slate-500">A partir de</p>
-                  <p className="text-lg font-bold text-serenity-600">R$ 35<span className="text-xs text-slate-400 font-normal">/hora</span></p>
+                  <p className="text-xs text-slate-500">{t('landing.exampleCard.from')}</p>
+                  <p className="text-lg font-bold text-serenity-600">
+                    {t('landing.exampleCard.price', { value: '35' })}
+                    <span className="text-xs text-slate-400 font-normal">{t('landing.exampleCard.priceUnit')}</span>
+                  </p>
                 </div>
-                <button className="btn-primary text-xs py-2">Ver perfil</button>
+                <button className="btn-primary text-xs py-2">{t('landing.exampleCard.viewProfile')}</button>
               </div>
             </div>
             {/* Card flutuante */}
@@ -75,8 +82,8 @@ export default function Landing() {
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🔒</span>
                 <div>
-                  <p className="text-xs font-semibold">Diploma verificado</p>
-                  <p className="text-[10px] text-slate-500">Última checagem hoje</p>
+                  <p className="text-xs font-semibold">{t('landing.floatingCard.title')}</p>
+                  <p className="text-[10px] text-slate-500">{t('landing.floatingCard.subtitle')}</p>
                 </div>
               </div>
             </div>
@@ -88,62 +95,54 @@ export default function Landing() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold">Como funciona</h2>
+            <h2 className="text-3xl md:text-4xl font-bold">{t('landing.howItWorks.title')}</h2>
             <p className="mt-3 text-slate-600">
-              Em poucos passos, você conecta quem precisa de cuidado a quem pode oferecer.
+              {t('landing.howItWorks.subtitle')}
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-12">
             {/* Para famílias */}
             <div className="card border-t-4 border-serenity-500">
-              <span className="badge-blue mb-3">Para famílias e clínicas</span>
-              <h3 className="text-xl font-semibold mb-6">Contrate em 3 passos</h3>
+              <span className="badge-blue mb-3">{t('landing.howItWorks.familiesTitle')}</span>
+              <h3 className="text-xl font-semibold mb-6">{t('landing.howItWorks.familiesCta')}</h3>
               <ol className="space-y-4">
-                {[
-                  { t: 'Crie sua conta +Saúde', d: 'Cadastro rápido com nome, e-mail e telefone.' },
-                  { t: 'Publique a vaga', d: 'Descreva o paciente, a jornada e o profissional desejado.' },
-                  { t: 'Escolha candidatos', d: 'Receba perfis verificados, converse no chat e feche.' }
-                ].map((s, i) => (
+                {stepsFamiles.map((s, i) => (
                   <li key={i} className="flex gap-3">
                     <span className="w-8 h-8 shrink-0 rounded-full bg-serenity-100 text-serenity-700 font-bold flex items-center justify-center text-sm">
                       {i + 1}
                     </span>
                     <div>
-                      <p className="font-medium">{s.t}</p>
-                      <p className="text-sm text-slate-500">{s.d}</p>
+                      <p className="font-medium">{s.title}</p>
+                      <p className="text-sm text-slate-500">{s.desc}</p>
                     </div>
                   </li>
                 ))}
               </ol>
               <Link to="/cadastro?tipo=contratante" className="btn-primary w-full mt-6">
-                Buscar profissional
+                {t('landing.howItWorks.familiesCtaButton')}
               </Link>
             </div>
 
             {/* Para profissionais */}
             <div className="card border-t-4 border-emerald-500">
-              <span className="badge-green mb-3">Para profissionais</span>
-              <h3 className="text-xl font-semibold mb-6">Trabalhe em 3 passos</h3>
+              <span className="badge-green mb-3">{t('landing.howItWorks.proTitle')}</span>
+              <h3 className="text-xl font-semibold mb-6">{t('landing.howItWorks.proCta')}</h3>
               <ol className="space-y-4">
-                {[
-                  { t: 'Cadastre-se', d: 'Envie diploma, registro e suas especialidades.' },
-                  { t: 'Encontre vagas', d: 'Filtre por região, complexidade e remuneração.' },
-                  { t: 'Candidate-se', d: 'Demonstre interesse e converse direto pelo chat.' }
-                ].map((s, i) => (
+                {stepsProfessionals.map((s, i) => (
                   <li key={i} className="flex gap-3">
                     <span className="w-8 h-8 shrink-0 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-sm">
                       {i + 1}
                     </span>
                     <div>
-                      <p className="font-medium">{s.t}</p>
-                      <p className="text-sm text-slate-500">{s.d}</p>
+                      <p className="font-medium">{s.title}</p>
+                      <p className="text-sm text-slate-500">{s.desc}</p>
                     </div>
                   </li>
                 ))}
               </ol>
               <Link to="/cadastro?tipo=profissional" className="btn-secondary w-full mt-6">
-                Sou profissional
+                {t('landing.howItWorks.proCtaButton')}
               </Link>
             </div>
           </div>
@@ -154,20 +153,15 @@ export default function Landing() {
       <section className="py-20 bg-gradient-to-br from-serenity-50 to-emerald-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="badge-green mb-3">🛡️ Segurança em primeiro lugar</span>
-            <h2 className="text-3xl md:text-4xl font-bold">Por que confiar na Essência</h2>
+            <span className="badge-green mb-3">{t('landing.security.badge')}</span>
+            <h2 className="text-3xl md:text-4xl font-bold">{t('landing.security.title')}</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { i: '🔐', t: 'Registro verificado', d: 'Validamos CRM, COREN, CREFITO, CRP e CRN.' },
-              { i: '📄', t: 'Diploma anexado', d: 'Profissionais sobem PDF/foto do diploma.' },
-              { i: '💬', t: 'Chat transparente', d: 'Toda negociação fica registrada na plataforma.' },
-              { i: '⚠️', t: 'Sem alta complexidade', d: 'Não aceitamos vagas de UTI. Foco em baixa/média.' }
-            ].map((c, i) => (
+            {securityItems.map((c, i) => (
               <div key={i} className="card text-center">
-                <div className="text-3xl mb-3">{c.i}</div>
-                <h4 className="font-semibold mb-1">{c.t}</h4>
-                <p className="text-sm text-slate-500">{c.d}</p>
+                <div className="text-3xl mb-3">{['🔐', '📄', '💬', '⚠️'][i]}</div>
+                <h4 className="font-semibold mb-1">{c.title}</h4>
+                <p className="text-sm text-slate-500">{c.desc}</p>
               </div>
             ))}
           </div>
@@ -178,17 +172,16 @@ export default function Landing() {
       <section className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="rounded-3xl p-8 md:p-12 bg-gradient-to-br from-serenity-500 to-emerald-500 text-white text-center shadow-card">
-            <h2 className="text-3xl md:text-4xl font-bold mb-3">Pronto para começar?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-3">{t('landing.finalCta.title')}</h2>
             <p className="text-white/90 mb-8 max-w-xl mx-auto">
-              Crie sua conta gratuitamente e dê o primeiro passo para um cuidado com mais
-              confiança e tranquilidade.
+              {t('landing.finalCta.subtitle')}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link to="/cadastro?tipo=contratante" className="bg-white text-serenity-600 hover:bg-slate-50 font-medium px-6 py-3 rounded-xl">
-                Quero contratar
+                {t('landing.finalCta.hire')}
               </Link>
               <Link to="/cadastro?tipo=profissional" className="bg-serenity-700 hover:bg-serenity-800 text-white font-medium px-6 py-3 rounded-xl">
-                Sou profissional
+                {t('landing.finalCta.pro')}
               </Link>
             </div>
           </div>

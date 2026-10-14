@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -13,6 +14,7 @@ import DashboardContratante from './pages/DashboardContratante';
 import ProfissionalPerfil from './pages/ProfissionalPerfil';
 
 export default function App() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -45,8 +47,8 @@ export default function App() {
             path="*"
             element={
               <div className="text-center py-20">
-                <h1 className="text-4xl font-bold">404</h1>
-                <p className="text-slate-500 mt-2">Página não encontrada</p>
+                <h1 className="text-4xl font-bold">{t('notFound.title')}</h1>
+                <p className="text-slate-500 mt-2">{t('notFound.subtitle')}</p>
               </div>
             }
           />
