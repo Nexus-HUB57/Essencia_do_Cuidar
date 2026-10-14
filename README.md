@@ -66,7 +66,7 @@ Acesse `http://localhost:5173`. O Vite faz proxy de `/api` e `/uploads` para o b
 | GET    | `/api/profissionais/me`           | profissional               |
 | PUT    | `/api/profissionais/me`           | profissional               |
 | PUT    | `/api/profissionais/me/documentos` | profissional (upload avulso de diploma OU doc conselho) |
-| GET    | `/api/profissionais/:id`          | autenticado                |
+| GET    | `/api/profissionais/:id`          | autenticado (inclui `avaliacao: { total, media }`) |
 | GET    | `/api/vagas?complexidade=&regiao=&q=` | autenticado           |
 | GET    | `/api/vagas/:id`                  | autenticado                |
 | POST   | `/api/vagas`                      | contratante                |
@@ -78,6 +78,10 @@ Acesse `http://localhost:5173`. O Vite faz proxy de `/api` e `/uploads` para o b
 | PATCH  | `/api/candidaturas/:id`           | contratante (dono)         |
 | GET    | `/api/chat?vaga=X`                | contratante ou candidato   |
 | POST   | `/api/chat`                       | contratante ou candidato   |
+| POST   | `/api/avaliacoes`                 | contratante (dono da vaga) — exige vaga **fechada** e candidatura **aceita** |
+| GET    | `/api/avaliacoes/pendentes`       | contratante (inbox do que ainda precisa de avaliação) |
+| GET    | `/api/avaliacoes?vaga=X`          | contratante (dono da vaga) — avaliações já feitas |
+| GET    | `/api/avaliacoes/profissional/:id`| autenticado — média + distribuição + reviews |
 | GET    | `/api/webhook/health`             | público                    |
 
 ## Upload de documentos (profissional)
@@ -109,24 +113,24 @@ Validações aplicadas:
 - ✅ Cadastro em **wizard multi-etapa** (4 passos para contratante, 5 para profissional) com tags de especialização e grade de disponibilidade
 - ✅ **Upload de documentos do profissional**: diploma + registro do conselho (PDF/JPG/PNG/WEBP, até 10 MB cada), com preview, validação em tempo real, e storage em `backend/uploads/{userId}/`
 - ✅ Endpoint para trocar documento depois (`PUT /api/profissionais/me/documentos`)
+- ✅ **Página "Meus Documentos"** dedicada (`/dashboard-profissional/documentos`) com preview de imagem, link de download e upload com validação
 - ✅ Contratante vê selos de verificação (`✓ Diploma`, `✓ Conselho`) e links de download na lista de candidatos
 - ✅ Login com JWT (Bearer) e refresh de contexto
 - ✅ Regras do brief: complexidade apenas **baixa** ou **média** (validação backend e UI)
 - ✅ Dashboards distintos:
-  - **Profissional:** perfil, busca de vagas com filtros, candidaturas, status
-  - **Contratante:** publicar vaga (com formulário completo), minhas vagas, mudar status (pausar/reativar/encerrar), ver candidatos
+  - **Profissional:** perfil (com nota média + link "Ver avaliações"), busca de vagas com filtros, candidaturas, status
+  - **Contratante:** publicar vaga (com formulário completo), minhas vagas, mudar status (pausar/reativar/encerrar), ver candidatos, **inbox de avaliações pendentes**
 - ✅ Candidatura com mensagem e proteção contra duplicidade
 - ✅ Chat interno por vaga (apenas contratante e candidatos), com polling 5s (substituível por SSE/WS depois)
-- ✅ Webhook simulado para `https://netlify.ai` em `vaga.created` e `candidatura.created`, com `AbortController` 5s e log
-- ✅ Validações de campo (registro conselho, idade, valor monetário, complexidade, tipo e tamanho de arquivo)
+- ✅ **Sistema de avaliações**: contratante avalia profissional depois de **fechar a vaga** (candidatura precisa estar aceita), 1–5 estrelas + comentário opcional. Média, distribuição e reviews aparecem no perfil e no dashboard
+- ✅ Webhook simulado para `https://netlify.ai` em `vaga.created`, `candidatura.created` e `avaliacao.created`, com `AbortController` 5s e log
+- ✅ **PWA**: `manifest.webmanifest` (ícones 192/512 + maskable, atalhos para "Buscar vagas" e "Nova vaga"), `sw.js` (network-first p/ HTML, stale-while-revalidate p/ assets, network-only p/ API), registro só em produção pra não atrapalhar o HMR do Vite
+- ✅ Validações de campo (registro conselho, idade, valor monetário, complexidade, tipo e tamanho de arquivo, nota 1–5, comentário ≤ 1000 chars)
 - ✅ Hash de senha (bcrypt)
 - ✅ Mobile-first com `container-page` e breakpoints
 
 ## O que **não** está implementado (próximas iterações sugeridas)
 
-- ⏳ Página "Meus Documentos" no dashboard do profissional para re-upload fácil (hoje o `PUT /me/documentos` já funciona via API, falta UI dedicada)
-- ⏳ Sistema de avaliações dos profissionais após o serviço
-- ⏳ PWA (manifest + service worker) — estrutura já é mobile-first
 - ⏳ Notificações em tempo real (SSE/WebSocket) — hoje o chat usa polling
 - ⏳ Recuperação de senha por e-mail
 - ⏳ Painel admin para revisar registros de conselho
