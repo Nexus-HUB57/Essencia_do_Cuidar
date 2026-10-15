@@ -1,12 +1,8 @@
 import jwt from 'jsonwebtoken';
-import db from '../db/index.js';
+import db from '../db/driver.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-trocar';
 
-/**
- * Middleware que valida o header Authorization: Bearer <token>.
- * Anexa req.user com os dados do usuário autenticado.
- */
 export function authRequired(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
@@ -15,21 +11,24 @@ export function authRequired(req, res, next) {
   const token = header.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    const user = db
-      .prepare('SELECT id, tipo_usuario, nome, email, telefone FROM users WHERE id = ?')
-      .get(payload.id);
-    if (!user) return res.status(401).json({ error: 'Usuário não encontrado' });
-    req.user = user;
-    next();
+    // resolveUser é async agora; precisa do wrapper
+    resolveUser(payload.id).then((user) => {
+      if (!user) return res.status(401).json({ error: 'Usuário não encontrado' });
+      req.user = user;
+      next();
+    }).catch(next);
   } catch (err) {
     return res.status(401).json({ error: 'Token inválido ou expirado' });
   }
 }
 
-/**
- * Restringe acesso a um tipo de usuário.
- *   requireTipo('profissional') ou requireTipo('profissional', 'contratante')
- */
+async function resolveUser(id) {
+  return db.get(
+    'SELECT id, tipo_usuario, nome, email, telefone, is_admin, suspended_at FROM users WHERE id = ?',
+    [id]
+  );
+}
+
 export function requireTipo(...tipos) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
@@ -38,6 +37,12 @@ export function requireTipo(...tipos) {
     }
     next();
   };
+}
+
+export function requireAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Acesso restrito a administradores' });
+  next();
 }
 
 export function signToken(user) {

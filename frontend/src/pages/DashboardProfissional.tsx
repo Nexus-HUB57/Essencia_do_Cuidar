@@ -4,6 +4,7 @@ import { useAuth, getErrorMessage } from '../context/AuthContext';
 import api from '../utils/api';
 import type { Vaga, Candidatura, ProfissionalDetalhes } from '../types';
 import Chat from '../components/Chat';
+import OnboardingConnectModal from '../components/OnboardingConnectModal';
 
 export default function DashboardProfissional() {
   const { user, refreshUser } = useAuth();
@@ -13,6 +14,7 @@ export default function DashboardProfissional() {
   const [detalhes, setDetalhes] = useState<ProfissionalDetalhes | null>(null);
   const [loading, setLoading] = useState(false);
   const [chatCom, setChatCom] = useState<{ id: number; nome: string } | null>(null);
+  const [showConnect, setShowConnect] = useState(false);
 
   // filtros
   const [fProf, setFProf] = useState('');
@@ -79,6 +81,9 @@ export default function DashboardProfissional() {
         {detalhes?.diploma_verificado === 1 && (
           <span className="badge-green">✓ Diploma verificado</span>
         )}
+        <button onClick={() => setShowConnect(true)} className="text-xs text-serenity-600 hover:underline">
+          💳 Conectar conta de pagamento (Stripe)
+        </button>
       </div>
 
       {/* Tabs */}
@@ -240,6 +245,7 @@ export default function DashboardProfissional() {
           onClose={() => setChatCom(null)}
         />
       )}
+      {showConnect && <OnboardingConnectModal onClose={() => setShowConnect(false)} />}
     </div>
   );
 }

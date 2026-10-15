@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
 import api from '../utils/api';
 import type { Vaga } from '../types';
 import Chat from '../components/Chat';
+import PaymentModal from '../components/PaymentModal';
 
 interface Candidato {
   id: number;
@@ -41,6 +43,7 @@ export default function DashboardContratante() {
   const [vagaSel, setVagaSel] = useState<Vaga | null>(null);
   const [loading, setLoading] = useState(false);
   const [chatCom, setChatCom] = useState<{ id: number; nome: string } | null>(null);
+  const [pagarVaga, setPagarVaga] = useState<number | null>(null);
 
   // form de nova vaga
   const [form, setForm] = useState({
@@ -233,8 +236,12 @@ export default function DashboardContratante() {
                     </>
                   )}
                   {c.status_candidatura === 'aceita' && (
-                    <button onClick={() => setChatCom({ id: c.profissional_id, nome: c.profissional_nome })}
-                      className="btn-secondary text-xs">💬 Abrir chat</button>
+                    <>
+                      <button onClick={() => setChatCom({ id: c.profissional_id, nome: c.profissional_nome })}
+                        className="btn-secondary text-xs">💬 Abrir chat</button>
+                      <button onClick={() => setPagarVaga(vagaSel.id)}
+                        className="btn-primary text-xs">💰 Pagar profissional</button>
+                    </>
                   )}
                   <a href={`https://wa.me/55${c.profissional_telefone?.replace(/\D/g, '')}`}
                     target="_blank" rel="noopener" className="btn-ghost text-xs">
@@ -247,6 +254,13 @@ export default function DashboardContratante() {
         )}
 
         {chatCom && <Chat outroId={chatCom.id} outroNome={chatCom.nome} onClose={() => setChatCom(null)} />}
+        {pagarVaga && (
+          <PaymentModal
+            idVaga={pagarVaga}
+            onClose={() => setPagarVaga(null)}
+            onPaid={() => carregarCandidatos(vagaSel.id)}
+          />
+        )}
       </div>
     );
   }
