@@ -178,6 +178,7 @@
       "tipoRegistroOutro": "Outro",
       "registro": "Número do registro",
       "registroPlaceholder": "Ex: COREN-SP 123456",
+      "registroHelp": "Formato esperado: COREN-SP 123456, CRM 123456/SP, CREFITO-12345-F, CRP 06/12345, CRN 12345/RJ.",
       "especialidades": "Especialidades",
       "especialidadesHelp": "Selecione uma ou mais tags.",
       "disponibilidade": "Disponibilidade",
@@ -318,6 +319,13 @@
       "phone": "Telefone:",
       "registro": "Registro:",
       "registroValue": "{{type}} {{number}}",
+      "registroNotSet": "não informado",
+      "registroVerifyButton": "Verificar registro agora",
+      "registroVerifying": "Verificando...",
+      "registroLastCheck": "Última checagem: {{date}}",
+      "registroHelp": "Validamos o formato do seu número de registro com o conselho (CRM, COREN, CREFITO, CRP, CRN). A confirmação final continua sendo de responsabilidade do contratante.",
+      "registroResultOk": "✓ Registro validado — selo de verificado ativado.",
+      "registroResultInvalid": "⚠️ Não reconhecemos esse formato. Confira o número e tente novamente. Seu perfil continua marcado como \"Em análise\".",
       "diploma": "Diploma:",
       "diplomaNotSent": "não enviado",
       "verified": "Verificado",
@@ -407,6 +415,13 @@
     "back": "← Voltar",
     "loading": "Carregando perfil...",
     "registroVerificado": "✓ Registro verificado",
+    "registroEmAnalise": "⏳ Registro em análise",
+    "registroNaoValidado": "Registro não validado",
+    "registroEstado": {
+      "verificado": "✓ Verificado",
+      "emAnalise": "⏳ Em análise",
+      "naoValidado": "Não validado"
+    },
     "anosPlataforma_one": "{{count}} ano na plataforma",
     "anosPlataforma_other": "{{count}} anos na plataforma",
     "novoPlataforma": "Novo na plataforma",
@@ -424,7 +439,8 @@
       "emAnalise": "⏳ Em análise",
       "naoEnviado": "Não enviado",
       "naoInformado": "Não informado",
-      "help": "💡 Verificações acontecem em até 24h após o envio. Caso note algo inconsistente, entre em contato com a gente."
+      "verificadoEm": "Validado em {{date}}",
+      "help": "💡 A validação do registro é estrutural (formato do número por conselho). Sempre confirme a idoneidade do profissional entrando em contato direto antes do atendimento."
     },
     "profissionaisOpcoes": {
       "Cuidador de Idosos": "Cuidador de Idosos",
