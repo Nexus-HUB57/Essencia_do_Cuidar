@@ -27,7 +27,7 @@
     "forProfessionalsDiploma": "Upload diploma",
     "forProfessionalsVerify": "Registry verification",
     "security": "Security",
-    "securityText": "We verify professional registries and recommend always confirming the caregiver's identity before starting the service.",
+    "securityText": "We verify professional registries and recommend always confirming the caregiver\u0027s identity before starting the service.",
     "copyright": "© {{year}} Essência do Cuidar. Built with care.",
     "logoAlt": "logo"
   },
@@ -43,7 +43,7 @@
       "title2": "with those who understand.",
       "subtitle": "We connect families with verified healthcare professionals for home care of elderly and low-to-medium complexity patients.",
       "ctaHire": "🏠 I need a professional",
-      "ctaPro": "🩺 I'm a professional",
+      "ctaPro": "🩺 I\u0027m a professional",
       "featureVerified": "Registry verification",
       "featurePayment": "Secure payment"
     },
@@ -51,8 +51,8 @@
       "name": "Caregiver Ana C.",
       "registro": "COREN-SP • Verified",
       "verified": "✓ Verified",
-      "quote": "\"8 years caring for elderly patients with Alzheimer's and palliative care. Available for day shifts and 12-hour shifts.\"",
-      "tagAlzheimer": "Alzheimer's",
+      "quote": "\"8 years caring for elderly patients with Alzheimer\u0027s and palliative care. Available for day shifts and 12-hour shifts.\"",
+      "tagAlzheimer": "Alzheimer\u0027s",
       "tagPalliative": "Palliative care",
       "tagElderly": "Elderly",
       "from": "From",
@@ -72,7 +72,7 @@
       "familiesCtaButton": "Find a professional",
       "proTitle": "For professionals",
       "proCta": "Work in 3 steps",
-      "proCtaButton": "I'm a professional"
+      "proCtaButton": "I\u0027m a professional"
     },
     "stepsFamiles": [
       { "title": "Create your +Saúde account", "desc": "Quick sign-up with name, e-mail and phone." },
@@ -98,7 +98,7 @@
       "title": "Ready to get started?",
       "subtitle": "Create your free account and take the first step toward more confident, peaceful care.",
       "hire": "I want to hire",
-      "pro": "I'm a professional"
+      "pro": "I\u0027m a professional"
     }
   },
   "comoFunciona": {
@@ -118,12 +118,12 @@
       { "title": "Upload your diploma", "desc": "PDF or image of your diploma/registry to earn the verified seal." },
       { "title": "Filter and apply", "desc": "Search jobs by region, complexity and pay." },
       { "title": "Chat with the family", "desc": "In-app chat to align everything before starting." },
-      { "title": "Receive the contact", "desc": "Once accepted, you get the contractor's phone to coordinate arrival." }
+      { "title": "Receive the contact", "desc": "Once accepted, you get the contractor\u0027s phone to coordinate arrival." }
     ],
     "safety": {
       "title": "⚠️ Important safety notes",
       "items": [
-        "Always verify the registry number (COREN, CRM, etc.) on the council's website.",
+        "Always verify the registry number (COREN, CRM, etc.) on the council\u0027s website.",
         "Arrange the first meeting in a public place or with the family present.",
         "This platform does NOT serve high-complexity / ICU cases."
       ]
@@ -136,7 +136,7 @@
     "password": "Password",
     "submit": "Log in",
     "submitting": "Logging in...",
-    "noAccount": "Don't have an account?",
+    "noAccount": "Don\u0027t have an account?",
     "signupLink": "Sign up",
     "demoTitle": "Demo accounts (password: <code>{{password}}</code>)",
     "demos": [
@@ -151,7 +151,7 @@
     "hasAccount": "Already have an account?",
     "loginLink": "Log in",
     "toggleHire": "🏠 I need a professional (+Saúde)",
-    "togglePro": "🩺 I'm a professional",
+    "togglePro": "🩺 I\u0027m a professional",
     "stepData": "Data",
     "stepProfile": "Profile",
     "stepDiploma": "Diploma",
@@ -178,6 +178,7 @@
       "tipoRegistroOutro": "Other",
       "registro": "Registry number",
       "registroPlaceholder": "Ex: COREN-SP 123456",
+      "registroHelp": "Expected format: COREN-SP 123456, CRM 123456/SP, CREFITO-12345-F, CRP 06/12345, CRN 12345/RJ.",
       "especialidades": "Specialties",
       "especialidadesHelp": "Select one or more tags.",
       "disponibilidade": "Availability",
@@ -208,7 +209,7 @@
   },
   "especialidades": {
     "Idosos": "Elderly",
-    "Alzheimer": "Alzheimer's",
+    "Alzheimer": "Alzheimer\u0027s",
     "Cuidados Paliativos": "Palliative care",
     "Pós-operatório": "Post-op",
     "Geriatria": "Geriatrics",
@@ -300,7 +301,7 @@
     "emptyJobs": "No jobs found with those filters.",
     "viewDetails": "View details",
     "apply": "Apply",
-    "applicationsEmpty": "You haven't applied to any jobs yet.",
+    "applicationsEmpty": "You haven\u0027t applied to any jobs yet.",
     "applicationsLoading": "Loading...",
     "applicationSentAt": "Sent on {{date}}",
     "status": {
@@ -318,6 +319,13 @@
       "phone": "Phone:",
       "registro": "Registry:",
       "registroValue": "{{type}} {{number}}",
+      "registroNotSet": "not provided",
+      "registroVerifyButton": "Verify registry now",
+      "registroVerifying": "Verifying...",
+      "registroLastCheck": "Last check: {{date}}",
+      "registroHelp": "We validate the format of your registry number against the council (CRM, COREN, CREFITO, CRP, CRN). Final confirmation is still the contractor\u0027s responsibility.",
+      "registroResultOk": "✓ Registry validated — verified seal activated.",
+      "registroResultInvalid": "⚠️ We don\u0027t recognize that format. Please check the number and try again. Your profile stays marked as \"Under review\".",
       "diploma": "Diploma:",
       "diplomaNotSent": "not uploaded",
       "verified": "Verified",
@@ -337,7 +345,7 @@
       "newJob": "➕ Post job"
     },
     "jobsLoading": "Loading...",
-    "jobsEmpty": "You haven't posted any jobs yet. Click <strong>Post job</strong> above.",
+    "jobsEmpty": "You haven\u0027t posted any jobs yet. Click <strong>Post job</strong> above.",
     "candidatosTitle": "Candidates ({{count}})",
     "candidatosEmpty": "No candidates yet. Professionals will see your job in the search.",
     "mensagemLabel": "Message:",
@@ -365,7 +373,7 @@
         "complexidade": "Complexity*",
         "complexidadeHelp": "We do not accept high complexity/ICU.",
         "diagnostico": "Diagnosis / clinical notes",
-        "diagnosticoPlaceholder": "Ex: Moderate Alzheimer's",
+        "diagnosticoPlaceholder": "Ex: Moderate Alzheimer\u0027s",
         "profissional": "Desired professional*",
         "selectPlaceholder": "Select",
         "descricao": "Service description* (min. 10 characters)",
@@ -407,6 +415,13 @@
     "back": "← Back",
     "loading": "Loading profile...",
     "registroVerificado": "✓ Registry verified",
+    "registroEmAnalise": "⏳ Registry under review",
+    "registroNaoValidado": "Registry not validated",
+    "registroEstado": {
+      "verificado": "✓ Verified",
+      "emAnalise": "⏳ Under review",
+      "naoValidado": "Not validated"
+    },
     "anosPlataforma_one": "{{count}} year on the platform",
     "anosPlataforma_other": "{{count}} years on the platform",
     "novoPlataforma": "New on the platform",
@@ -424,7 +439,8 @@
       "emAnalise": "⏳ Under review",
       "naoEnviado": "Not uploaded",
       "naoInformado": "Not provided",
-      "help": "💡 Verifications take up to 24h after submission. If you notice anything inconsistent, please contact us."
+      "verificadoEm": "Validated on {{date}}",
+      "help": "💡 Registry validation is structural (number format per council). Always confirm the professional\u0027s good standing by contacting them directly before the service."
     },
     "profissionaisOpcoes": {
       "Cuidador de Idosos": "Elderly Caregiver",
