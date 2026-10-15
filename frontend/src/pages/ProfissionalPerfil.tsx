@@ -8,7 +8,8 @@ interface ProfDetalhes {
   id_user: number;
   registro_conselho: string | null;
   tipo_registro: string | null;
-  registro_verificado: 0 | 1;
+  registro_verificado: 0 | 1 | 2;
+  registro_verificado_em?: string | null;
   diploma_nome_original: string | null;
   diploma_verificado: 0 | 1;
   especialidades: string[];
@@ -44,10 +45,11 @@ interface Aval {
 }
 
 const DISP_LABEL: Record<string, string> = {
-  manha: 'Manhã', tarde: 'Tarde', noite: 'Noite', '12h': 'Turno 12h', '24h': 'Plantão 24h'
+  manha: "Manhã", tarde: "Tarde", noite: "Noite", "12h": "Turno 12h", "24h": "Plantão 24h"
 };
 
 export default function ProfissionalPerfil() {
+  const { t, i18n } = useTranslation();
   const { id } = useParams();
   const [user, setUser] = useState<ProfUser | null>(null);
   const [detalhes, setDetalhes] = useState<ProfDetalhes | null>(null);
@@ -55,7 +57,7 @@ export default function ProfissionalPerfil() {
   const [profStats, setProfStats] = useState<ProfStats | null>(null);
   const [avaliacoes, setAvaliacoes] = useState<Aval[]>([]);
   const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState('');
+  const [erro, setErro] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -67,8 +69,8 @@ export default function ProfissionalPerfil() {
         setUser(p.data.user);
         const d = p.data.detalhes;
         if (d) {
-          try { d.especialidades = JSON.parse(d.especialidades || '[]'); } catch { d.especialidades = []; }
-          try { d.disponibilidade = JSON.parse(d.disponibilidade || '[]'); } catch { d.disponibilidade = []; }
+          try { d.especialidades = JSON.parse(d.especialidades || "[]"); } catch { d.especialidades = []; }
+          try { d.disponibilidade = JSON.parse(d.disponibilidade || "[]"); } catch { d.disponibilidade = []; }
           setDetalhes(d);
         }
         setProfStats(p.data.stats || null);
@@ -82,19 +84,42 @@ export default function ProfissionalPerfil() {
     })();
   }, [id]);
 
-  if (loading) return <div className="text-center py-20 text-slate-400">Carregando perfil...</div>;
+  if (loading) return <div className="text-center py-20 text-slate-400">{t("profissionais.loading")}</div>;
   if (erro) return <div className="text-center py-20 text-rose-500">{erro}</div>;
   if (!user) return null;
 
   const inicial = user.nome[0]?.toUpperCase();
   const anosNaPlataforma = Math.max(
     0,
-    Math.floor((Date.now() - new Date(user.criado_em + 'Z').getTime()) / (365 * 24 * 60 * 60 * 1000))
+    Math.floor((Date.now() - new Date(user.criado_em + "Z").getTime()) / (365 * 24 * 60 * 60 * 1000))
   );
+
+  // Selo de registro: 1 = verde, 2 = amarelo, 0 / null = cinza
+  const registroEstado = detalhes?.registro_verificado ?? 0;
+  const registroSeloClasse =
+    registroEstado === 1 ? "badge-green"
+    : registroEstado === 2 ? "badge-amber"
+    : "badge-slate";
+  const registroSeloTexto =
+    registroEstado === 1 ? t("profissionais.registroEstado.verificado")
+    : registroEstado === 2 ? t("profissionais.registroEstado.emAnalise")
+    : t("profissionais.registroEstado.naoValidado");
+
+  // Formata data de validacao respeitando locale
+  let registroValidadoEm: string | null = null;
+  if (detalhes?.registro_verificado_em) {
+    try {
+      registroValidadoEm = new Date(detalhes.registro_verificado_em + "Z").toLocaleDateString(
+        i18n.language === "pt-BR" ? "pt-BR" : i18n.language
+      );
+    } catch {
+      registroValidadoEm = null;
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 fade-in">
-      <Link to="/vagas" className="text-serenity-600 text-sm hover:underline">← Voltar</Link>
+      <Link to="/vagas" className="text-serenity-600 text-sm hover:underline">{t("profissionais.back")}</Link>
 
       {/* Hero do perfil */}
       <div className="card mt-4 relative overflow-hidden">
@@ -108,13 +133,15 @@ export default function ProfissionalPerfil() {
             {detalhes?.tipo_registro && (
               <p className="text-slate-500 text-sm mt-1">
                 {detalhes.tipo_registro} {detalhes.registro_conselho}
-                {detalhes.registro_verificado === 1 && (
-                  <span className="badge-green ml-2">✓ Registro verificado</span>
-                )}
+                <span className={`${registroSeloClasse} ml-2`} title={t("profissionais.documentos.help")}>
+                  {registroSeloTexto}
+                </span>
               </p>
             )}
             <p className="text-xs text-slate-400 mt-1">
-              {anosNaPlataforma > 0 ? `${anosNaPlataforma} ${anosNaPlataforma > 1 ? 'anos' : 'ano'} na plataforma` : 'Novo na plataforma'}
+              {anosNaPlataforma > 0
+                ? t("profissionais.anosPlataforma", { count: anosNaPlataforma })
+                : t("profissionais.novoPlataforma")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -131,11 +158,11 @@ export default function ProfissionalPerfil() {
           </div>
           {user.telefone && (
             <a
-              href={`https://wa.me/55${user.telefone.replace(/\D/g, '')}`}
+              href={`https://wa.me/55${user.telefone.replace(/\D/g, "")}`}
               target="_blank" rel="noopener"
               className="btn-secondary text-sm"
             >
-              📱 WhatsApp
+              {t("profissionais.whatsapp")}
             </a>
           )}
         </div>
@@ -162,7 +189,7 @@ export default function ProfissionalPerfil() {
       {/* Bio */}
       {detalhes?.bio && (
         <div className="card mt-4">
-          <h2 className="font-semibold mb-2">Sobre</h2>
+          <h2 className="font-semibold mb-2">{t("profissionais.sobre")}</h2>
           <p className="text-slate-700 leading-relaxed text-sm">{detalhes.bio}</p>
         </div>
       )}
@@ -170,7 +197,7 @@ export default function ProfissionalPerfil() {
       <div className="grid sm:grid-cols-2 gap-4 mt-4">
         {/* Especialidades */}
         <div className="card">
-          <h2 className="font-semibold mb-3">Especialidades</h2>
+          <h2 className="font-semibold mb-3">{t("profissionais.especialidades")}</h2>
           {detalhes?.especialidades && detalhes.especialidades.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {detalhes.especialidades.map((e) => (
@@ -178,13 +205,13 @@ export default function ProfissionalPerfil() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-400">Nenhuma especialidade cadastrada.</p>
+            <p className="text-sm text-slate-400">{t("profissionais.especialidadesVazias")}</p>
           )}
         </div>
 
         {/* Disponibilidade */}
         <div className="card">
-          <h2 className="font-semibold mb-3">Disponibilidade</h2>
+          <h2 className="font-semibold mb-3">{t("profissionais.disponibilidade")}</h2>
           {detalhes?.disponibilidade && detalhes.disponibilidade.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {detalhes.disponibilidade.map((d) => (
@@ -192,7 +219,7 @@ export default function ProfissionalPerfil() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-400">Não informada.</p>
+            <p className="text-sm text-slate-400">{t("profissionais.disponibilidadeVazia")}</p>
           )}
         </div>
       </div>
@@ -260,37 +287,44 @@ export default function ProfissionalPerfil() {
 
       {/* Documentos */}
       <div className="card mt-4">
-        <h2 className="font-semibold mb-3">Documentos e verificação</h2>
+        <h2 className="font-semibold mb-3">{t("profissionais.documentos.title")}</h2>
         <div className="space-y-2 text-sm">
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
-            <span>Diploma / certificado</span>
+            <span>{t("profissionais.documentos.diploma")}</span>
             {detalhes?.diploma_nome_original ? (
               detalhes.diploma_verificado === 1 ? (
-                <span className="badge-green">✓ Verificado</span>
+                <span className="badge-green">{t("profissionais.documentos.verificado")}</span>
               ) : (
-                <span className="badge-amber">⏳ Em análise</span>
+                <span className="badge-amber">{t("profissionais.documentos.emAnalise")}</span>
               )
             ) : (
-              <span className="badge-slate">Não enviado</span>
+              <span className="badge-slate">{t("profissionais.documentos.naoEnviado")}</span>
             )}
           </div>
           <div className="flex items-center justify-between py-2">
-            <span>Registro profissional</span>
+            <div>
+              <span>{t("profissionais.documentos.registro")}</span>
+              {detalhes?.registro_conselho && (
+                <span className="text-slate-400 ml-2 text-xs">
+                  {detalhes.tipo_registro} {detalhes.registro_conselho}
+                </span>
+              )}
+            </div>
             {detalhes?.registro_conselho ? (
-              detalhes.registro_verificado === 1 ? (
-                <span className="badge-green">✓ Verificado</span>
-              ) : (
-                <span className="badge-amber">⏳ Em análise</span>
-              )
+              <div className="flex flex-col items-end gap-1">
+                <span className={registroSeloClasse}>{registroSeloTexto}</span>
+                {registroEstado === 1 && registroValidadoEm && (
+                  <span className="text-xs text-slate-400">
+                    {t("profissionais.documentos.verificadoEm", { date: registroValidadoEm })}
+                  </span>
+                )}
+              </div>
             ) : (
-              <span className="badge-slate">Não informado</span>
+              <span className="badge-slate">{t("profissionais.documentos.naoInformado")}</span>
             )}
           </div>
         </div>
-        <p className="text-xs text-slate-400 mt-3">
-          💡 Verificações acontecem em até 24h após o envio. Caso note algo
-          inconsistente, entre em contato com a gente.
-        </p>
+        <p className="text-xs text-slate-400 mt-3">{t("profissionais.documentos.help")}</p>
       </div>
     </div>
   );
