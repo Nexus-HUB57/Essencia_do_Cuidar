@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
 import type { Vaga } from '../types';
 import Chat from '../components/Chat';
@@ -37,6 +38,7 @@ const PROFISSIONAIS_OPCOES = [
 
 export default function DashboardContratante() {
   const { user } = useAuth();
+  const toast = useToast();
   const [tab, setTab] = useState<'vagas' | 'nova'>('vagas');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
@@ -132,8 +134,35 @@ export default function DashboardContratante() {
     try {
       await api.patch(`/candidaturas/${id}`, { status_candidatura: status });
       if (vagaSel) await carregarCandidatos(vagaSel.id);
+      toast.success(status === 'aceita' ? 'Candidatura aceita!' : 'Candidatura recusada');
     } catch (err) {
-      alert(getErrorMessage(err));
+      toast.error('Erro ao atualizar', getErrorMessage(err));
+    }
+  }
+
+  // Modal de avaliação
+  const [avalModal, setAvalModal] = useState<{ cand: Candidato } | null>(null);
+  const [avalNota, setAvalNota] = useState(0);
+  const [avalComent, setAvalComent] = useState('');
+
+  async function enviarAvaliacao() {
+    if (!avalModal || !avalNota) {
+      toast.warning('Selecione uma nota de 1 a 5 estrelas');
+      return;
+    }
+    try {
+      await api.post('/avaliacoes', {
+        id_profissional: avalModal.cand.profissional_id,
+        id_vaga: vagaSel!.id,
+        nota: avalNota,
+        comentario: avalComent || undefined
+      });
+      toast.success('Avaliação enviada!', 'Obrigado pelo seu feedback.');
+      setAvalModal(null);
+      setAvalNota(0);
+      setAvalComent('');
+    } catch (err) {
+      toast.error('Erro ao avaliar', getErrorMessage(err));
     }
   }
 
