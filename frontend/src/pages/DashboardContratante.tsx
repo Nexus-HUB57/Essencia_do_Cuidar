@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
 import type { Vaga } from '../types';
 import Chat from '../components/Chat';
+import Estrelas from '../components/Estrelas';
 
 interface Candidato {
   id: number;
@@ -35,6 +37,7 @@ const PROFISSIONAIS_OPCOES = [
 
 export default function DashboardContratante() {
   const { user } = useAuth();
+  const toast = useToast();
   const [tab, setTab] = useState<'vagas' | 'nova'>('vagas');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
@@ -129,8 +132,35 @@ export default function DashboardContratante() {
     try {
       await api.patch(`/candidaturas/${id}`, { status_candidatura: status });
       if (vagaSel) await carregarCandidatos(vagaSel.id);
+      toast.success(status === 'aceita' ? 'Candidatura aceita!' : 'Candidatura recusada');
     } catch (err) {
-      alert(getErrorMessage(err));
+      toast.error('Erro ao atualizar', getErrorMessage(err));
+    }
+  }
+
+  // Modal de avaliação
+  const [avalModal, setAvalModal] = useState<{ cand: Candidato } | null>(null);
+  const [avalNota, setAvalNota] = useState(0);
+  const [avalComent, setAvalComent] = useState('');
+
+  async function enviarAvaliacao() {
+    if (!avalModal || !avalNota) {
+      toast.warning('Selecione uma nota de 1 a 5 estrelas');
+      return;
+    }
+    try {
+      await api.post('/avaliacoes', {
+        id_profissional: avalModal.cand.profissional_id,
+        id_vaga: vagaSel!.id,
+        nota: avalNota,
+        comentario: avalComent || undefined
+      });
+      toast.success('Avaliação enviada!', 'Obrigado pelo seu feedback.');
+      setAvalModal(null);
+      setAvalNota(0);
+      setAvalComent('');
+    } catch (err) {
+      toast.error('Erro ao avaliar', getErrorMessage(err));
     }
   }
 
@@ -233,8 +263,12 @@ export default function DashboardContratante() {
                     </>
                   )}
                   {c.status_candidatura === 'aceita' && (
-                    <button onClick={() => setChatCom({ id: c.profissional_id, nome: c.profissional_nome })}
-                      className="btn-secondary text-xs">💬 Abrir chat</button>
+                    <>
+                      <button onClick={() => { setAvalModal({ cand: c }); setAvalNota(0); setAvalComent(''); }}
+                        className="btn-secondary text-xs">⭐ Avaliar</button>
+                      <button onClick={() => setChatCom({ id: c.profissional_id, nome: c.profissional_nome })}
+                        className="btn-secondary text-xs">💬 Abrir chat</button>
+                    </>
                   )}
                   <a href={`https://wa.me/55${c.profissional_telefone?.replace(/\D/g, '')}`}
                     target="_blank" rel="noopener" className="btn-ghost text-xs">
@@ -247,6 +281,56 @@ export default function DashboardContratante() {
         )}
 
         {chatCom && <Chat outroId={chatCom.id} outroNome={chatCom.nome} onClose={() => setChatCom(null)} />}
+
+        {/* Modal de avaliação */}
+        {avalModal && (
+          <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+            <div className="card max-w-md w-full">
+              <h2 className="text-lg font-semibold mb-1">Avaliar profissional</h2>
+              <p className="text-sm text-slate-500 mb-4">
+                Como foi a experiência com <strong>{avalModal.cand.profissional_nome}</strong>?
+              </p>
+
+              <div className="flex justify-center my-6">
+                <Estrelas
+                  value={avalNota}
+                  size="lg"
+                  showNumber={false}
+                  interactive
+                  onChange={setAvalNota}
+                />
+              </div>
+              <p className="text-center text-sm text-slate-500 -mt-3 mb-4">
+                {avalNota === 0 && 'Selecione uma nota'}
+                {avalNota === 1 && '😞 Muito ruim'}
+                {avalNota === 2 && '😐 Pode melhorar'}
+                {avalNota === 3 && '🙂 Bom'}
+                {avalNota === 4 && '😊 Muito bom'}
+                {avalNota === 5 && '🤩 Excelente!'}
+              </p>
+
+              <label className="label">Comentário (opcional)</label>
+              <textarea
+                className="input min-h-[100px]"
+                placeholder="Conte um pouco da sua experiência..."
+                value={avalComent}
+                onChange={(e) => setAvalComent(e.target.value)}
+                maxLength={1000}
+              />
+
+              <div className="mt-6 flex gap-2 justify-end">
+                <button onClick={() => setAvalModal(null)} className="btn-ghost">Cancelar</button>
+                <button
+                  onClick={enviarAvaliacao}
+                  disabled={avalNota === 0}
+                  className="btn-primary"
+                >
+                  Enviar avaliação
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

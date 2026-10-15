@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function Login() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
@@ -24,9 +26,12 @@ export default function Login() {
     setLoading(true);
     try {
       const u = await login(email, senha);
+      toast.success('Bem-vindo de volta!', `Olá, ${u.nome.split(' ')[0]}`);
       navigate(u.tipo_usuario === 'profissional' ? '/dashboard/profissional' : '/dashboard/contratante');
     } catch (err) {
-      setErro(getErrorMessage(err));
+      const msg = getErrorMessage(err);
+      setErro(msg);
+      toast.error('Falha no login', msg);
     } finally {
       setLoading(false);
     }

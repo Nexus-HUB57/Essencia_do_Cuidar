@@ -13,6 +13,7 @@ import profissionaisRouter from './routes/profissionais.js';
 import vagasRouter from './routes/vagas.js';
 import candidaturasRouter from './routes/candidaturas.js';
 import mensagensRouter from './routes/mensagens.js';
+import avaliacoesRouter from './routes/avaliacoes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +39,7 @@ app.use('/api/profissionais', profissionaisRouter);
 app.use('/api/vagas', vagasRouter);
 app.use('/api/candidaturas', candidaturasRouter);
 app.use('/api/mensagens', mensagensRouter);
+app.use('/api/avaliacoes', avaliacoesRouter);
 
 // Serve o build do frontend em produção (quando dist/ existe).
 // Habilita deploy single-port — útil para demos e ambientes pequenos.

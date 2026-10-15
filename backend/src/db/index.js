@@ -115,6 +115,21 @@ export function initSchema() {
       erro TEXT,
       criado_em TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS avaliacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_contratante INTEGER NOT NULL,
+      id_profissional INTEGER NOT NULL,
+      id_vaga INTEGER,
+      nota INTEGER NOT NULL CHECK(nota BETWEEN 1 AND 5),
+      comentario TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(id_contratante, id_vaga),  -- 1 avaliação por vaga por contratante
+      FOREIGN KEY (id_contratante) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_profissional) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
   `);
 
   console.log('[db] schema inicializado em', dbPath);
