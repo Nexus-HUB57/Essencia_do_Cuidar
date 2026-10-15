@@ -11,6 +11,7 @@ import ComoFunciona from './pages/ComoFunciona';
 import DashboardProfissional from './pages/DashboardProfissional';
 import DashboardContratante from './pages/DashboardContratante';
 import ProfissionalPerfil from './pages/ProfissionalPerfil';
+import Admin from './pages/Admin';
 
 export default function App() {
   return (
@@ -38,6 +39,14 @@ export default function App() {
             element={
               <ProtectedRoute tipo="contratante">
                 <DashboardContratante />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <Admin />
               </ProtectedRoute>
             }
           />
