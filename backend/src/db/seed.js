@@ -38,6 +38,12 @@ function seed() {
     '11999990000'
   ).lastInsertRowid;
 
+  // Admin demo (criado só via seed — cadastro público não aceita 'admin')
+  const adminId = insertUser.run(
+    'admin', 'Admin Demo', 'admin@demo.com', hash('demo1234'),
+    '11999990000'
+  ).lastInsertRowid;
+
   // Contratante demo
   const contratanteId = insertUser.run(
     'contratante', 'Maria Silva', 'maria@demo.com', hash('demo1234'),
@@ -102,6 +108,18 @@ function seed() {
     'baixa', 'Cuidador noturno para idosa independente que precisa de companhia e supervisão.',
     'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP', 'ativa'
   ]);
+
+  // Marca uma vaga como flagged e outra como removida para o admin ter
+  // algo para revisar no dashboard logo no primeiro login.
+  db.prepare(`UPDATE vagas SET moderacao_status='flagged', moderacao_motivo='Relato de descrição vaga', moderado_por=?, moderado_em=CURRENT_TIMESTAMP WHERE id=?`)
+    .run(adminId, vaga1);
+  db.prepare(`INSERT INTO vagas_moderacao (id_vaga, id_admin, acao, motivo) VALUES (?, ?, 'flag', 'Relato de descrição vaga')`)
+    .run(vaga1, adminId);
+
+  db.prepare(`UPDATE vagas SET moderacao_status='removida', moderacao_motivo='Conteúdo inadequado', moderado_por=?, moderado_em=CURRENT_TIMESTAMP WHERE id=?`)
+    .run(adminId, vaga2);
+  db.prepare(`INSERT INTO vagas_moderacao (id_vaga, id_admin, acao, motivo) VALUES (?, ?, 'remove', 'Conteúdo inadequado')`)
+    .run(vaga2, adminId);
 
   // Marca uma vaga como flagged e outra como removida para o admin ter
   // algo para revisar no dashboard logo no primeiro login.

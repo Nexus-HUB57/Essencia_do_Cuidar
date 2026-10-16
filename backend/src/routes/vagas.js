@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
