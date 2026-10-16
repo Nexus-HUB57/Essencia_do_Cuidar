@@ -145,6 +145,21 @@ export async function initSchema() {
       criado_em TEXT NOT NULL DEFAULT (now()::text)
     );
 
+    -- Avaliações: contratante → profissional após vaga aceita/fechada
+    -- (idêntica à tabela que o routes/avaliacoes.js espera).
+    CREATE TABLE IF NOT EXISTS avaliacoes (
+      id SERIAL PRIMARY KEY,
+      id_contratante INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id_profissional INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id_vaga INTEGER NOT NULL REFERENCES vagas(id) ON DELETE CASCADE,
+      nota INTEGER NOT NULL CHECK (nota BETWEEN 1 AND 5),
+      comentario TEXT,
+      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      UNIQUE(id_contratante, id_vaga)
+    );
+    CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
+    CREATE INDEX IF NOT EXISTS idx_av_contratante ON avaliacoes(id_contratante);
+
     CREATE TABLE IF NOT EXISTS verificacao_registros (
       id SERIAL PRIMARY KEY,
       id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

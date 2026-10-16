@@ -136,6 +136,24 @@ export function initSchema() {
       criado_em TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Avaliações: contratante → profissional após vaga aceita/fechada
+    -- (idêntica à tabela que o routes/avaliacoes.js espera).
+    CREATE TABLE IF NOT EXISTS avaliacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_contratante INTEGER NOT NULL,
+      id_profissional INTEGER NOT NULL,
+      id_vaga INTEGER NOT NULL,
+      nota INTEGER NOT NULL CHECK(nota BETWEEN 1 AND 5),
+      comentario TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(id_contratante, id_vaga),
+      FOREIGN KEY (id_contratante) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_profissional) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
+    CREATE INDEX IF NOT EXISTS idx_av_contratante ON avaliacoes(id_contratante);
+
     -- Feature 2: verificação de registros (campos adicionais)
     CREATE TABLE IF NOT EXISTS verificacao_registros (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
