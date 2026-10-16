@@ -14,8 +14,7 @@ import vagasRouter from './routes/vagas.js';
 import candidaturasRouter from './routes/candidaturas.js';
 import mensagensRouter from './routes/mensagens.js';
 import avaliacoesRouter from './routes/avaliacoes.js';
-import favoritosRouter from './routes/favoritos.js';
-import notificacoesRouter from './routes/notificacoes.js';
+import adminRouter from './routes/admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,8 +41,7 @@ app.use('/api/vagas', vagasRouter);
 app.use('/api/candidaturas', candidaturasRouter);
 app.use('/api/mensagens', mensagensRouter);
 app.use('/api/avaliacoes', avaliacoesRouter);
-app.use('/api/favoritos', favoritosRouter);
-app.use('/api/notificacoes', notificacoesRouter);
+app.use('/api/admin', adminRouter);
 
 // Serve o build do frontend em produção (quando dist/ existe).
 // Habilita deploy single-port — útil para demos e ambientes pequenos.

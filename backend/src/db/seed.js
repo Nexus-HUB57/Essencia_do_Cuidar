@@ -8,6 +8,7 @@ import db from './index.js';
 function seed() {
   // Limpa dados de demo (idempotente para desenvolvimento)
   db.exec(`
+    DELETE FROM vagas_moderacao;
     DELETE FROM mensagens;
     DELETE FROM candidaturas;
     DELETE FROM vagas;
@@ -21,6 +22,12 @@ function seed() {
     INSERT INTO users (tipo_usuario, nome, email, senha_hash, telefone)
     VALUES (?, ?, ?, ?, ?)
   `);
+
+  // Admin demo (criado só via seed — cadastro público não aceita 'admin')
+  const adminId = insertUser.run(
+    'admin', 'Admin Demo', 'admin@demo.com', hash('demo1234'),
+    '11999990000'
+  ).lastInsertRowid;
 
   // Contratante demo
   const contratanteId = insertUser.run(
@@ -82,67 +89,36 @@ function seed() {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  insertVaga.run(
+  const vaga1 = insertVaga.run(
     contratanteId, 'F', 82, 'Alzheimer moderado',
     'media', 'Acompanhante diurno para idosa com Alzheimer. Auxílio em medicação, alimentação e mobilidade.',
     'Cuidador de Idosos', '08h às 18h', 'Segunda a Sexta', 'CLT', 'hora', 35, 'Zona Sul - SP', 'ativa'
-  );
-  insertVaga.run(
+  ).lastInsertRowid;
+  const vaga2 = insertVaga.run(
     contratanteId, 'M', 70, 'Pós-operatório de quadril',
     'media', 'Sessões de fisioterapia domiciliar, 3x por semana, foco em mobilidade.',
     'Fisioterapeuta', '14h às 16h', 'Seg/Qua/Sex', 'PJ', 'hora', 80, 'Zona Oeste - SP', 'ativa'
-  );
+  ).lastInsertRowid;
   insertVaga.run(
     contratanteId, 'F', 75, 'Hipertensão e mobilidade reduzida',
     'baixa', 'Cuidador noturno para idosa independente que precisa de companhia e supervisão.',
     'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP', 'ativa'
   );
 
-  // Avaliações demo (de "contratantes" fictícios para popular o perfil)
-  // Cria 2 contratantes extras só pra popular avaliações
-  const c2 = insertUser.run('contratante', 'Família Oliveira', 'oliveira@demo.com', hash('demo1234'), '11999990010').lastInsertRowid;
-  const c3 = insertUser.run('contratante', 'Família Santos', 'santos@demo.com', hash('demo1234'), '11999990011').lastInsertRowid;
-  const c4 = insertUser.run('contratante', 'Clínica Vida Plus', 'vidaplus@demo.com', hash('demo1234'), '11999990012').lastInsertRowid;
+  // Marca uma vaga como flagged e outra como removida para o admin ter
+  // algo para revisar no dashboard logo no primeiro login.
+  db.prepare(`UPDATE vagas SET moderacao_status='flagged', moderacao_motivo='Relato de descrição vaga', moderado_por=?, moderado_em=CURRENT_TIMESTAMP WHERE id=?`)
+    .run(adminId, vaga1);
+  db.prepare(`INSERT INTO vagas_moderacao (id_vaga, id_admin, acao, motivo) VALUES (?, ?, 'flag', 'Relato de descrição vaga')`)
+    .run(vaga1, adminId);
 
-  // Cria vagas para os outros contratantes
-  insertVaga.run(c2, 'M', 80, 'AVC', 'media', 'Fisioterapia pós-AVC.', 'Fisioterapeuta', '10h-12h', 'Seg a Sex', 'PJ', 'hora', 90, 'Zona Norte', 'fechada');
-  insertVaga.run(c3, 'F', 70, 'Diabetes', 'baixa', 'Acompanhante para idosa com diabetes controlada.', 'Cuidador de Idosos', '14h-18h', 'Segunda a Sexta', 'CLT', 'hora', 30, 'Zona Leste', 'fechada');
-  insertVaga.run(c4, 'M', 65, 'Pós-cirúrgico', 'media', 'Acompanhamento pós-cirurgia cardíaca.', 'Técnico de Enfermagem', '07h-19h', '12x36', 'CLT', 'plantao', 280, 'Zona Oeste', 'fechada');
-
-  // Aceita algumas candidaturas e cria avaliações
-  // Pega os IDs das vagas recém-criadas
-  const vagasFechadas = db.prepare(`SELECT id, id_contratante FROM vagas WHERE id_contratante IN (?,?,?) ORDER BY id`).all(c2, c3, c4);
-
-  // Candidaturas + aceite
-  const insertCand = db.prepare(`INSERT INTO candidaturas (id_vaga, id_profissional, mensagem, status_candidatura) VALUES (?, ?, ?, 'aceita')`);
-  const candAna2 = insertCand.run(vagasFechadas[0].id, prof1, 'Experiência com AVC').lastInsertRowid;
-  const candJoao2 = insertCand.run(vagasFechadas[1].id, prof2, 'Disponível para início imediato').lastInsertRowid;
-  const candBia2 = insertCand.run(vagasFechadas[2].id, prof3, 'Boa referência profissional').lastInsertRowid;
-
-  const insertAv = db.prepare(`INSERT INTO avaliacoes (id_contratante, id_profissional, id_vaga, nota, comentario) VALUES (?, ?, ?, ?, ?)`);
-  insertAv.run(c2, prof1, vagasFechadas[0].id, 5, 'Excelente profissional! Cuidou do meu pai com muito carinho e atenção. Recomendo demais.');
-  insertAv.run(c3, prof2, vagasFechadas[1].id, 5, 'Pontual, educado e muito competente. A minha mãe adorou.');
-  insertAv.run(c4, prof3, vagasFechadas[2].id, 4, 'Boa profissional. Um pouco tímida mas muito atenciosa.');
-  // Mais 2 avaliações pra Ana pra dar destaque
-  const c5 = insertUser.run('contratante', 'Família Pereira', 'pereira@demo.com', hash('demo1234'), '11999990013').lastInsertRowid;
-  const c6 = insertUser.run('contratante', 'Família Costa', 'costa@demo.com', hash('demo1234'), '11999990014').lastInsertRowid;
-  const v5 = insertVaga.run(c5, 'F', 88, 'Alzheimer avançado', 'media', 'Cuidado integral a idosa acamada.', 'Cuidador de Idosos', '08h-20h', '12x36', 'CLT', 'plantao', 250, 'Zona Sul', 'fechada').lastInsertRowid;
-  const v6 = insertVaga.run(c6, 'M', 72, 'Parkinson', 'media', 'Acompanhamento diurno.', 'Cuidador de Idosos', '09h-17h', 'Seg a Sex', 'PJ', 'hora', 45, 'Zona Oeste', 'fechada').lastInsertRowid;
-  insertCand.run(v5, prof1, 'Atendimento 24h');
-  insertCand.run(v6, prof1, 'Acompanhamento Parkinson');
-  // Candidatura da Ana numa vaga ATIVA para stats de candidaturas totais
-  const vAtiva = db.prepare(`SELECT id FROM vagas WHERE id_contratante = ? AND status = 'ativa' LIMIT 1`).get(contratanteId);
-  if (vAtiva) insertCand.run(vAtiva.id, prof1, 'Disponível para início imediato');
-  // Candidatura da Ana numa vaga PAUSADA (testes)
-  // Cria + fecha uma vaga demo pra stats de "vagas concluídas"
-  const vConc = insertVaga.run(contratanteId, 'M', 79, 'Reabilitação', 'media',
-    'Trabalho concluído em 3 meses, profissional exemplar.',
-    'Cuidador de Idosos', '08h-18h', 'Seg a Sex', 'CLT', 'plantao', 250, 'Zona Sul', 'fechada').lastInsertRowid;
-  insertCand.run(vConc, prof1, 'Já trabalhei com casos similares');
-  insertAv.run(c5, prof1, v5, 5, null);
-  insertAv.run(c6, prof1, v6, 4, 'Muito atenciosa com paciente difícil.');
+  db.prepare(`UPDATE vagas SET moderacao_status='removida', moderacao_motivo='Conteúdo inadequado', moderado_por=?, moderado_em=CURRENT_TIMESTAMP WHERE id=?`)
+    .run(adminId, vaga2);
+  db.prepare(`INSERT INTO vagas_moderacao (id_vaga, id_admin, acao, motivo) VALUES (?, ?, 'remove', 'Conteúdo inadequado')`)
+    .run(vaga2, adminId);
 
   console.log('[seed] dados demo criados:');
+  console.log('   - admin:       admin@demo.com / demo1234');
   console.log('   - contratante: maria@demo.com / demo1234');
   console.log('   - contratante: oliveira@demo.com / demo1234');
   console.log('   - contratante: santos@demo.com / demo1234');
@@ -150,7 +126,7 @@ function seed() {
   console.log('   - profissional: ana@demo.com / demo1234');
   console.log('   - profissional: joao@demo.com / demo1234');
   console.log('   - profissional: bia@demo.com / demo1234');
-  console.log('   (Ana: ~4.7⭐  |  João: ~4.5⭐  |  Bia: 4⭐)');
+  console.log('[seed] 1 vaga flagged e 1 removida para o admin revisar');
 }
 
 seed();

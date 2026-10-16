@@ -1,0 +1,662 @@
+{
+  "app": {
+    "name": "Essência do Cuidar",
+    "title": "Essência do Cuidar — Home care you can trust",
+    "description": "Marketplace of healthcare professionals for home care of elderly and low-to-medium complexity patients.",
+    "tagline": "Home care you can trust"
+  },
+  "navbar": {
+    "home": "Home",
+    "jobs": "Jobs",
+    "howItWorks": "How it works",
+    "login": "Log in",
+    "signup": "Sign up",
+    "logout": "Log out",
+    "logoAlt": "Essência do Cuidar"
+  },
+  "footer": {
+    "tagline": "Connecting families with qualified healthcare professionals for safe, empathetic home care.",
+    "forFamilies": "For Families",
+    "forFamiliesSearch": "Find professionals",
+    "forFamiliesPostJob": "Post a job",
+    "forFamiliesHowItWorks": "How it works",
+    "forFamiliesSeals": "Verification seals",
+    "forProfessionals": "For Professionals",
+    "forProfessionalsResume": "Create résumé",
+    "forProfessionalsFindJobs": "Find jobs",
+    "forProfessionalsDiploma": "Upload diploma",
+    "forProfessionalsVerify": "Registry verification",
+    "security": "Security",
+    "securityText": "We verify professional registries and recommend always confirming the caregiver's identity before starting the service.",
+    "copyright": "© {{year}} Essência do Cuidar. Built with care.",
+    "logoAlt": "logo"
+  },
+  "languageSwitcher": {
+    "label": "Language",
+    "selectLabel": "Select language",
+    "current": "Current language: {{lang}}"
+  },
+  "landing": {
+    "hero": {
+      "badge": "🩺 Home care you can trust",
+      "title1": "Caring for those you love,",
+      "title2": "with those who understand.",
+      "subtitle": "We connect families with verified healthcare professionals for home care of elderly and low-to-medium complexity patients.",
+      "ctaHire": "🏠 I need a professional",
+      "ctaPro": "🩺 I'm a professional",
+      "featureVerified": "Registry verification",
+      "featurePayment": "Secure payment"
+    },
+    "exampleCard": {
+      "name": "Caregiver Ana C.",
+      "registro": "COREN-SP • Verified",
+      "verified": "✓ Verified",
+      "quote": "\"8 years caring for elderly patients with Alzheimer's and palliative care. Available for day shifts and 12-hour shifts.\"",
+      "tagAlzheimer": "Alzheimer's",
+      "tagPalliative": "Palliative care",
+      "tagElderly": "Elderly",
+      "from": "From",
+      "price": "R$ {{value}}",
+      "priceUnit": "/hour",
+      "viewProfile": "View profile"
+    },
+    "floatingCard": {
+      "title": "Verified diploma",
+      "subtitle": "Last check today"
+    },
+    "howItWorks": {
+      "title": "How it works",
+      "subtitle": "In a few steps, we connect those who need care with those who can provide it.",
+      "familiesTitle": "For families and clinics",
+      "familiesCta": "Hire in 3 steps",
+      "familiesCtaButton": "Find a professional",
+      "proTitle": "For professionals",
+      "proCta": "Work in 3 steps",
+      "proCtaButton": "I'm a professional"
+    },
+    "stepsFamiles": [
+      {
+        "title": "Create your +Saúde account",
+        "desc": "Quick sign-up with name, e-mail and phone."
+      },
+      {
+        "title": "Post the job",
+        "desc": "Describe the patient, the schedule and the desired professional."
+      },
+      {
+        "title": "Choose candidates",
+        "desc": "Receive verified profiles, chat in-app and close the deal."
+      }
+    ],
+    "stepsProfessionals": [
+      {
+        "title": "Sign up",
+        "desc": "Send your diploma, registry and specialties."
+      },
+      {
+        "title": "Find jobs",
+        "desc": "Filter by region, complexity and pay."
+      },
+      {
+        "title": "Apply",
+        "desc": "Show your interest and chat directly with families."
+      }
+    ],
+    "security": {
+      "badge": "🛡️ Safety first",
+      "title": "Why trust Essência",
+      "items": [
+        {
+          "title": "Verified registry",
+          "desc": "We validate CRM, COREN, CREFITO, CRP and CRN."
+        },
+        {
+          "title": "Diploma uploaded",
+          "desc": "Professionals upload a PDF/photo of their diploma."
+        },
+        {
+          "title": "Transparent chat",
+          "desc": "All negotiation is recorded on the platform."
+        },
+        {
+          "title": "No high complexity",
+          "desc": "We do not accept ICU jobs. We focus on low/medium complexity."
+        }
+      ]
+    },
+    "finalCta": {
+      "title": "Ready to get started?",
+      "subtitle": "Create your free account and take the first step toward more confident, peaceful care.",
+      "hire": "I want to hire",
+      "pro": "I'm a professional"
+    }
+  },
+  "comoFunciona": {
+    "title": "How it works",
+    "subtitle": "Two simple paths, one safe platform.",
+    "familiesTitle": "🏠 For those who need a professional",
+    "professionalsTitle": "🩺 For professionals",
+    "families": [
+      {
+        "title": "Sign up as +Saúde",
+        "desc": "Create your free account with name, e-mail and phone."
+      },
+      {
+        "title": "Post the job",
+        "desc": "Detail the patient, desired schedule and professional type."
+      },
+      {
+        "title": "Receive verified candidates",
+        "desc": "Professionals with a verified diploma and registry appear first."
+      },
+      {
+        "title": "Chat and close",
+        "desc": "Use the in-app chat to agree on details safely."
+      },
+      {
+        "title": "Follow the service",
+        "desc": "The job stays active until you pause or close it."
+      }
+    ],
+    "professionals": [
+      {
+        "title": "Sign up for free",
+        "desc": "Fill in your personal info, specialty and availability."
+      },
+      {
+        "title": "Upload your diploma",
+        "desc": "PDF or image of your diploma/registry to earn the verified seal."
+      },
+      {
+        "title": "Filter and apply",
+        "desc": "Search jobs by region, complexity and pay."
+      },
+      {
+        "title": "Chat with the family",
+        "desc": "In-app chat to align everything before starting."
+      },
+      {
+        "title": "Receive the contact",
+        "desc": "Once accepted, you get the contractor's phone to coordinate arrival."
+      }
+    ],
+    "safety": {
+      "title": "⚠️ Important safety notes",
+      "items": [
+        "Always verify the registry number (COREN, CRM, etc.) on the council's website.",
+        "Arrange the first meeting in a public place or with the family present.",
+        "This platform does NOT serve high-complexity / ICU cases."
+      ]
+    }
+  },
+  "login": {
+    "title": "Log in",
+    "subtitle": "Access your Essência do Cuidar dashboard",
+    "email": "E-mail",
+    "password": "Password",
+    "submit": "Log in",
+    "submitting": "Logging in...",
+    "noAccount": "Don't have an account?",
+    "signupLink": "Sign up",
+    "demoTitle": "Demo accounts (password: <code>{{password}}</code>)",
+    "demos": [
+      {
+        "email": "maria@demo.com",
+        "label": "contractor +Saúde"
+      },
+      {
+        "email": "ana@demo.com",
+        "label": "professional"
+      },
+      {
+        "email": "joao@demo.com",
+        "label": "professional"
+      },
+      {
+        "email": "bia@demo.com",
+        "label": "professional"
+      }
+    ]
+  },
+  "cadastro": {
+    "title": "Create your account",
+    "hasAccount": "Already have an account?",
+    "loginLink": "Log in",
+    "toggleHire": "🏠 I need a professional (+Saúde)",
+    "togglePro": "🩺 I'm a professional",
+    "stepData": "Data",
+    "stepProfile": "Profile",
+    "stepDiploma": "Diploma",
+    "step1": {
+      "title": "Personal data",
+      "name": "Full name",
+      "namePlaceholder": "Ex: Maria Silva",
+      "email": "E-mail",
+      "emailPlaceholder": "you@email.com",
+      "phone": "Phone / WhatsApp",
+      "phonePlaceholder": "(11) 99999-9999",
+      "password": "Password (min. 6 characters)",
+      "passwordPlaceholder": "••••••••"
+    },
+    "step2": {
+      "title": "Professional profile",
+      "tipoRegistro": "Registry type",
+      "selectPlaceholder": "Select",
+      "tipoRegistroCrm": "CRM (Medicine)",
+      "tipoRegistroCoren": "COREN (Nursing)",
+      "tipoRegistroCrefito": "CREFITO (Physio/Occupational Therapy)",
+      "tipoRegistroCrp": "CRP (Psychology)",
+      "tipoRegistroCrn": "CRN (Nutrition)",
+      "tipoRegistroOutro": "Other",
+      "registro": "Registry number",
+      "registroPlaceholder": "Ex: COREN-SP 123456",
+      "registroHelp": "Expected format: COREN-SP 123456, CRM 123456/SP, CREFITO-12345-F, CRP 06/12345, CRN 12345/RJ.",
+      "especialidades": "Specialties",
+      "especialidadesHelp": "Select one or more tags.",
+      "disponibilidade": "Availability",
+      "bio": "About you (optional)",
+      "bioPlaceholder": "Tell us a bit about your experience..."
+    },
+    "step3": {
+      "title": "Diploma / certificate",
+      "subtitle": "Upload your diploma or certificate (PDF, JPG or PNG — up to 5 MB). Documents go through verification before showing the trust seal.",
+      "file": "File",
+      "uploaded": "✓ {{name}}",
+      "warning": "⚠️ The diploma is required to show the verification seal. You can continue without it and upload later from your dashboard."
+    },
+    "errors": {
+      "nameRequired": "Full name is required",
+      "emailInvalid": "Invalid e-mail",
+      "passwordMin": "Password must be at least 6 characters",
+      "selectTipoRegistro": "Select the registry type (CRM, COREN, etc.)",
+      "selectEspecialidade": "Select at least one specialty",
+      "selectDisponibilidade": "Select at least one availability"
+    },
+    "nav": {
+      "back": "← Back",
+      "next": "Next →",
+      "submit": "Create account",
+      "submitting": "Saving..."
+    }
+  },
+  "especialidades": {
+    "Idosos": "Elderly",
+    "Alzheimer": "Alzheimer's",
+    "Cuidados Paliativos": "Palliative care",
+    "Pós-operatório": "Post-op",
+    "Geriatria": "Geriatrics",
+    "Fisioterapia": "Physiotherapy",
+    "Psicologia": "Psychology",
+    "Acompanhamento Familiar": "Family support",
+    "Diabetes": "Diabetes",
+    "Hipertensão": "Hypertension",
+    "Mobilidade Reduzida": "Reduced mobility",
+    "Acamados": "Bedridden"
+  },
+  "disponibilidade": {
+    "manha": "Morning",
+    "tarde": "Afternoon",
+    "noite": "Night",
+    "12h": "12h shift",
+    "24h": "24h shift"
+  },
+  "vagas": {
+    "title": "Open jobs",
+    "subtitle": "Find home care opportunities",
+    "filterProfessional": "Professional (e.g. Caregiver)",
+    "filterComplexity": "Complexity",
+    "complexityLow": "Low",
+    "complexityMed": "Medium",
+    "filterRegion": "Region (e.g. South Zone)",
+    "filterMinPay": "Min. pay R$",
+    "filter": "Filter",
+    "loading": "Loading jobs...",
+    "empty": "No active jobs at the moment.",
+    "noResults": "No jobs found with those filters.",
+    "perHour": "h",
+    "perShift": "shift"
+  },
+  "vagaDetalhe": {
+    "back": "← Back to jobs",
+    "publishedBy": "Posted by <strong>{{name}}</strong>",
+    "complexity": "{{value}} complexity",
+    "complexityLow": "low",
+    "complexityMed": "medium",
+    "fields": {
+      "regiao": "Region",
+      "horario": "Schedule",
+      "escala": "Shift pattern",
+      "tipoContrato": "Contract type",
+      "remuneracao": "Pay",
+      "paciente": "Patient",
+      "diagnostico": "Diagnosis / notes",
+      "descricao": "Service description"
+    },
+    "paciente": {
+      "F": "Female",
+      "M": "Male",
+      "Outro": "",
+      "idade": ", {{age}} years old"
+    },
+    "remuneracao": {
+      "hora": "hour",
+      "plantao": "shift"
+    },
+    "apply": {
+      "title": "I want to apply",
+      "messageLabel": "Message to the contractor (optional)",
+      "messagePlaceholder": "Introduce yourself briefly...",
+      "cancel": "Cancel",
+      "submit": "Send application",
+      "success": "Application sent! You can track it in your dashboard."
+    },
+    "guestCta": {
+      "title": "Want to apply for this job?",
+      "login": "Log in",
+      "signup": "Sign up as a professional"
+    }
+  },
+  "dashboardPro": {
+    "greeting": "Hi, {{name}} 👋",
+    "subtitle": "Find jobs that match your profile",
+    "verified": "✓ Verified diploma",
+    "tabs": {
+      "search": "🔍 Search jobs",
+      "applications": "📋 My applications",
+      "profile": "👤 My profile"
+    },
+    "filterProfessional": "Professional",
+    "filterComplexity": "Complexity",
+    "filterRegion": "Region",
+    "filter": "Filter",
+    "loadingJobs": "Loading jobs...",
+    "emptyJobs": "No jobs found with those filters.",
+    "viewDetails": "View details",
+    "apply": "Apply",
+    "applicationsEmpty": "You haven't applied to any jobs yet.",
+    "applicationsLoading": "Loading...",
+    "applicationSentAt": "Sent on {{date}}",
+    "status": {
+      "pendente": "Pending",
+      "visualizada": "Viewed",
+      "aceita": "✓ Accepted",
+      "recusada": "Rejected"
+    },
+    "chat": "💬 Chat",
+    "profile": {
+      "title": "Profile summary",
+      "viewPublic": "👁️ View public profile",
+      "name": "Name:",
+      "email": "E-mail:",
+      "phone": "Phone:",
+      "registro": "Registry:",
+      "registroValue": "{{type}} {{number}}",
+      "registroNotSet": "not provided",
+      "registroVerifyButton": "Verify registry now",
+      "registroVerifying": "Verifying...",
+      "registroLastCheck": "Last check: {{date}}",
+      "registroHelp": "We validate the format of your registry number against the council (CRM, COREN, CREFITO, CRP, CRN). Final confirmation is still the contractor's responsibility.",
+      "registroResultOk": "✓ Registry validated — verified seal activated.",
+      "registroResultInvalid": "⚠️ We don't recognize that format. Please check the number and try again. Your profile stays marked as \"Under review\".",
+      "diploma": "Diploma:",
+      "diplomaNotSent": "not uploaded",
+      "verified": "Verified",
+      "especialidades": "Specialties:",
+      "disponibilidade": "Availability:",
+      "emDash": "—"
+    },
+    "alerts": {
+      "applySuccess": "Application sent! Track it in the \"My applications\" tab."
+    }
+  },
+  "dashboardContratante": {
+    "greeting": "Hi, {{name}} 👋",
+    "subtitle": "Manage your jobs and candidates",
+    "tabs": {
+      "jobs": "📋 My jobs ({{count}})",
+      "newJob": "➕ Post job"
+    },
+    "jobsLoading": "Loading...",
+    "jobsEmpty": "You haven't posted any jobs yet. Click <strong>Post job</strong> above.",
+    "candidatosTitle": "Candidates ({{count}})",
+    "candidatosEmpty": "No candidates yet. Professionals will see your job in the search.",
+    "mensagemLabel": "Message:",
+    "actions": {
+      "verPerfil": "👤 View profile",
+      "aceitar": "✓ Accept",
+      "recusar": "Reject",
+      "abrirChat": "💬 Open chat",
+      "whatsapp": "📱 WhatsApp",
+      "pausar": "Pause job",
+      "reativar": "Reactivate",
+      "encerrar": "Close job"
+    },
+    "newJob": {
+      "title": "Post a new job",
+      "publicar": "Post job",
+      "publicada": "Job posted successfully!",
+      "fields": {
+        "sexo": "Patient gender",
+        "sexoPlaceholder": "Prefer not to say",
+        "sexoF": "Female",
+        "sexoM": "Male",
+        "sexoOutro": "Other",
+        "idade": "Age",
+        "complexidade": "Complexity*",
+        "complexidadeHelp": "We do not accept high complexity/ICU.",
+        "diagnostico": "Diagnosis / clinical notes",
+        "diagnosticoPlaceholder": "Ex: Moderate Alzheimer's",
+        "profissional": "Desired professional*",
+        "selectPlaceholder": "Select",
+        "descricao": "Service description* (min. 10 characters)",
+        "descricaoPlaceholder": "Describe the expected service in detail...",
+        "horario": "Schedule",
+        "horarioPlaceholder": "Ex: 8am to 6pm",
+        "escala": "Shift pattern",
+        "escalaPlaceholder": "Ex: 12x36, Monday to Friday",
+        "tipoContrato": "Contract type",
+        "remuneracaoTipo": "Pay per",
+        "remuneracaoValor": "Amount (R$)",
+        "regiao": "Region",
+        "regiaoPlaceholder": "Ex: South Zone - São Paulo"
+      },
+      "errors": {
+        "descricaoMin": "Describe the service (minimum 10 characters).",
+        "selectProfissional": "Select the desired professional."
+      },
+      "contratos": {
+        "PJ": "PJ (Brazilian contractor)",
+        "CLT": "CLT (Brazilian employee)"
+      },
+      "remuneracao": {
+        "hora": "Hour",
+        "plantao": "Shift"
+      }
+    },
+    "candidateCount_one": "👥 {{count}} candidate",
+    "candidateCount_other": "👥 {{count}} candidates",
+    "publicadaEm": "Posted on {{date}}",
+    "criadoEm": "Sent on {{date}}",
+    "status": {
+      "ativa": "active",
+      "pausada": "paused",
+      "fechada": "closed"
+    }
+  },
+  "profissionais": {
+    "back": "← Back",
+    "loading": "Loading profile...",
+    "registroVerificado": "✓ Registry verified",
+    "registroEmAnalise": "⏳ Registry under review",
+    "registroNaoValidado": "Registry not validated",
+    "registroEstado": {
+      "verificado": "✓ Verified",
+      "emAnalise": "⏳ Under review",
+      "naoValidado": "Not validated"
+    },
+    "anosPlataforma_one": "{{count}} year on the platform",
+    "anosPlataforma_other": "{{count}} years on the platform",
+    "novoPlataforma": "New on the platform",
+    "whatsapp": "📱 WhatsApp",
+    "sobre": "About",
+    "especialidades": "Specialties",
+    "especialidadesVazias": "No specialties listed.",
+    "disponibilidade": "Availability",
+    "disponibilidadeVazia": "Not provided.",
+    "documentos": {
+      "title": "Documents and verification",
+      "diploma": "Diploma / certificate",
+      "registro": "Professional registry",
+      "verificado": "✓ Verified",
+      "emAnalise": "⏳ Under review",
+      "naoEnviado": "Not uploaded",
+      "naoInformado": "Not provided",
+      "verificadoEm": "Validated on {{date}}",
+      "help": "💡 Registry validation is structural (number format per council). Always confirm the professional's good standing by contacting them directly before the service."
+    },
+    "profissionaisOpcoes": {
+      "Cuidador de Idosos": "Elderly Caregiver",
+      "Enfermeiro": "Nurse",
+      "Técnico de Enfermagem": "Nursing Technician",
+      "Fisioterapeuta": "Physiotherapist",
+      "Psicólogo": "Psychologist",
+      "Terapeuta Ocupacional": "Occupational Therapist",
+      "Nutricionista": "Nutritionist",
+      "Médico": "Physician"
+    }
+  },
+  "chat": {
+    "online": "● online",
+    "empty": "No messages yet. Start the conversation!",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "close": "Close"
+  },
+  "wizard": {
+    "done": "✓"
+  },
+  "protectedRoute": {
+    "loading": "Loading..."
+  },
+  "errors": {
+    "network": "Network error. Check your connection and try again.",
+    "unexpected": "Unexpected error",
+    "loginFailed": "Login failed. Check your credentials.",
+    "pageNotFound": "Page not found",
+    "sessionExpired": "Session expired. Please log in again."
+  },
+  "notFound": {
+    "title": "404",
+    "subtitle": "Page not found"
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Marketplace moderation panel",
+    "welcome": "Welcome, {name}",
+    "tabs": {
+      "overview": "Overview",
+      "vagas": "Jobs",
+      "usuarios": "Users",
+      "moderacao": "History"
+    },
+    "stats": {
+      "usuariosTotal": "Total users",
+      "profissionais": "Professionals",
+      "contratantes": "Contractors",
+      "vagasAtivas": "Active jobs",
+      "vagasTotal": "Total jobs",
+      "moderacao": "Moderation",
+      "moderacaoOk": "OK",
+      "moderacaoFlagged": "Flagged",
+      "moderacaoRemovida": "Removed",
+      "verificados": "Verified records",
+      "pendentes": "Pending verification",
+      "candidaturas": "Applications",
+      "avaliacoes": "Reviews",
+      "mensagens": "Messages",
+      "vagasPorDia": "Jobs posted (14d)",
+      "porTipoRegistro": "Professionals by registry type"
+    },
+    "vagas": {
+      "title": "Job moderation",
+      "filters": "Filters",
+      "filterStatus": "Job status",
+      "filterModeracao": "Moderation",
+      "filterAll": "All",
+      "filterQ": "Search by text",
+      "filterApply": "Filter",
+      "th": {
+        "id": "ID",
+        "descricao": "Description",
+        "contratante": "Contractor",
+        "regiao": "Region",
+        "status": "Status",
+        "moderacao": "Moderation",
+        "candidatos": "Apps",
+        "moderadoPor": "By",
+        "acoes": "Actions"
+      },
+      "empty": "No jobs match those filters.",
+      "view": "View details",
+      "actions": {
+        "flag": "Flag",
+        "unflag": "Unflag",
+        "remove": "Remove",
+        "restore": "Restore"
+      },
+      "confirmRemove": "Are you sure you want to REMOVE this job? It won't appear publicly, but the history will be preserved.",
+      "motivoLabel": "Reason (required)",
+      "motivoPlaceholder": "Briefly describe the reason for this action",
+      "submit": "Confirm"
+    },
+    "detalhe": {
+      "title": "Job #{id}",
+      "voltar": "← Back to list",
+      "candidaturas": "Applications ({n})",
+      "historico": "Moderation history",
+      "semCands": "No applications yet.",
+      "semHistorico": "No moderation actions recorded.",
+      "acao": "Action",
+      "admin": "Admin",
+      "quando": "When",
+      "motivo": "Reason",
+      "mod": "Mod.: {status}"
+    },
+    "usuarios": {
+      "title": "Users",
+      "filterTipo": "Type",
+      "todos": "All",
+      "th": {
+        "nome": "Name",
+        "email": "Email",
+        "tipo": "Type",
+        "registro": "Registry",
+        "verificado": "Verified",
+        "criado": "Created",
+        "atividade": "Activity"
+      }
+    },
+    "moderacao": {
+      "title": "Moderation history",
+      "th": {
+        "quando": "When",
+        "admin": "Admin",
+        "vaga": "Job",
+        "acao": "Action",
+        "motivo": "Reason"
+      }
+    },
+    "regioes": "Region: {regiao}",
+    "semRegiao": "no region",
+    "vagaFlagged": "Flagged",
+    "vagaRemovida": "Removed",
+    "vagaOk": "OK",
+    "vagaAtiva": "Active",
+    "vagaPausada": "Paused",
+    "vagaFechada": "Closed",
+    "verificado": "Verified",
+    "pendente": "Pending",
+    "naoVerificado": "Not verified",
+    "emAnalise": "In review"
+  }
+}

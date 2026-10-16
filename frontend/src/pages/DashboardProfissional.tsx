@@ -1,19 +1,24 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
 import api from '../utils/api';
-import type { Vaga, Candidatura, ProfissionalDetalhes } from '../types';
+import type { Vaga, Candidatura, ProfissionalDetalhes, AvaliacaoPendente } from '../types';
 import Chat from '../components/Chat';
+import AvaliacaoModal from '../components/AvaliacaoModal';
 
 export default function DashboardProfissional() {
   const { user, refreshUser } = useAuth();
-  const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'favoritos' | 'perfil'>('buscar');
+  const toast = useToast();
+  const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'perfil' | 'avaliacoes'>('buscar');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [cands, setCands] = useState<Candidatura[]>([]);
   const [favoritas, setFavoritas] = useState<Vaga[]>([]);
   const [detalhes, setDetalhes] = useState<ProfissionalDetalhes | null>(null);
+  const [avPendentes, setAvPendentes] = useState<AvaliacaoPendente[]>([]);
   const [loading, setLoading] = useState(false);
   const [chatCom, setChatCom] = useState<{ id: number; nome: string } | null>(null);
+  const [avaliar, setAvaliar] = useState<AvaliacaoPendente | null>(null);
 
   // filtros
   const [fProf, setFProf] = useState('');
@@ -25,6 +30,7 @@ export default function DashboardProfissional() {
   useEffect(() => { if (tab === 'buscar') carregarVagas(); }, [tab, fProf, fCx, fReg]);
 
   useEffect(() => { if (tab === 'candidaturas') carregarCands(); }, [tab]);
+  useEffect(() => { if (tab === 'avaliacoes') carregarAvPendentes(); }, [tab]);
 
   useEffect(() => { if (tab === 'favoritos') carregarFavoritas(); }, [tab]);
 
@@ -75,9 +81,21 @@ export default function DashboardProfissional() {
   async function candidatar(vagaId: number) {
     try {
       await api.post('/candidaturas', { id_vaga: vagaId });
-      alert('Candidatura enviada! Acompanhe na aba "Minhas candidaturas".');
+      toast.success('Candidatura enviada! Acompanhe na aba "Minhas candidaturas".');
     } catch (err) {
-      alert(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
+    }
+  }
+
+  async function carregarAvPendentes() {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/avaliacoes/pendentes');
+      setAvPendentes(data.pendentes);
+    } catch (err) {
+      console.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -96,17 +114,17 @@ export default function DashboardProfissional() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200 mb-6">
+      <div className="flex gap-1 border-b border-slate-200 mb-6 overflow-x-auto">
         {[
           { k: 'buscar', l: '🔍 Buscar vagas' },
           { k: 'candidaturas', l: '📋 Minhas candidaturas' },
-          { k: 'favoritos', l: '❤️ Favoritas' },
+          { k: 'avaliacoes', l: `⭐ Avaliações${avPendentes.length ? ` (${avPendentes.length})` : ''}` },
           { k: 'perfil', l: '👤 Meu perfil' }
         ].map((t) => (
           <button
             key={t.k}
             onClick={() => setTab(t.k as any)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
               tab === t.k
                 ? 'border-serenity-500 text-serenity-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -213,38 +231,33 @@ export default function DashboardProfissional() {
         </div>
       )}
 
-      {/* TAB: FAVORITOS */}
-      {tab === 'favoritos' && (
+      {/* TAB: AVALIAÇÕES PENDENTES */}
+      {tab === 'avaliacoes' && (
         <div>
           {loading ? (
             <p className="text-center text-slate-400 py-12">Carregando...</p>
-          ) : favoritas.length === 0 ? (
+          ) : avPendentes.length === 0 ? (
             <div className="card text-center py-12 text-slate-500">
-              Você ainda não favoritou nenhuma vaga. Clique no 🤍 em uma vaga para salvar.
+              <div className="text-4xl mb-2">⭐</div>
+              <p>Nenhuma avaliação pendente.</p>
+              <p className="text-xs mt-1">Quando uma vaga for encerrada, você poderá avaliar o contratante aqui.</p>
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {favoritas.map((v) => (
-                <div key={v.id} className="card flex flex-col">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold">{v.profissional_desejado}</h3>
-                    <span className={v.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
-                      {v.complexidade}
-                    </span>
+            <div className="space-y-3">
+              {avPendentes.map((p) => (
+                <div key={p.candidatura_id} className="card flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="font-semibold">{p.profissional_desejado}</h3>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      {p.regiao || '—'} • Com <strong>{p.outro_nome}</strong>
+                    </p>
                   </div>
-                  <p className="text-sm text-slate-500 line-clamp-2 mt-1">{v.servico_descricao}</p>
-                  <div className="flex flex-wrap gap-2 text-xs text-slate-500 mt-2">
-                    {v.regiao && <span>📍 {v.regiao}</span>}
-                    {v.remuneracao_valor && (
-                      <span className="font-semibold text-emerald-600">
-                        💰 R$ {v.remuneracao_valor}/{v.remuneracao_tipo === 'hora' ? 'h' : 'plantão'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-auto pt-3 flex gap-2">
-                    <Link to={`/vagas/${v.id}`} className="btn-ghost flex-1 text-center text-sm">Ver</Link>
-                    <button onClick={() => candidatar(v.id)} className="btn-primary flex-1 text-sm">Candidatar</button>
-                  </div>
+                  <button
+                    onClick={() => setAvaliar(p)}
+                    className="btn-primary text-sm"
+                  >
+                    ⭐ Avaliar
+                  </button>
                 </div>
               ))}
             </div>
@@ -294,6 +307,12 @@ export default function DashboardProfissional() {
           onClose={() => setChatCom(null)}
         />
       )}
+
+      <AvaliacaoModal
+        pendente={avaliar}
+        onClose={() => setAvaliar(null)}
+        onSuccess={carregarAvPendentes}
+      />
     </div>
   );
 }
