@@ -18,6 +18,8 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
   const [msgs, setMsgs] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState('');
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [digitando, setDigitando] = useState(false);
+  const typingTimeout = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,6 +45,13 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
         setMsgs((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
         // Atualiza o badge de não-lidas no navbar
         window.dispatchEvent(new Event('essencia:refresh-unread'));
+      }
+    });
+    s.on('mensagem:typing', ({ de }: { de: number }) => {
+      if (de === outroId) {
+        setDigitando(true);
+        clearTimeout(typingTimeout.current);
+        typingTimeout.current = setTimeout(() => setDigitando(false), 2500);
       }
     });
     return () => { s.disconnect(); };
@@ -73,6 +82,13 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
       // Como o backend já emite via socket, o badge atualiza via listener
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  function handleTextoChange(v: string) {
+    setTexto(v);
+    if (socket && v.length > 0) {
+      socket.emit('mensagem:typing', { para: outroId });
     }
   }
 

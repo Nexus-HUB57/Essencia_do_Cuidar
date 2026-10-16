@@ -25,6 +25,26 @@ interface ProfUser {
   criado_em: string;
 }
 
+interface ProfStats {
+  total_candidaturas: number;
+  aceitas: number;
+  vagas_aceitas: number;
+  vagas_concluidas: number;
+}
+
+interface AvalStats {
+  total: number;
+  media: number;
+  cinco: number; quatro: number; tres: number; dois: number; um: number;
+}
+
+interface Aval {
+  nota: number;
+  comentario: string | null;
+  criado_em: string;
+  contratante_nome: string;
+}
+
 const DISP_LABEL: Record<string, string> = {
   manha: "Manhã", tarde: "Tarde", noite: "Noite", "12h": "Turno 12h", "24h": "Plantão 24h"
 };
@@ -132,6 +152,18 @@ export default function ProfissionalPerfil() {
                 : t("profissionais.novoPlataforma")}
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            <FavoritarBotao tipo="profissional" id={Number(id)} size="md" />
+            {user.telefone && (
+              <a
+                href={`https://wa.me/55${user.telefone.replace(/\D/g, '')}`}
+                target="_blank" rel="noopener"
+                className="btn-secondary text-sm"
+              >
+                📱 WhatsApp
+              </a>
+            )}
+          </div>
           {user.telefone && (
             <a
               href={`https://wa.me/55${user.telefone.replace(/\D/g, "")}`}
@@ -143,6 +175,24 @@ export default function ProfissionalPerfil() {
           )}
         </div>
       </div>
+
+      {/* Estatísticas profissionais */}
+      {profStats && (profStats.total_candidaturas > 0 || profStats.vagas_concluidas > 0) && (
+        <div className="grid grid-cols-3 gap-3 mt-4">
+          <div className="card text-center py-4">
+            <p className="text-2xl font-bold text-serenity-600">{profStats.vagas_concluidas}</p>
+            <p className="text-xs text-slate-500 mt-1">Atendimentos concluídos</p>
+          </div>
+          <div className="card text-center py-4">
+            <p className="text-2xl font-bold text-emerald-600">{profStats.vagas_aceitas}</p>
+            <p className="text-xs text-slate-500 mt-1">Vagas aceitas</p>
+          </div>
+          <div className="card text-center py-4">
+            <p className="text-2xl font-bold text-amber-600">{profStats.total_candidaturas}</p>
+            <p className="text-xs text-slate-500 mt-1">Candidaturas totais</p>
+          </div>
+        </div>
+      )}
 
       {/* Bio */}
       {detalhes?.bio && (

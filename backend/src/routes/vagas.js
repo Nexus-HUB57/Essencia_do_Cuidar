@@ -38,15 +38,26 @@ router.get('/', (req, res) => {
   if (remuneracaoMin) { filters.push('v.remuneracao_valor >= ?'); params.push(Number(remuneracaoMin)); }
 
   const where = 'WHERE ' + filters.join(' AND ');
+  const orderBy = ordenar === 'remuneracao'
+    ? 'ORDER BY v.remuneracao_valor DESC'
+    : 'ORDER BY v.criado_em DESC';
+  const lim = Math.min(Number(limite) || 50, 100);
+  const off = Math.max(Number(offset) || 0, 0);
+
   const rows = db.prepare(`
     SELECT v.*, u.nome AS contratante_nome
       FROM vagas v
       JOIN users u ON u.id = v.id_contratante
       ${where}
-     ORDER BY v.criado_em DESC
-     LIMIT 100
-  `).all(...params);
-  res.json({ vagas: rows });
+      ${orderBy}
+     LIMIT ? OFFSET ?
+  `).all(...params, lim, off);
+
+  const total = db.prepare(`
+    SELECT COUNT(*) AS n FROM vagas v ${where}
+  `).get(...params).n;
+
+  res.json({ vagas: rows, total, limite: lim, offset: off });
 });
 
 /**

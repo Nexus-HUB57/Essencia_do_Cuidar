@@ -9,6 +9,7 @@ export default function Login() {
   const translateError = useErrorTranslator();
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
@@ -27,6 +28,7 @@ export default function Login() {
     setLoading(true);
     try {
       const u = await login(email, senha);
+      toast.success('Bem-vindo de volta!', `Olá, ${u.nome.split(' ')[0]}`);
       navigate(u.tipo_usuario === 'profissional' ? '/dashboard/profissional' : '/dashboard/contratante');
     } catch (err) {
       setErro(translateError(err));

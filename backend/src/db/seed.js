@@ -120,6 +120,9 @@ function seed() {
   console.log('[seed] dados demo criados:');
   console.log('   - admin:       admin@demo.com / demo1234');
   console.log('   - contratante: maria@demo.com / demo1234');
+  console.log('   - contratante: oliveira@demo.com / demo1234');
+  console.log('   - contratante: santos@demo.com / demo1234');
+  console.log('   - contratante: vidaplus@demo.com / demo1234');
   console.log('   - profissional: ana@demo.com / demo1234');
   console.log('   - profissional: joao@demo.com / demo1234');
   console.log('   - profissional: bia@demo.com / demo1234');
