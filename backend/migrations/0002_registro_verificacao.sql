@@ -14,8 +14,12 @@
 -- micro-migrator eh idempotente. O Postgres adapter traduz
 -- `INTEGER PRIMARY KEY` para `SERIAL PRIMARY KEY` automaticamente.
 
+-- Sem IF NOT EXISTS: o migrator garante uma única aplicação via
+-- schema_migrations, e a sintaxe `ADD COLUMN IF NOT EXISTS` não é
+-- suportada pela versão do better-sqlite3 nas deps. Em Postgres o
+-- micro-migrator não re-aplica migrations já registradas.
 ALTER TABLE profissionais_detalhes
-  ADD COLUMN IF NOT EXISTS registro_verificado_em TEXT;
+  ADD COLUMN registro_verificado_em TEXT;
 
 -- Backfill defensivo: tudo que ja estava como 1 vira 1 (mantem o selo).
 -- Nao tocamos em valores 0 (continuam nao verificados).

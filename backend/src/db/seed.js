@@ -8,6 +8,7 @@ import db from './index.js';
 function seed() {
   // Limpa dados de demo (idempotente para desenvolvimento)
   db.exec(`
+    DELETE FROM vagas_moderacao;
     DELETE FROM mensagens;
     DELETE FROM candidaturas;
     DELETE FROM vagas;
@@ -21,6 +22,12 @@ function seed() {
     INSERT INTO users (tipo_usuario, nome, email, senha_hash, telefone)
     VALUES (?, ?, ?, ?, ?)
   `);
+
+  // Admin demo (criado só via seed — cadastro público não aceita 'admin')
+  const adminId = insertUser.run(
+    'admin', 'Admin Demo', 'admin@demo.com', hash('demo1234'),
+    '11999990000'
+  ).lastInsertRowid;
 
   // Contratante demo
   const contratanteId = insertUser.run(
@@ -82,27 +89,41 @@ function seed() {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  insertVaga.run(
+  const vaga1 = insertVaga.run(
     contratanteId, 'F', 82, 'Alzheimer moderado',
     'media', 'Acompanhante diurno para idosa com Alzheimer. Auxílio em medicação, alimentação e mobilidade.',
     'Cuidador de Idosos', '08h às 18h', 'Segunda a Sexta', 'CLT', 'hora', 35, 'Zona Sul - SP', 'ativa'
-  );
-  insertVaga.run(
+  ).lastInsertRowid;
+  const vaga2 = insertVaga.run(
     contratanteId, 'M', 70, 'Pós-operatório de quadril',
     'media', 'Sessões de fisioterapia domiciliar, 3x por semana, foco em mobilidade.',
     'Fisioterapeuta', '14h às 16h', 'Seg/Qua/Sex', 'PJ', 'hora', 80, 'Zona Oeste - SP', 'ativa'
-  );
+  ).lastInsertRowid;
   insertVaga.run(
     contratanteId, 'F', 75, 'Hipertensão e mobilidade reduzida',
     'baixa', 'Cuidador noturno para idosa independente que precisa de companhia e supervisão.',
     'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP', 'ativa'
   );
 
+  // Marca uma vaga como flagged e outra como removida para o admin ter
+  // algo para revisar no dashboard logo no primeiro login.
+  db.prepare(`UPDATE vagas SET moderacao_status='flagged', moderacao_motivo='Relato de descrição vaga', moderado_por=?, moderado_em=CURRENT_TIMESTAMP WHERE id=?`)
+    .run(adminId, vaga1);
+  db.prepare(`INSERT INTO vagas_moderacao (id_vaga, id_admin, acao, motivo) VALUES (?, ?, 'flag', 'Relato de descrição vaga')`)
+    .run(vaga1, adminId);
+
+  db.prepare(`UPDATE vagas SET moderacao_status='removida', moderacao_motivo='Conteúdo inadequado', moderado_por=?, moderado_em=CURRENT_TIMESTAMP WHERE id=?`)
+    .run(adminId, vaga2);
+  db.prepare(`INSERT INTO vagas_moderacao (id_vaga, id_admin, acao, motivo) VALUES (?, ?, 'remove', 'Conteúdo inadequado')`)
+    .run(vaga2, adminId);
+
   console.log('[seed] dados demo criados:');
+  console.log('   - admin:       admin@demo.com / demo1234');
   console.log('   - contratante: maria@demo.com / demo1234');
   console.log('   - profissional: ana@demo.com / demo1234');
   console.log('   - profissional: joao@demo.com / demo1234');
   console.log('   - profissional: bia@demo.com / demo1234');
+  console.log('[seed] 1 vaga flagged e 1 removida para o admin revisar');
 }
 
 seed();
