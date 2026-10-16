@@ -2,6 +2,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTema } from '../hooks/useTema';
 import BotaoInstalar from './BotaoInstalar';
+import SinoNotificacoes from './SinoNotificacoes';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -38,6 +39,7 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2">
           <BotaoInstalar />
+          <SinoNotificacoes />
           <button
             onClick={toggle}
             className="text-sm px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"

@@ -24,6 +24,22 @@ interface Candidato {
   bio: string | null;
 }
 
+interface HistoricoItem {
+  vaga_id: number;
+  profissional_desejado: string;
+  complexidade: string;
+  regiao: string | null;
+  remuneracao_valor: number | null;
+  remuneracao_tipo: string | null;
+  criado_em: string;
+  profissional_id: number;
+  profissional_nome: string;
+  profissional_telefone: string | null;
+  candidatura_id: number;
+  candidatura_em: string;
+  avaliacao: { nota: number; comentario: string | null; criado_em: string } | null;
+}
+
 const TURNOS = [
   { v: 'manha', l: 'Manhã' },
   { v: 'tarde', l: 'Tarde' },
@@ -38,9 +54,10 @@ const PROFISSIONAIS_OPCOES = [
 export default function DashboardContratante() {
   const { user } = useAuth();
   const toast = useToast();
-  const [tab, setTab] = useState<'vagas' | 'nova'>('vagas');
+  const [tab, setTab] = useState<'vagas' | 'nova' | 'historico'>('vagas');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
+  const [historico, setHistorico] = useState<HistoricoItem[]>([]);
   const [vagaSel, setVagaSel] = useState<Vaga | null>(null);
   const [loading, setLoading] = useState(false);
   const [chatCom, setChatCom] = useState<{ id: number; nome: string } | null>(null);
@@ -65,6 +82,7 @@ export default function DashboardContratante() {
 
   useEffect(() => { carregarVagas(); }, []);
   useEffect(() => { if (vagaSel) carregarCandidatos(vagaSel.id); }, [vagaSel]);
+  useEffect(() => { if (tab === 'historico') carregarHistorico(); }, [tab]);
 
   async function carregarVagas() {
     setLoading(true);
@@ -84,6 +102,18 @@ export default function DashboardContratante() {
       setCandidatos(data.candidatos);
     } catch (err) {
       console.error(getErrorMessage(err));
+    }
+  }
+
+  async function carregarHistorico() {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/candidaturas/contratante/historico');
+      setHistorico(data.historico);
+    } catch (err) {
+      console.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -345,7 +375,8 @@ export default function DashboardContratante() {
       <div className="flex gap-1 border-b border-slate-200 mb-6">
         {[
           { k: 'vagas', l: `📋 Minhas vagas (${vagas.length})` },
-          { k: 'nova', l: '➕ Publicar vaga' }
+          { k: 'nova', l: '➕ Publicar vaga' },
+          { k: 'historico', l: `📚 Histórico (${historico.length})` }
         ].map((t) => (
           <button
             key={t.k}
@@ -497,6 +528,72 @@ export default function DashboardContratante() {
             <button onClick={publicar} className="btn-primary">Publicar vaga</button>
           </div>
         </div>
+      )}
+
+      {/* ABA: HISTÓRICO DE CONTRATAÇÕES */}
+      {tab === 'historico' && (
+        loading ? <p className="text-center py-12 text-slate-400">Carregando histórico...</p> :
+        historico.length === 0 ? (
+          <div className="card text-center py-12 text-slate-500">
+            <p className="mb-1">Nenhuma contratação concluída ainda.</p>
+            <p className="text-xs">Vagas fechadas com profissional aceito aparecerão aqui.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {historico.map((h) => (
+              <div key={h.candidatura_id} className="card">
+                <div className="flex items-start justify-between flex-wrap gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold">{h.profissional_desejado}</h3>
+                      <span className={h.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
+                        {h.complexidade}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-500 mt-1">
+                      ✅ Contratação concluída com{' '}
+                      <Link to={`/profissional/${h.profissional_id}`} className="font-medium text-serenity-600 dark:text-serenity-300 hover:underline">
+                        {h.profissional_nome}
+                      </Link>
+                    </p>
+                    <div className="flex flex-wrap gap-3 text-xs text-slate-500 mt-2">
+                      {h.regiao && <span>📍 {h.regiao}</span>}
+                      {h.remuneracao_valor && (
+                        <span className="font-semibold text-emerald-600">
+                          💰 R$ {h.remuneracao_valor}/{h.remuneracao_tipo === 'hora' ? 'h' : 'plantão'}
+                        </span>
+                      )}
+                      <span className="text-slate-400">
+                        Concluída em {new Date(h.criado_em + 'Z').toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    {h.avaliacao ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-amber-500 text-lg">{'★'.repeat(h.avaliacao.nota)}{'☆'.repeat(5 - h.avaliacao.nota)}</span>
+                      </div>
+                    ) : (
+                      <span className="badge-slate text-xs">Sem avaliação</span>
+                    )}
+                    {h.profissional_telefone && (
+                      <a href={`https://wa.me/55${h.profissional_telefone.replace(/\D/g, '')}`}
+                        target="_blank" rel="noopener"
+                        className="text-xs text-serenity-600 dark:text-serenity-300 hover:underline">
+                        📱 {h.profissional_telefone}
+                      </a>
+                    )}
+                  </div>
+                </div>
+                {h.avaliacao?.comentario && (
+                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-3 italic border-t border-slate-100 dark:border-slate-700 pt-3">
+                    "💬 {h.avaliacao.comentario}"
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   );

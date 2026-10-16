@@ -48,6 +48,26 @@ export default function VagaDetalhe() {
     }
   }
 
+  async function compartilhar() {
+    const link = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Vaga: ${vaga?.profissional_desejado}`,
+          text: `Confira esta vaga na Essência do Cuidar`,
+          url: link
+        });
+      } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(link);
+        toast.success('Link copiado!', 'Cole onde quiser compartilhar');
+      } catch {
+        toast.warning('Não foi possível copiar o link');
+      }
+    }
+  }
+
   if (loading) return <div className="text-center py-20 text-slate-400">Carregando...</div>;
   if (erro && !vaga) return <div className="text-center py-20 text-rose-500">{erro}</div>;
   if (!vaga) return null;
@@ -66,6 +86,13 @@ export default function VagaDetalhe() {
             <p className="text-xs text-slate-400 mt-1">👁️ {visualizacoes} {visualizacoes === 1 ? 'visualização' : 'visualizações'}</p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={compartilhar}
+              className="text-sm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+              title="Compartilhar vaga"
+            >
+              🔗 Compartilhar
+            </button>
             <FavoritarBotao tipo="vaga" id={vaga.id} size="md" />
             <span className={vaga.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
               Complexidade {vaga.complexidade === 'media' ? 'média' : 'baixa'}

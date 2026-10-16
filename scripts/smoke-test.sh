@@ -205,6 +205,36 @@ VIEWS=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['v
 echo "  views: $VIEWS"
 [ "$VIEWS" -gt 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 
+# --- 21. Notificações do contratante
+echo "[21] Endpoint de notificações (contratante)"
+CODE=$(http_code -H "Authorization: Bearer $CONT_TOKEN" "$BASE/api/notificacoes")
+assert_eq 200 "$CODE" "GET /notificacoes retorna 200"
+
+# --- 22. Contador de notificações
+RESP=$(http_body -H "Authorization: Bearer $CONT_TOKEN" "$BASE/api/notificacoes/contador")
+TOTAL_NL=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['nao_lidas'])" 2>/dev/null || echo "0")
+echo "  não lidas: $TOTAL_NL"
+[ "$TOTAL_NL" -ge 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+# --- 23. Ordenação de vagas
+echo "[23] Ordenação por remuneração"
+RESP=$(http_body "$BASE/api/vagas?ordenar=remuneracao&limite=3")
+TOP=$(echo "$RESP" | python3 -c "import json,sys;vagas=json.load(sys.stdin)['vagas'];print(vagas[0]['remuneracao_valor'] if vagas else 0)" 2>/dev/null || echo "0")
+[ "$TOP" -gt 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+echo "  vaga mais bem paga: R\$ $TOP"
+
+# --- 24. Histórico de contratações
+echo "[24] Histórico de contratações"
+RESP=$(http_body -H "Authorization: Bearer $CONT_TOKEN" "$BASE/api/candidaturas/contratante/historico")
+TOTAL_HIST=$(echo "$RESP" | python3 -c "import json,sys;print(len(json.load(sys.stdin)['historico']))" 2>/dev/null || echo "0")
+echo "  total no histórico: $TOTAL_HIST"
+[ "$TOTAL_HIST" -ge 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+# --- 25. Marcar mensagens como lidas
+echo "[25] Marcar notificações como lidas"
+CODE=$(http_code -X POST -H "Authorization: Bearer $CONT_TOKEN" "$BASE/api/notificacoes/marcar-lidas")
+assert_eq 200 "$CODE" "POST /notificacoes/marcar-lidas retorna 200"
+
 echo ""
 echo "============================================================"
 echo -e "  ${GREEN}Passou: $PASS${NC} | ${RED}Falhou: $FAIL${NC}"
