@@ -130,6 +130,27 @@ export function initSchema() {
       FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE SET NULL
     );
     CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
+
+    CREATE TABLE IF NOT EXISTS favoritos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_user INTEGER NOT NULL,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga','profissional')),
+      id_recurso INTEGER NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(id_user, tipo, id_recurso),
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
+
+    CREATE TABLE IF NOT EXISTS vaga_visualizacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_vaga INTEGER NOT NULL,
+      id_user INTEGER,  -- null se anônimo
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_vv_vaga ON vaga_visualizacoes(id_vaga);
   `);
 
   console.log('[db] schema inicializado em', dbPath);

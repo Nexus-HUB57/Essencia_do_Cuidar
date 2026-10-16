@@ -10,6 +10,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
     <title>Essência do Cuidar — Cuidado domiciliar com confiança</title>
+    <script>
+      // Aplica o tema antes do React montar (evita flash)
+      (function() {
+        try {
+          var t = localStorage.getItem('essencia_tema');
+          if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          if (t === 'dark') document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -99,6 +99,7 @@ router.post('/me/diploma', authRequired, requireTipo('profissional'),
 
 /**
  * GET /api/profissionais/:id  — perfil público de um profissional
+ * Inclui estatísticas (vagas concluídas, total de candidaturas, etc).
  */
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
@@ -107,7 +108,28 @@ router.get('/:id', (req, res) => {
   ).get(id);
   if (!user) return res.status(404).json({ error: 'Profissional não encontrado' });
   const detalhes = db.prepare('SELECT * FROM profissionais_detalhes WHERE id_user = ?').get(id);
-  res.json({ user, detalhes });
+
+  // Stats: candidaturas totais, aceitas, vagas fechadas em que atuou
+  const stats = db.prepare(`
+    SELECT
+      (SELECT COUNT(*) FROM candidaturas WHERE id_profissional = ?) AS total_candidaturas,
+      (SELECT COUNT(*) FROM candidaturas WHERE id_profissional = ? AND status_candidatura = 'aceita') AS aceitas,
+      (SELECT COUNT(DISTINCT id_vaga) FROM candidaturas WHERE id_profissional = ? AND status_candidatura = 'aceita') AS vagas_aceitas
+  `).get(id, id, id);
+
+  // Vagas em que o profissional foi aceito E a vaga está fechada (= concluída)
+  const concluidas = db.prepare(`
+    SELECT COUNT(*) AS n
+      FROM candidaturas c
+      JOIN vagas v ON v.id = c.id_vaga
+     WHERE c.id_profissional = ? AND c.status_candidatura = 'aceita' AND v.status = 'fechada'
+  `).get(id).n;
+
+  res.json({
+    user,
+    detalhes,
+    stats: { ...stats, vagas_concluidas: concluidas }
+  });
 });
 
 export default router;

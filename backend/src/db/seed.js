@@ -130,6 +130,15 @@ function seed() {
   const v6 = insertVaga.run(c6, 'M', 72, 'Parkinson', 'media', 'Acompanhamento diurno.', 'Cuidador de Idosos', '09h-17h', 'Seg a Sex', 'PJ', 'hora', 45, 'Zona Oeste', 'fechada').lastInsertRowid;
   insertCand.run(v5, prof1, 'Atendimento 24h');
   insertCand.run(v6, prof1, 'Acompanhamento Parkinson');
+  // Candidatura da Ana numa vaga ATIVA para stats de candidaturas totais
+  const vAtiva = db.prepare(`SELECT id FROM vagas WHERE id_contratante = ? AND status = 'ativa' LIMIT 1`).get(contratanteId);
+  if (vAtiva) insertCand.run(vAtiva.id, prof1, 'Disponível para início imediato');
+  // Candidatura da Ana numa vaga PAUSADA (testes)
+  // Cria + fecha uma vaga demo pra stats de "vagas concluídas"
+  const vConc = insertVaga.run(contratanteId, 'M', 79, 'Reabilitação', 'media',
+    'Trabalho concluído em 3 meses, profissional exemplar.',
+    'Cuidador de Idosos', '08h-18h', 'Seg a Sex', 'CLT', 'plantao', 250, 'Zona Sul', 'fechada').lastInsertRowid;
+  insertCand.run(vConc, prof1, 'Já trabalhei com casos similares');
   insertAv.run(c5, prof1, v5, 5, null);
   insertAv.run(c6, prof1, v6, 4, 'Muito atenciosa com paciente difícil.');
 

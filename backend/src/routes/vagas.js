@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import db from '../db/index.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
@@ -49,6 +50,7 @@ router.get('/', (req, res) => {
 
 /**
  * GET /api/vagas/:id  — detalhe de uma vaga
+ * Registra uma visualização (analytics simples) e retorna a vaga + contagem.
  */
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
@@ -58,7 +60,21 @@ router.get('/:id', (req, res) => {
      WHERE v.id = ?
   `).get(id);
   if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
-  res.json({ vaga });
+
+  // Registra view
+  const auth = req.headers.authorization;
+  let userId = null;
+  if (auth && auth.startsWith('Bearer ')) {
+    try {
+      const payload = jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'dev-secret-trocar');
+      userId = payload.id;
+    } catch {}
+  }
+  db.prepare('INSERT INTO vaga_visualizacoes (id_vaga, id_user) VALUES (?, ?)')
+    .run(id, userId);
+
+  const visualizacoes = db.prepare('SELECT COUNT(*) AS n FROM vaga_visualizacoes WHERE id_vaga = ?').get(id).n;
+  res.json({ vaga, visualizacoes });
 });
 
 /**
