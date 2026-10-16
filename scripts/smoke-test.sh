@@ -134,12 +134,17 @@ MSG=$(http_body -X POST "$BASE/api/mensagens" \
 MSG_ID=$(echo "$MSG" | python3 -c "import json,sys;print(json.load(sys.stdin)['mensagem']['id'])" 2>/dev/null || echo "")
 [ -n "$MSG_ID" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 
-# --- 11. Perfil público
+# --- 11. Perfil público do profissional
+# O id 2 antigamente era a Ana; após o seed atual (com admin) o id 2 é admin.
+# Usa o id extraído do token do profissional cadastrado em [5].
 echo "[11] Perfil público do profissional"
-RESP=$(http_body "$BASE/api/profissionais/2")
-NOME=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['user']['nome'])" 2>/dev/null || echo "")
-[ -n "$NOME" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
-echo "  nome: $NOME"
+PROF_ID=$(echo "$PROF_TOKEN" | cut -d'.' -f2 | base64 -d 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin)['id'])" 2>/dev/null || echo "")
+if [ -n "$PROF_ID" ]; then
+  RESP=$(http_body "$BASE/api/profissionais/$PROF_ID")
+  NOME=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['user']['nome'])" 2>/dev/null || echo "")
+  [ -n "$NOME" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+  echo "  id=$PROF_ID nome=$NOME"
+fi
 
 # --- 12. Auth sem token falha
 echo "[12] Auth obrigatória"
