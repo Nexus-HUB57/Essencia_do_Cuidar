@@ -1,4 +1,4 @@
-export type TipoUsuario = "profissional" | "contratante";
+export type TipoUsuario = "profissional" | "contratante" | "admin";
 
 // Estado do registro profissional:
 //   0 = nao validado (selo cinza, default)

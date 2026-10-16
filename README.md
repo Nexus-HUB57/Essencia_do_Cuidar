@@ -337,10 +337,10 @@ Para instalar: abra no Chrome mobile, banner aparecerá automaticamente.
 - [x] Verificação estrutural de registros (regex por conselho) — 3 estados
 - [x] Internacionalização (pt-BR, es, en) com switcher
 - [x] Migração para PostgreSQL em produção (driver abstrato, zero mudanças em rotas)
+- [x] Painel administrativo (moderação de vagas) — aba Overview/Vagas/Usuários/Histórico
 - [ ] Integração com APIs oficiais dos conselhos (substituir `verifyWithCouncil`)
 - [ ] Pagamento via Pix / Stripe Connect
 - [ ] Notificações push (FCM) para chat
-- [ ] Painel administrativo (moderação de vagas)
 
 ---
 

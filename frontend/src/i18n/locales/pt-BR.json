@@ -75,23 +75,53 @@
       "proCtaButton": "Sou profissional"
     },
     "stepsFamiles": [
-      { "title": "Crie sua conta +Saúde", "desc": "Cadastro rápido com nome, e-mail e telefone." },
-      { "title": "Publique a vaga", "desc": "Descreva o paciente, a jornada e o profissional desejado." },
-      { "title": "Escolha candidatos", "desc": "Receba perfis verificados, converse no chat e feche." }
+      {
+        "title": "Crie sua conta +Saúde",
+        "desc": "Cadastro rápido com nome, e-mail e telefone."
+      },
+      {
+        "title": "Publique a vaga",
+        "desc": "Descreva o paciente, a jornada e o profissional desejado."
+      },
+      {
+        "title": "Escolha candidatos",
+        "desc": "Receba perfis verificados, converse no chat e feche."
+      }
     ],
     "stepsProfessionals": [
-      { "title": "Cadastre-se", "desc": "Envie diploma, registro e suas especialidades." },
-      { "title": "Encontre vagas", "desc": "Filtre por região, complexidade e remuneração." },
-      { "title": "Candidate-se", "desc": "Demonstre interesse e converse direto pelo chat." }
+      {
+        "title": "Cadastre-se",
+        "desc": "Envie diploma, registro e suas especialidades."
+      },
+      {
+        "title": "Encontre vagas",
+        "desc": "Filtre por região, complexidade e remuneração."
+      },
+      {
+        "title": "Candidate-se",
+        "desc": "Demonstre interesse e converse direto pelo chat."
+      }
     ],
     "security": {
       "badge": "🛡️ Segurança em primeiro lugar",
       "title": "Por que confiar na Essência",
       "items": [
-        { "title": "Registro verificado", "desc": "Validamos CRM, COREN, CREFITO, CRP e CRN." },
-        { "title": "Diploma anexado", "desc": "Profissionais sobem PDF/foto do diploma." },
-        { "title": "Chat transparente", "desc": "Toda negociação fica registrada na plataforma." },
-        { "title": "Sem alta complexidade", "desc": "Não aceitamos vagas de UTI. Foco em baixa/média." }
+        {
+          "title": "Registro verificado",
+          "desc": "Validamos CRM, COREN, CREFITO, CRP e CRN."
+        },
+        {
+          "title": "Diploma anexado",
+          "desc": "Profissionais sobem PDF/foto do diploma."
+        },
+        {
+          "title": "Chat transparente",
+          "desc": "Toda negociação fica registrada na plataforma."
+        },
+        {
+          "title": "Sem alta complexidade",
+          "desc": "Não aceitamos vagas de UTI. Foco em baixa/média."
+        }
       ]
     },
     "finalCta": {
@@ -107,18 +137,48 @@
     "familiesTitle": "🏠 Para quem busca profissional",
     "professionalsTitle": "🩺 Para profissionais",
     "families": [
-      { "title": "Cadastre-se como +Saúde", "desc": "Crie sua conta gratuita com nome, e-mail e telefone." },
-      { "title": "Publique a vaga", "desc": "Detalhe o paciente, jornada desejada e tipo de profissional." },
-      { "title": "Receba candidatos verificados", "desc": "Profissionais com diploma e registro aparecem primeiro." },
-      { "title": "Converse e feche", "desc": "Use o chat interno para combinar detalhes com segurança." },
-      { "title": "Acompanhe o atendimento", "desc": "A vaga fica ativa até você pausar ou fechar." }
+      {
+        "title": "Cadastre-se como +Saúde",
+        "desc": "Crie sua conta gratuita com nome, e-mail e telefone."
+      },
+      {
+        "title": "Publique a vaga",
+        "desc": "Detalhe o paciente, jornada desejada e tipo de profissional."
+      },
+      {
+        "title": "Receba candidatos verificados",
+        "desc": "Profissionais com diploma e registro aparecem primeiro."
+      },
+      {
+        "title": "Converse e feche",
+        "desc": "Use o chat interno para combinar detalhes com segurança."
+      },
+      {
+        "title": "Acompanhe o atendimento",
+        "desc": "A vaga fica ativa até você pausar ou fechar."
+      }
     ],
     "professionals": [
-      { "title": "Cadastre-se gratuitamente", "desc": "Preencha seus dados pessoais, especialidade e disponibilidade." },
-      { "title": "Suba seu diploma", "desc": "PDF ou imagem do diploma/registro para ganhar o selo de verificado." },
-      { "title": "Filtre e candidate-se", "desc": "Busque vagas por região, complexidade e remuneração." },
-      { "title": "Converse com a família", "desc": "Chat interno para combinar tudo antes de começar." },
-      { "title": "Receba o contato", "desc": "Ao ser aceito, você recebe o telefone do contratante para alinhar a chegada." }
+      {
+        "title": "Cadastre-se gratuitamente",
+        "desc": "Preencha seus dados pessoais, especialidade e disponibilidade."
+      },
+      {
+        "title": "Suba seu diploma",
+        "desc": "PDF ou imagem do diploma/registro para ganhar o selo de verificado."
+      },
+      {
+        "title": "Filtre e candidate-se",
+        "desc": "Busque vagas por região, complexidade e remuneração."
+      },
+      {
+        "title": "Converse com a família",
+        "desc": "Chat interno para combinar tudo antes de começar."
+      },
+      {
+        "title": "Receba o contato",
+        "desc": "Ao ser aceito, você recebe o telefone do contratante para alinhar a chegada."
+      }
     ],
     "safety": {
       "title": "⚠️ Importante sobre segurança",
@@ -140,10 +200,22 @@
     "signupLink": "Cadastre-se",
     "demoTitle": "Contas demo (senha: <code>{{password}}</code>)",
     "demos": [
-      { "email": "maria@demo.com", "label": "contratante +Saúde" },
-      { "email": "ana@demo.com", "label": "profissional" },
-      { "email": "joao@demo.com", "label": "profissional" },
-      { "email": "bia@demo.com", "label": "profissional" }
+      {
+        "email": "maria@demo.com",
+        "label": "contratante +Saúde"
+      },
+      {
+        "email": "ana@demo.com",
+        "label": "profissional"
+      },
+      {
+        "email": "joao@demo.com",
+        "label": "profissional"
+      },
+      {
+        "email": "bia@demo.com",
+        "label": "profissional"
+      }
     ]
   },
   "cadastro": {
@@ -476,5 +548,115 @@
   "notFound": {
     "title": "404",
     "subtitle": "Página não encontrada"
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Painel de moderação do marketplace",
+    "welcome": "Bem-vindo, {name}",
+    "tabs": {
+      "overview": "Visão geral",
+      "vagas": "Vagas",
+      "usuarios": "Usuários",
+      "moderacao": "Histórico"
+    },
+    "stats": {
+      "usuariosTotal": "Usuários totais",
+      "profissionais": "Profissionais",
+      "contratantes": "Contratantes",
+      "vagasAtivas": "Vagas ativas",
+      "vagasTotal": "Vagas no sistema",
+      "moderacao": "Moderação",
+      "moderacaoOk": "OK",
+      "moderacaoFlagged": "Sinalizadas",
+      "moderacaoRemovida": "Removidas",
+      "verificados": "Registros verificados",
+      "pendentes": "Pendentes de verificação",
+      "candidaturas": "Candidaturas",
+      "avaliacoes": "Avaliações",
+      "mensagens": "Mensagens",
+      "vagasPorDia": "Vagas publicadas (14d)",
+      "porTipoRegistro": "Profissionais por tipo de registro"
+    },
+    "vagas": {
+      "title": "Moderação de vagas",
+      "filters": "Filtros",
+      "filterStatus": "Status da vaga",
+      "filterModeracao": "Moderação",
+      "filterAll": "Todas",
+      "filterQ": "Buscar por texto",
+      "filterApply": "Filtrar",
+      "th": {
+        "id": "ID",
+        "descricao": "Descrição",
+        "contratante": "Contratante",
+        "regiao": "Região",
+        "status": "Status",
+        "moderacao": "Moderação",
+        "candidatos": "Cands.",
+        "moderadoPor": "Por",
+        "acoes": "Ações"
+      },
+      "empty": "Nenhuma vaga encontrada com esses filtros.",
+      "view": "Ver detalhes",
+      "actions": {
+        "flag": "Sinalizar",
+        "unflag": "Reverter sinalização",
+        "remove": "Remover",
+        "restore": "Restaurar"
+      },
+      "confirmRemove": "Tem certeza que deseja REMOVER esta vaga? Ela não aparecerá mais publicamente, mas o histórico será preservado.",
+      "motivoLabel": "Motivo (obrigatório)",
+      "motivoPlaceholder": "Descreva brevemente o motivo da ação",
+      "submit": "Confirmar"
+    },
+    "detalhe": {
+      "title": "Vaga #{id}",
+      "voltar": "← Voltar para a lista",
+      "candidaturas": "Candidaturas ({n})",
+      "historico": "Histórico de moderação",
+      "semCands": "Nenhuma candidatura ainda.",
+      "semHistorico": "Nenhuma ação de moderação registrada.",
+      "acao": "Ação",
+      "admin": "Admin",
+      "quando": "Quando",
+      "motivo": "Motivo",
+      "mod": "Mod.: {status}"
+    },
+    "usuarios": {
+      "title": "Usuários",
+      "filterTipo": "Tipo",
+      "todos": "Todos",
+      "th": {
+        "nome": "Nome",
+        "email": "E-mail",
+        "tipo": "Tipo",
+        "registro": "Registro",
+        "verificado": "Verificado",
+        "criado": "Criado em",
+        "atividade": "Atividade"
+      }
+    },
+    "moderacao": {
+      "title": "Histórico de moderação",
+      "th": {
+        "quando": "Quando",
+        "admin": "Admin",
+        "vaga": "Vaga",
+        "acao": "Ação",
+        "motivo": "Motivo"
+      }
+    },
+    "regioes": "Região: {regiao}",
+    "semRegiao": "s/ região",
+    "vagaFlagged": "Sinalizada",
+    "vagaRemovida": "Removida",
+    "vagaOk": "OK",
+    "vagaAtiva": "Ativa",
+    "vagaPausada": "Pausada",
+    "vagaFechada": "Fechada",
+    "verificado": "Verificado",
+    "pendente": "Pendente",
+    "naoVerificado": "Não verificado",
+    "emAnalise": "Em análise"
   }
 }

@@ -42,8 +42,20 @@ export default function Navbar() {
           <LanguageSwitcher />
           {user ? (
             <>
+              {user.tipo_usuario === 'admin' && (
+                <NavLink to="/admin" className={({ isActive }) =>
+                  isActive
+                    ? 'text-amber-600 font-semibold text-xs sm:text-sm'
+                    : 'text-amber-700 hover:text-amber-600 text-xs sm:text-sm font-medium'}>
+                  {t('admin.title')}
+                </NavLink>
+              )}
               <Link
-                to={user.tipo_usuario === 'profissional' ? '/dashboard/profissional' : '/dashboard/contratante'}
+                to={
+                  user.tipo_usuario === 'profissional' ? '/dashboard/profissional'
+                  : user.tipo_usuario === 'contratante' ? '/dashboard/contratante'
+                  : '/admin'
+                }
                 className="btn-ghost text-xs sm:text-sm relative"
               >
                 {user.nome.split(' ')[0]}
