@@ -19,6 +19,7 @@ import pushRouter from './routes/push.js';
 import adminRouter from './routes/admin.js';
 import i18nRouter from './routes/i18n.js';
 import avaliacoesRouter from './routes/avaliacoes.js';
+import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-trocar';
 await db.initSchema();
 
 const app = express();
+app.use(securityHeaders);
 app.use(cors({ origin: FRONTEND_URL.split(','), credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 
@@ -45,7 +47,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.use('/api/auth', authRouter);
+// Rate limit mais agressivo em /api/auth/* (anti brute-force em login/cadastro)
+app.use('/api/auth', authLimiter, authRouter);
+// Rate limit geral nas demais APIs
+app.use('/api', apiLimiter);
 app.use('/api/profissionais', profissionaisRouter);
 app.use('/api/vagas', vagasRouter);
 app.use('/api/candidaturas', candidaturasRouter);
