@@ -576,5 +576,115 @@
     "lastVerified": "Last verification",
     "history": "Verification history",
     "noHistory": "No verifications yet."
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Marketplace moderation panel",
+    "welcome": "Welcome, {name}",
+    "tabs": {
+      "overview": "Overview",
+      "vagas": "Jobs",
+      "usuarios": "Users",
+      "moderacao": "History"
+    },
+    "stats": {
+      "usuariosTotal": "Total users",
+      "profissionais": "Professionals",
+      "contratantes": "Contractors",
+      "vagasAtivas": "Active jobs",
+      "vagasTotal": "Total jobs",
+      "moderacao": "Moderation",
+      "moderacaoOk": "OK",
+      "moderacaoFlagged": "Flagged",
+      "moderacaoRemovida": "Removed",
+      "verificados": "Verified records",
+      "pendentes": "Pending verification",
+      "candidaturas": "Applications",
+      "avaliacoes": "Reviews",
+      "mensagens": "Messages",
+      "vagasPorDia": "Jobs posted (14d)",
+      "porTipoRegistro": "Professionals by registry type"
+    },
+    "vagas": {
+      "title": "Job moderation",
+      "filters": "Filters",
+      "filterStatus": "Job status",
+      "filterModeracao": "Moderation",
+      "filterAll": "All",
+      "filterQ": "Search by text",
+      "filterApply": "Filter",
+      "th": {
+        "id": "ID",
+        "descricao": "Description",
+        "contratante": "Contractor",
+        "regiao": "Region",
+        "status": "Status",
+        "moderacao": "Moderation",
+        "candidatos": "Apps",
+        "moderadoPor": "By",
+        "acoes": "Actions"
+      },
+      "empty": "No jobs match those filters.",
+      "view": "View details",
+      "actions": {
+        "flag": "Flag",
+        "unflag": "Unflag",
+        "remove": "Remove",
+        "restore": "Restore"
+      },
+      "confirmRemove": "Are you sure you want to REMOVE this job? It won't appear publicly, but the history will be preserved.",
+      "motivoLabel": "Reason (required)",
+      "motivoPlaceholder": "Briefly describe the reason for this action",
+      "submit": "Confirm"
+    },
+    "detalhe": {
+      "title": "Job #{id}",
+      "voltar": "← Back to list",
+      "candidaturas": "Applications ({n})",
+      "historico": "Moderation history",
+      "semCands": "No applications yet.",
+      "semHistorico": "No moderation actions recorded.",
+      "acao": "Action",
+      "admin": "Admin",
+      "quando": "When",
+      "motivo": "Reason",
+      "mod": "Mod.: {status}"
+    },
+    "usuarios": {
+      "title": "Users",
+      "filterTipo": "Type",
+      "todos": "All",
+      "th": {
+        "nome": "Name",
+        "email": "Email",
+        "tipo": "Type",
+        "registro": "Registry",
+        "verificado": "Verified",
+        "criado": "Created",
+        "atividade": "Activity"
+      }
+    },
+    "moderacao": {
+      "title": "Moderation history",
+      "th": {
+        "quando": "When",
+        "admin": "Admin",
+        "vaga": "Job",
+        "acao": "Action",
+        "motivo": "Reason"
+      }
+    },
+    "regioes": "Region: {regiao}",
+    "semRegiao": "no region",
+    "vagaFlagged": "Flagged",
+    "vagaRemovida": "Removed",
+    "vagaOk": "OK",
+    "vagaAtiva": "Active",
+    "vagaPausada": "Paused",
+    "vagaFechada": "Closed",
+    "verificado": "Verified",
+    "pendente": "Pending",
+    "naoVerificado": "Not verified",
+    "emAnalise": "In review"
   }
 }

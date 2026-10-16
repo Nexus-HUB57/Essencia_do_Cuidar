@@ -576,5 +576,115 @@
     "lastVerified": "Última verificación",
     "history": "Historial de verificaciones",
     "noHistory": "Aún no hay verificaciones."
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Panel de moderación del marketplace",
+    "welcome": "Bienvenido, {name}",
+    "tabs": {
+      "overview": "Resumen",
+      "vagas": "Trabajos",
+      "usuarios": "Usuarios",
+      "moderacao": "Historial"
+    },
+    "stats": {
+      "usuariosTotal": "Usuarios totales",
+      "profissionais": "Profesionales",
+      "contratantes": "Contratantes",
+      "vagasAtivas": "Trabajos activos",
+      "vagasTotal": "Trabajos en el sistema",
+      "moderacao": "Moderación",
+      "moderacaoOk": "OK",
+      "moderacaoFlagged": "Marcados",
+      "moderacaoRemovida": "Eliminados",
+      "verificados": "Registros verificados",
+      "pendentes": "Pendientes de verificación",
+      "candidaturas": "Candidaturas",
+      "avaliacoes": "Calificaciones",
+      "mensagens": "Mensajes",
+      "vagasPorDia": "Trabajos publicados (14d)",
+      "porTipoRegistro": "Profesionales por tipo de registro"
+    },
+    "vagas": {
+      "title": "Moderación de trabajos",
+      "filters": "Filtros",
+      "filterStatus": "Estado del trabajo",
+      "filterModeracao": "Moderación",
+      "filterAll": "Todas",
+      "filterQ": "Buscar por texto",
+      "filterApply": "Filtrar",
+      "th": {
+        "id": "ID",
+        "descricao": "Descripción",
+        "contratante": "Contratante",
+        "regiao": "Región",
+        "status": "Estado",
+        "moderacao": "Moderación",
+        "candidatos": "Cands.",
+        "moderadoPor": "Por",
+        "acoes": "Acciones"
+      },
+      "empty": "Ningún trabajo encontrado con esos filtros.",
+      "view": "Ver detalles",
+      "actions": {
+        "flag": "Marcar",
+        "unflag": "Revertir",
+        "remove": "Eliminar",
+        "restore": "Restaurar"
+      },
+      "confirmRemove": "¿Seguro que deseas ELIMINAR este trabajo? No aparecerá públicamente, pero el historial se conserva.",
+      "motivoLabel": "Motivo (obligatorio)",
+      "motivoPlaceholder": "Describe brevemente el motivo de la acción",
+      "submit": "Confirmar"
+    },
+    "detalhe": {
+      "title": "Trabajo #{id}",
+      "voltar": "← Volver a la lista",
+      "candidaturas": "Candidaturas ({n})",
+      "historico": "Historial de moderación",
+      "semCands": "Ninguna candidatura aún.",
+      "semHistorico": "Ninguna acción de moderación registrada.",
+      "acao": "Acción",
+      "admin": "Admin",
+      "quando": "Cuándo",
+      "motivo": "Motivo",
+      "mod": "Mod.: {status}"
+    },
+    "usuarios": {
+      "title": "Usuarios",
+      "filterTipo": "Tipo",
+      "todos": "Todos",
+      "th": {
+        "nome": "Nombre",
+        "email": "Correo",
+        "tipo": "Tipo",
+        "registro": "Registro",
+        "verificado": "Verificado",
+        "criado": "Creado",
+        "atividade": "Actividad"
+      }
+    },
+    "moderacao": {
+      "title": "Historial de moderación",
+      "th": {
+        "quando": "Cuándo",
+        "admin": "Admin",
+        "vaga": "Trabajo",
+        "acao": "Acción",
+        "motivo": "Motivo"
+      }
+    },
+    "regioes": "Región: {regiao}",
+    "semRegiao": "s/ región",
+    "vagaFlagged": "Marcada",
+    "vagaRemovida": "Eliminada",
+    "vagaOk": "OK",
+    "vagaAtiva": "Activa",
+    "vagaPausada": "Pausada",
+    "vagaFechada": "Cerrada",
+    "verificado": "Verificado",
+    "pendente": "Pendiente",
+    "naoVerificado": "No verificado",
+    "emAnalise": "En análisis"
   }
 }
