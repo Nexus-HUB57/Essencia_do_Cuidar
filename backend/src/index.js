@@ -38,12 +38,30 @@ app.use(express.json({ limit: '1mb' }));
 
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
-app.get('/api/health', (req, res) => {
-  res.json({
-    ok: true,
+app.get('/api/health', async (req, res) => {
+  const ts = new Date().toISOString();
+  // Tenta uma query leve no DB para confirmar que o driver está vivo.
+  // Falha no DB → retorna 503 (Service Unavailable) para healthchecks
+  // externos (Render, Railway, Docker, k8s) marcarem a instância como
+  // unhealthy em vez de continuar recebendo tráfego.
+  let dbOk = false;
+  let dbError = null;
+  try {
+    const row = await db.get('SELECT 1 AS ok');
+    dbOk = row?.ok === 1;
+  } catch (e) {
+    dbError = e.message;
+  }
+  const status = dbOk ? 200 : 503;
+  res.status(status).json({
+    ok: dbOk,
     service: 'essencia-do-cuidar',
-    timestamp: new Date().toISOString(),
-    db: db.driver
+    timestamp: ts,
+    db: {
+      driver: db.driver,
+      reachable: dbOk,
+      error: dbError
+    }
   });
 });
 
