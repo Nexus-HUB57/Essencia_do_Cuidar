@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
 import type { Vaga } from '../types';
+import FavoritarBotao from '../components/FavoritarBotao';
 
 export default function VagaDetalhe() {
   const { id } = useParams();
   const { user } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const [vaga, setVaga] = useState<Vaga | null>(null);
+  const [visualizacoes, setVisualizacoes] = useState(0);
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(true);
   const [candidatar, setCandidatar] = useState(false);
@@ -20,6 +24,7 @@ export default function VagaDetalhe() {
       try {
         const { data } = await api.get(`/vagas/${id}`);
         setVaga(data.vaga);
+        setVisualizacoes(data.visualizacoes || 0);
       } catch (err) {
         setErro(getErrorMessage(err));
       } finally {
@@ -35,8 +40,31 @@ export default function VagaDetalhe() {
       await api.post('/candidaturas', { id_vaga: Number(id), mensagem });
       setSucesso('Candidatura enviada com sucesso! Você pode acompanhar pelo seu dashboard.');
       setCandidatar(false);
+      toast.success('Candidatura enviada!', 'O contratante será notificado.');
     } catch (err) {
-      setErro(getErrorMessage(err));
+      const msg = getErrorMessage(err);
+      setErro(msg);
+      toast.error('Erro ao candidatar-se', msg);
+    }
+  }
+
+  async function compartilhar() {
+    const link = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Vaga: ${vaga?.profissional_desejado}`,
+          text: `Confira esta vaga na Essência do Cuidar`,
+          url: link
+        });
+      } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(link);
+        toast.success('Link copiado!', 'Cole onde quiser compartilhar');
+      } catch {
+        toast.warning('Não foi possível copiar o link');
+      }
     }
   }
 
@@ -55,10 +83,21 @@ export default function VagaDetalhe() {
             <p className="text-slate-500 text-sm mt-1">
               Publicada por <strong>{vaga.contratante_nome}</strong>
             </p>
+            <p className="text-xs text-slate-400 mt-1">👁️ {visualizacoes} {visualizacoes === 1 ? 'visualização' : 'visualizações'}</p>
           </div>
-          <span className={vaga.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
-            Complexidade {vaga.complexidade === 'media' ? 'média' : 'baixa'}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={compartilhar}
+              className="text-sm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+              title="Compartilhar vaga"
+            >
+              🔗 Compartilhar
+            </button>
+            <FavoritarBotao tipo="vaga" id={vaga.id} size="md" />
+            <span className={vaga.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
+              Complexidade {vaga.complexidade === 'media' ? 'média' : 'baixa'}
+            </span>
+          </div>
         </div>
 
         <div className="mt-6 grid sm:grid-cols-2 gap-4 text-sm">

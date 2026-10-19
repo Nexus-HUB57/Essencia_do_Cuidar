@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api, { getErrorMessage } from '../utils/api';
 import type { Vaga } from '../types';
+import FavoritarBotao from '../components/FavoritarBotao';
 
 export default function VagasPublicas() {
   const [vagas, setVagas] = useState<Vaga[]>([]);
@@ -70,31 +71,32 @@ export default function VagasPublicas() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
           {vagas.map((v) => (
-            <Link
-              to={`/vagas/${v.id}`}
-              key={v.id}
-              className="card hover:shadow-lg transition-shadow group"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold text-slate-900 group-hover:text-serenity-600 transition">
-                  {v.profissional_desejado}
-                </h3>
-                <span className={v.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
-                  {v.complexidade === 'media' ? 'Média' : 'Baixa'}
-                </span>
-              </div>
-              <p className="text-sm text-slate-600 line-clamp-2 mb-3">{v.servico_descricao}</p>
-              <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-                {v.regiao && <span>📍 {v.regiao}</span>}
-                {v.jornada_horario && <span>🕐 {v.jornada_horario}</span>}
-                {v.tipo_contrato && <span>📄 {v.tipo_contrato}</span>}
-                {v.remuneracao_valor && (
-                  <span className="font-semibold text-emerald-600">
-                    💰 R$ {v.remuneracao_valor}/{v.remuneracao_tipo === 'hora' ? 'h' : 'plantão'}
+            <div key={v.id} className="relative card hover:shadow-lg transition-shadow group">
+              <Link to={`/vagas/${v.id}`} className="block">
+                <div className="flex items-start justify-between mb-2 pr-8">
+                  <h3 className="font-semibold text-slate-900 group-hover:text-serenity-600 transition">
+                    {v.profissional_desejado}
+                  </h3>
+                  <span className={v.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
+                    {v.complexidade === 'media' ? 'Média' : 'Baixa'}
                   </span>
-                )}
+                </div>
+                <p className="text-sm text-slate-600 line-clamp-2 mb-3">{v.servico_descricao}</p>
+                <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                  {v.regiao && <span>📍 {v.regiao}</span>}
+                  {v.jornada_horario && <span>🕐 {v.jornada_horario}</span>}
+                  {v.tipo_contrato && <span>📄 {v.tipo_contrato}</span>}
+                  {v.remuneracao_valor && (
+                    <span className="font-semibold text-emerald-600">
+                      💰 R$ {v.remuneracao_valor}/{v.remuneracao_tipo === 'hora' ? 'h' : 'plantão'}
+                    </span>
+                  )}
+                </div>
+              </Link>
+              <div className="absolute top-3 right-3">
+                <FavoritarBotao tipo="vaga" id={v.id} size="sm" />
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

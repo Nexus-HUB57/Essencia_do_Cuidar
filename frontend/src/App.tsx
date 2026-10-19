@@ -12,6 +12,8 @@ import ComoFunciona from './pages/ComoFunciona';
 import DashboardProfissional from './pages/DashboardProfissional';
 import DashboardContratante from './pages/DashboardContratante';
 import ProfissionalPerfil from './pages/ProfissionalPerfil';
+import Admin from './pages/Admin';
+import AdminVagaDetalhe from './pages/AdminVagaDetalhe';
 
 export default function App() {
   const { t } = useTranslation();
@@ -40,6 +42,22 @@ export default function App() {
             element={
               <ProtectedRoute tipo="contratante">
                 <DashboardContratante />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute tipo="admin">
+                <Admin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/vagas/:id"
+            element={
+              <ProtectedRoute tipo="admin">
+                <AdminVagaDetalhe />
               </ProtectedRoute>
             }
           />

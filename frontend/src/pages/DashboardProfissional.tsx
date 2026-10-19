@@ -16,6 +16,7 @@ export default function DashboardProfissional() {
   const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'perfil' | 'avaliacoes'>('buscar');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [cands, setCands] = useState<Candidatura[]>([]);
+  const [favoritas, setFavoritas] = useState<Vaga[]>([]);
   const [detalhes, setDetalhes] = useState<ProfissionalDetalhes | null>(null);
   const [avPendentes, setAvPendentes] = useState<AvaliacaoPendente[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,6 +40,8 @@ export default function DashboardProfissional() {
 
   useEffect(() => { if (tab === 'candidaturas') carregarCands(); }, [tab]);
   useEffect(() => { if (tab === 'avaliacoes') carregarAvPendentes(); }, [tab]);
+
+  useEffect(() => { if (tab === 'favoritos') carregarFavoritas(); }, [tab]);
 
   async function carregarDetalhes() {
     try {
@@ -96,6 +99,17 @@ export default function DashboardProfissional() {
     try {
       const { data } = await api.get('/candidaturas/profissional/minhas');
       setCands(data.candidaturas);
+    } catch (err) {
+      console.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function carregarFavoritas() {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/favoritos/vagas');
+      setFavoritas(data.vagas);
     } catch (err) {
       console.error(getErrorMessage(err));
     } finally {

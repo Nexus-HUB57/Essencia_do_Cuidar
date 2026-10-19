@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import db from '../db/index.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
@@ -24,10 +25,11 @@ const vagaSchema = {
 /**
  * GET /api/vagas  — lista pública de vagas ativas
  * Filtros via query: ?profissional=...&complexidade=...&regiao=...&remuneracaoMin=...
+ * Vagas com moderacao_status='removida' são ocultas do público.
  */
 router.get('/', (req, res) => {
-  const { profissional, complexidade, regiao, remuneracaoMin } = req.query;
-  const filters = ["v.status = 'ativa'"];
+  const { profissional, complexidade, regiao, remuneracaoMin, ordenar, limite, offset } = req.query;
+  const filters = ["v.status = 'ativa'", "v.moderacao_status != 'removida'"];
   const params = [];
 
   if (profissional) { filters.push('v.profissional_desejado LIKE ?'); params.push(`%${profissional}%`); }
@@ -36,19 +38,31 @@ router.get('/', (req, res) => {
   if (remuneracaoMin) { filters.push('v.remuneracao_valor >= ?'); params.push(Number(remuneracaoMin)); }
 
   const where = 'WHERE ' + filters.join(' AND ');
+  const orderBy = ordenar === 'remuneracao'
+    ? 'ORDER BY v.remuneracao_valor DESC'
+    : 'ORDER BY v.criado_em DESC';
+  const lim = Math.min(Number(limite) || 50, 100);
+  const off = Math.max(Number(offset) || 0, 0);
+
   const rows = db.prepare(`
     SELECT v.*, u.nome AS contratante_nome
       FROM vagas v
       JOIN users u ON u.id = v.id_contratante
       ${where}
-     ORDER BY v.criado_em DESC
-     LIMIT 100
-  `).all(...params);
-  res.json({ vagas: rows });
+      ${orderBy}
+     LIMIT ? OFFSET ?
+  `).all(...params, lim, off);
+
+  const total = db.prepare(`
+    SELECT COUNT(*) AS n FROM vagas v ${where}
+  `).get(...params).n;
+
+  res.json({ vagas: rows, total, limite: lim, offset: off });
 });
 
 /**
  * GET /api/vagas/:id  — detalhe de uma vaga
+ * Vagas com moderacao_status='removida' só são visíveis para admin.
  */
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
@@ -58,6 +72,20 @@ router.get('/:id', (req, res) => {
      WHERE v.id = ?
   `).get(id);
   if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
+  if (vaga.moderacao_status === 'removida') {
+    // Tenta identificar admin pelo token, sem exigir auth
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith('Bearer ')) {
+      try {
+        const payload = jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'dev-secret-trocar');
+        const u = db.prepare('SELECT tipo_usuario FROM users WHERE id = ?').get(payload.id);
+        if (u && u.tipo_usuario === 'admin') {
+          return res.json({ vaga });
+        }
+      } catch { /* fallthrough */ }
+    }
+    return res.status(404).json({ error: 'Vaga não encontrada' });
+  }
   res.json({ vaga });
 });
 

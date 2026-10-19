@@ -250,6 +250,7 @@
       "tipoRegistroOutro": "Other",
       "registro": "Registry number",
       "registroPlaceholder": "Ex: COREN-SP 123456",
+      "registroHelp": "Expected format: COREN-SP 123456, CRM 123456/SP, CREFITO-12345-F, CRP 06/12345, CRN 12345/RJ.",
       "especialidades": "Specialties",
       "especialidadesHelp": "Select one or more tags.",
       "disponibilidade": "Availability",
@@ -390,6 +391,13 @@
       "phone": "Phone:",
       "registro": "Registry:",
       "registroValue": "{{type}} {{number}}",
+      "registroNotSet": "not provided",
+      "registroVerifyButton": "Verify registry now",
+      "registroVerifying": "Verifying...",
+      "registroLastCheck": "Last check: {{date}}",
+      "registroHelp": "We validate the format of your registry number against the council (CRM, COREN, CREFITO, CRP, CRN). Final confirmation is still the contractor's responsibility.",
+      "registroResultOk": "✓ Registry validated — verified seal activated.",
+      "registroResultInvalid": "⚠️ We don't recognize that format. Please check the number and try again. Your profile stays marked as \"Under review\".",
       "diploma": "Diploma:",
       "diplomaNotSent": "not uploaded",
       "verified": "Verified",
@@ -479,6 +487,13 @@
     "back": "← Back",
     "loading": "Loading profile...",
     "registroVerificado": "✓ Registry verified",
+    "registroEmAnalise": "⏳ Registry under review",
+    "registroNaoValidado": "Registry not validated",
+    "registroEstado": {
+      "verificado": "✓ Verified",
+      "emAnalise": "⏳ Under review",
+      "naoValidado": "Not validated"
+    },
     "anosPlataforma_one": "{{count}} year on the platform",
     "anosPlataforma_other": "{{count}} years on the platform",
     "novoPlataforma": "New on the platform",
@@ -496,7 +511,8 @@
       "emAnalise": "⏳ Under review",
       "naoEnviado": "Not uploaded",
       "naoInformado": "Not provided",
-      "help": "💡 Verifications take up to 24h after submission. If you notice anything inconsistent, please contact us."
+      "verificadoEm": "Validated on {{date}}",
+      "help": "💡 Registry validation is structural (number format per council). Always confirm the professional's good standing by contacting them directly before the service."
     },
     "profissionaisOpcoes": {
       "Cuidador de Idosos": "Elderly Caregiver",
