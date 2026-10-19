@@ -28,7 +28,7 @@ const vagaSchema = {
  * Vagas com moderacao_status='removida' são ocultas do público.
  */
 router.get('/', (req, res) => {
-  const { profissional, complexidade, regiao, remuneracaoMin } = req.query;
+  const { profissional, complexidade, regiao, remuneracaoMin, ordenar, limite, offset } = req.query;
   const filters = ["v.status = 'ativa'", "v.moderacao_status != 'removida'"];
   const params = [];
 
