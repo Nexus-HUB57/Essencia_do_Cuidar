@@ -61,7 +61,7 @@ router.put("/me", authRequired, requireTipo("profissional"),
              especialidades    = COALESCE(?, especialidades),
              disponibilidade   = COALESCE(?, disponibilidade),
              bio               = COALESCE(?, bio),
-             atualizado_em     = datetime("now")
+             atualizado_em     = datetime('now')
        WHERE id_user = ?
     `).run(
       normalized ?? null,
@@ -92,7 +92,7 @@ router.post("/me/diploma", authRequired, requireTipo("profissional"),
     db.prepare(`
       UPDATE profissionais_detalhes
          SET diploma_url = ?, diploma_nome_original = ?, diploma_verificado = 0,
-             atualizado_em = datetime("now")
+             atualizado_em = datetime('now')
        WHERE id_user = ?
     `).run(url, req.file.originalname, req.user.id);
     const detalhes = db.prepare("SELECT * FROM profissionais_detalhes WHERE id_user = ?").get(req.user.id);
@@ -137,8 +137,8 @@ router.post("/me/verificar-registro", authRequired, requireTipo("profissional"),
       db.prepare(`
         UPDATE profissionais_detalhes
            SET registro_verificado = 2,
-               registro_verificado_em = datetime("now"),
-               atualizado_em = datetime("now")
+               registro_verificado_em = datetime('now'),
+               atualizado_em = datetime('now')
          WHERE id_user = ?
       `).run(req.user.id);
       return res.status(200).json({
@@ -156,8 +156,8 @@ router.post("/me/verificar-registro", authRequired, requireTipo("profissional"),
     db.prepare(`
       UPDATE profissionais_detalhes
          SET registro_verificado = ?,
-             registro_verificado_em = datetime("now"),
-             atualizado_em = datetime("now")
+             registro_verificado_em = datetime('now'),
+             atualizado_em = datetime('now')
        WHERE id_user = ?
     `).run(estado, req.user.id);
 
@@ -173,7 +173,7 @@ router.post("/me/verificar-registro", authRequired, requireTipo("profissional"),
       });
       db.prepare(`
         INSERT INTO webhook_logs (tipo, payload, status_code, resposta, erro, criado_em)
-        VALUES (?, ?, ?, ?, ?, datetime("now"))
+        VALUES (?, ?, ?, ?, ?, datetime('now'))
       `).run(
         "registro_verificacao",
         payload,
@@ -202,7 +202,7 @@ router.post("/me/verificar-registro", authRequired, requireTipo("profissional"),
 router.get("/:id", (req, res) => {
   const id = Number(req.params.id);
   const user = db.prepare(
-    `SELECT id, nome, telefone, criado_em FROM users WHERE id = ? AND tipo_usuario = "profissional"`
+    `SELECT id, nome, telefone, criado_em FROM users WHERE id = ? AND tipo_usuario = 'profissional'`
   ).get(id);
   if (!user) return res.status(404).json({ error: "Profissional não encontrado" });
   const detalhes = db.prepare("SELECT * FROM profissionais_detalhes WHERE id_user = ?").get(id);
@@ -215,7 +215,7 @@ router.get("/:id", (req, res) => {
   const stats = db.prepare(`
     SELECT COUNT(*) AS total, ROUND(AVG(nota), 1) AS media
       FROM avaliacoes
-     WHERE id_avaliado = ? AND avaliador_tipo = "contratante"
+     WHERE id_avaliado = ? AND avaliador_tipo = 'contratante'
   `).get(id);
   res.json({
     user,
