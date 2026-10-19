@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import api from '../utils/api';
 import type { Vaga, Candidatura, ProfissionalDetalhes, AvaliacaoPendente } from '../types';
 import Chat from '../components/Chat';
 import AvaliacaoModal from '../components/AvaliacaoModal';
+import VerificationBadge, { type VerificationStatus } from '../components/VerificationBadge';
 
 export default function DashboardProfissional() {
   const { user, refreshUser } = useAuth();
   const toast = useToast();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'perfil' | 'avaliacoes'>('buscar');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [cands, setCands] = useState<Candidatura[]>([]);
@@ -19,6 +22,12 @@ export default function DashboardProfissional() {
   const [loading, setLoading] = useState(false);
   const [chatCom, setChatCom] = useState<{ id: number; nome: string } | null>(null);
   const [avaliar, setAvaliar] = useState<AvaliacaoPendente | null>(null);
+
+  // Estado local para a UI de verificação de conselho
+  const [verifConselho, setVerifConselho] = useState<string>('');
+  const [verifRegistro, setVerifRegistro] = useState<string>('');
+  const [verifLogs, setVerifLogs] = useState<Array<{ id: number; conselho: string; registro_conselho: string; resultado_encontrado: number; fonte: string; criado_em: string }>>([]);
+  const [verifSubmitting, setVerifSubmitting] = useState(false);
 
   // filtros
   const [fProf, setFProf] = useState('');
@@ -38,7 +47,37 @@ export default function DashboardProfissional() {
     try {
       const { data } = await api.get('/auth/me');
       setDetalhes(data.detalhes);
+      if (data.detalhes?.verificacao_status) setVerifConselho(data.detalhes.tipo_registro || '');
+      if (data.detalhes?.registro_conselho) setVerifRegistro(data.detalhes.registro_conselho);
     } catch {}
+  }
+
+  async function carregarVerificacaoLogs() {
+    try {
+      const { data } = await api.get('/profissionais/me/verificacao-logs');
+      setVerifLogs(data.logs || []);
+    } catch {}
+  }
+
+  async function triggerVerificacao() {
+    if (!verifConselho || !verifRegistro) {
+      toast.error(t('verification.triggerFailed'));
+      return;
+    }
+    setVerifSubmitting(true);
+    try {
+      const { data } = await api.post('/profissionais/me/verificar-registro', {
+        conselho: verifConselho,
+        registro: verifRegistro
+      });
+      toast.success(t('verification.triggerSuccess') + ' — ' + (data.observacao || data.status));
+      await carregarDetalhes();
+      await carregarVerificacaoLogs();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setVerifSubmitting(false);
+    }
   }
   async function carregarVagas() {
     setLoading(true);
@@ -267,35 +306,104 @@ export default function DashboardProfissional() {
 
       {/* TAB: PERFIL */}
       {tab === 'perfil' && detalhes && (
-        <div className="card max-w-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">Resumo do perfil</h2>
-            <Link to={`/profissional/${user.id}`} className="btn-ghost text-xs">
-              👁️ Ver perfil público
-            </Link>
+        <div className="space-y-4 max-w-2xl">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold">Resumo do perfil</h2>
+              <Link to={`/profissional/${user.id}`} className="btn-ghost text-xs">
+                👁️ Ver perfil público
+              </Link>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div><span className="text-slate-400">Nome:</span> {user.nome}</div>
+              <div><span className="text-slate-400">E-mail:</span> {user.email}</div>
+              <div><span className="text-slate-400">Telefone:</span> {user.telefone || '—'}</div>
+              <div>
+                <span className="text-slate-400">Registro:</span>{' '}
+                {detalhes.registro_conselho ? `${detalhes.tipo_registro} ${detalhes.registro_conselho}` : '—'}
+                {detalhes.registro_verificado === 1 && <span className="badge-green ml-2">Verificado</span>}
+              </div>
+              <div>
+                <span className="text-slate-400">Diploma:</span>{' '}
+                {detalhes.diploma_nome_original || 'não enviado'}
+                {detalhes.diploma_verificado === 1 && <span className="badge-green ml-2">Verificado</span>}
+              </div>
+              <div>
+                <span className="text-slate-400">Especialidades:</span>{' '}
+                {(detalhes.especialidades as string[]).join(', ') || '—'}
+              </div>
+              <div>
+                <span className="text-slate-400">Disponibilidade:</span>{' '}
+                {(detalhes.disponibilidade as string[]).join(', ') || '—'}
+              </div>
+            </div>
           </div>
-          <div className="space-y-3 text-sm">
-            <div><span className="text-slate-400">Nome:</span> {user.nome}</div>
-            <div><span className="text-slate-400">E-mail:</span> {user.email}</div>
-            <div><span className="text-slate-400">Telefone:</span> {user.telefone || '—'}</div>
-            <div>
-              <span className="text-slate-400">Registro:</span>{' '}
-              {detalhes.registro_conselho ? `${detalhes.tipo_registro} ${detalhes.registro_conselho}` : '—'}
-              {detalhes.registro_verificado === 1 && <span className="badge-green ml-2">Verificado</span>}
+
+          {/* VERIFICAÇÃO DE CONSELHO */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">{t('verification.section')}</h2>
+              <VerificationBadge status={detalhes.verificacao_status as VerificationStatus} size="sm" />
             </div>
-            <div>
-              <span className="text-slate-400">Diploma:</span>{' '}
-              {detalhes.diploma_nome_original || 'não enviado'}
-              {detalhes.diploma_verificado === 1 && <span className="badge-green ml-2">Verificado</span>}
+            <p className="text-sm text-slate-500 mb-4">{t('verification.intro')}</p>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-500">{t('verification.conselhoLabel')}</label>
+                <select
+                  value={verifConselho}
+                  onChange={(e) => setVerifConselho(e.target.value)}
+                  className="input w-full"
+                >
+                  <option value="">{t('verification.conselhoPlaceholder')}</option>
+                  {(['CRM','COREN','CREFITO','CRP','CRN'] as const).map((c) => (
+                    <option key={c} value={c}>{t(`verification.conselhoOptions.${c}`)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500">{t('verification.registroLabel')}</label>
+                <input
+                  type="text"
+                  value={verifRegistro}
+                  onChange={(e) => setVerifRegistro(e.target.value)}
+                  placeholder={t('verification.registroPlaceholder') as string}
+                  className="input w-full"
+                />
+              </div>
             </div>
-            <div>
-              <span className="text-slate-400">Especialidades:</span>{' '}
-              {(detalhes.especialidades as string[]).join(', ') || '—'}
-            </div>
-            <div>
-              <span className="text-slate-400">Disponibilidade:</span>{' '}
-              {(detalhes.disponibilidade as string[]).join(', ') || '—'}
-            </div>
+            <button
+              onClick={triggerVerificacao}
+              disabled={verifSubmitting}
+              className="btn-primary mt-3"
+            >
+              {verifSubmitting ? '...' : t('verification.buttonTrigger')}
+            </button>
+
+            {detalhes.verificado_em && (
+              <div className="text-xs text-slate-400 mt-3">
+                {t('verification.lastVerified')}: {new Date(detalhes.verificado_em).toLocaleString()}
+              </div>
+            )}
+
+            <details className="mt-4" onClick={(e) => { if ((e.target as HTMLElement).tagName === 'SUMMARY') carregarVerificacaoLogs(); }}>
+              <summary className="text-sm text-slate-600 cursor-pointer">{t('verification.history')}</summary>
+              {verifLogs.length === 0 ? (
+                <p className="text-xs text-slate-400 mt-2">{t('verification.noHistory')}</p>
+              ) : (
+                <ul className="mt-2 space-y-1 text-xs">
+                  {verifLogs.map((l) => (
+                    <li key={l.id} className="flex items-center gap-2 text-slate-600">
+                      <span>{new Date(l.criado_em).toLocaleString()}</span>
+                      <span className="font-mono">{l.conselho} {l.registro_conselho}</span>
+                      <span className={l.resultado_encontrado ? 'text-emerald-600' : 'text-amber-600'}>
+                        {l.resultado_encontrado ? '✓' : '⏳'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </details>
           </div>
         </div>
       )}

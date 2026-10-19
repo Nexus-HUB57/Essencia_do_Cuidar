@@ -27,6 +27,10 @@ export interface ProfissionalDetalhes {
   especialidades: string[];
   disponibilidade: string[];
   bio?: string | null;
+  verificacao_status?: 'pendente' | 'verificado_auto' | 'verificado_manual' | 'rejeitado' | 'inativo';
+  verificacao_fonte?: string | null;
+  verificacao_observacao?: string | null;
+  verificado_em?: string | null;
 }
 
 /**

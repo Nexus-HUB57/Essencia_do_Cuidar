@@ -549,114 +549,32 @@
     "title": "404",
     "subtitle": "Página não encontrada"
   },
-  "admin": {
-    "title": "Admin",
-    "subtitle": "Painel de moderação do marketplace",
-    "welcome": "Bem-vindo, {name}",
-    "tabs": {
-      "overview": "Visão geral",
-      "vagas": "Vagas",
-      "usuarios": "Usuários",
-      "moderacao": "Histórico"
+  "verification": {
+    "section": "Verificação de conselho",
+    "intro": "Confirme seu registro no conselho profissional. A verificação automática depende da API pública do conselho — quando não houver, o status fica pendente e o time administrativo revisa manualmente.",
+    "buttonTrigger": "Verificar agora",
+    "triggerSuccess": "Solicitação enviada",
+    "triggerFailed": "Falha ao verificar",
+    "conselhoLabel": "Conselho",
+    "conselhoPlaceholder": "Selecione o conselho",
+    "registroLabel": "Número do registro",
+    "registroPlaceholder": "Ex: CRM-SP 123456",
+    "conselhoOptions": {
+      "CRM": "CRM — Medicina",
+      "COREN": "COREN — Enfermagem",
+      "CREFITO": "CREFITO — Fisioterapia",
+      "CRP": "CRP — Psicologia",
+      "CRN": "CRN — Nutrição"
     },
-    "stats": {
-      "usuariosTotal": "Usuários totais",
-      "profissionais": "Profissionais",
-      "contratantes": "Contratantes",
-      "vagasAtivas": "Vagas ativas",
-      "vagasTotal": "Vagas no sistema",
-      "moderacao": "Moderação",
-      "moderacaoOk": "OK",
-      "moderacaoFlagged": "Sinalizadas",
-      "moderacaoRemovida": "Removidas",
-      "verificados": "Registros verificados",
-      "pendentes": "Pendentes de verificação",
-      "candidaturas": "Candidaturas",
-      "avaliacoes": "Avaliações",
-      "mensagens": "Mensagens",
-      "vagasPorDia": "Vagas publicadas (14d)",
-      "porTipoRegistro": "Profissionais por tipo de registro"
+    "status": {
+      "pending": "Pendente",
+      "verified_auto": "Verificado automaticamente",
+      "verified_manual": "Verificado (revisão manual)",
+      "rejected": "Registro rejeitado",
+      "inactive": "Inativo"
     },
-    "vagas": {
-      "title": "Moderação de vagas",
-      "filters": "Filtros",
-      "filterStatus": "Status da vaga",
-      "filterModeracao": "Moderação",
-      "filterAll": "Todas",
-      "filterQ": "Buscar por texto",
-      "filterApply": "Filtrar",
-      "th": {
-        "id": "ID",
-        "descricao": "Descrição",
-        "contratante": "Contratante",
-        "regiao": "Região",
-        "status": "Status",
-        "moderacao": "Moderação",
-        "candidatos": "Cands.",
-        "moderadoPor": "Por",
-        "acoes": "Ações"
-      },
-      "empty": "Nenhuma vaga encontrada com esses filtros.",
-      "view": "Ver detalhes",
-      "actions": {
-        "flag": "Sinalizar",
-        "unflag": "Reverter sinalização",
-        "remove": "Remover",
-        "restore": "Restaurar"
-      },
-      "confirmRemove": "Tem certeza que deseja REMOVER esta vaga? Ela não aparecerá mais publicamente, mas o histórico será preservado.",
-      "motivoLabel": "Motivo (obrigatório)",
-      "motivoPlaceholder": "Descreva brevemente o motivo da ação",
-      "submit": "Confirmar"
-    },
-    "detalhe": {
-      "title": "Vaga #{id}",
-      "voltar": "← Voltar para a lista",
-      "candidaturas": "Candidaturas ({n})",
-      "historico": "Histórico de moderação",
-      "semCands": "Nenhuma candidatura ainda.",
-      "semHistorico": "Nenhuma ação de moderação registrada.",
-      "acao": "Ação",
-      "admin": "Admin",
-      "quando": "Quando",
-      "motivo": "Motivo",
-      "mod": "Mod.: {status}"
-    },
-    "usuarios": {
-      "title": "Usuários",
-      "filterTipo": "Tipo",
-      "todos": "Todos",
-      "th": {
-        "nome": "Nome",
-        "email": "E-mail",
-        "tipo": "Tipo",
-        "registro": "Registro",
-        "verificado": "Verificado",
-        "criado": "Criado em",
-        "atividade": "Atividade"
-      }
-    },
-    "moderacao": {
-      "title": "Histórico de moderação",
-      "th": {
-        "quando": "Quando",
-        "admin": "Admin",
-        "vaga": "Vaga",
-        "acao": "Ação",
-        "motivo": "Motivo"
-      }
-    },
-    "regioes": "Região: {regiao}",
-    "semRegiao": "s/ região",
-    "vagaFlagged": "Sinalizada",
-    "vagaRemovida": "Removida",
-    "vagaOk": "OK",
-    "vagaAtiva": "Ativa",
-    "vagaPausada": "Pausada",
-    "vagaFechada": "Fechada",
-    "verificado": "Verificado",
-    "pendente": "Pendente",
-    "naoVerificado": "Não verificado",
-    "emAnalise": "Em análise"
+    "lastVerified": "Última verificação",
+    "history": "Histórico de verificações",
+    "noHistory": "Nenhuma verificação ainda."
   }
 }

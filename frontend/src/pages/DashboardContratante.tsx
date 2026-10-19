@@ -6,6 +6,7 @@ import type { Vaga, AvaliacaoPendente } from '../types';
 import Chat from '../components/Chat';
 import AvaliacaoModal from '../components/AvaliacaoModal';
 import StarRating from '../components/StarRating';
+import VerificationBadge, { type VerificationStatus } from '../components/VerificationBadge';
 
 interface Candidato {
   id: number;
@@ -23,6 +24,7 @@ interface Candidato {
   especialidades: string[];
   disponibilidade: string[];
   bio: string | null;
+  verificacao_status?: 'pendente' | 'verificado_auto' | 'verificado_manual' | 'rejeitado' | 'inativo';
 }
 
 interface HistoricoItem {
@@ -251,6 +253,9 @@ export default function DashboardContratante() {
                         {c.tipo_registro} {c.registro_conselho}
                         {c.registro_verificado === 1 && <span className="badge-green ml-2 text-[10px]">✓ Verificado</span>}
                       </p>
+                      <div className="mt-1">
+                        <VerificationBadge status={c.verificacao_status} size="sm" />
+                      </div>
                     </div>
                   </div>
                   <div>
