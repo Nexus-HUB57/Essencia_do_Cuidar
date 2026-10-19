@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import db from '../db/index.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
+import { verificarRegistro, verificarEClassificar, CONSELHOS_SUPORTADOS } from '../services/conselhos/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -124,6 +125,94 @@ router.get('/:id', (req, res) => {
     detalhes,
     stats: { total: stats?.total || 0, media: stats?.media || 0 }
   });
+});
+
+/**
+ * POST /api/profissionais/me/verificar-registro
+ *
+ * Dispara a verificação automática do registro de conselho do
+ * profissional logado. Sempre devolve 200 com o resultado (mesmo
+ * que "não encontrado" — esse é o caminho feliz quando o conselho
+ * não tem API pública). Apenas 4xx para problemas de input/auth.
+ *
+ * Body: { conselho: 'CRM'|'COREN'|'CREFITO'|'CRP'|'CRN', registro: 'CRM-SP 123456' }
+ *
+ * Effects:
+ *   - Atualiza `profissionais_detalhes.verificacao_status` (e campos
+ *     correlatos) com base no retorno.
+ *   - Insere uma linha em `verificacao_logs` para auditoria.
+ */
+router.post('/me/verificar-registro', authRequired, requireTipo('profissional'), async (req, res) => {
+  const { conselho, registro } = req.body || {};
+  if (!conselho || !registro) {
+    return res.status(400).json({ error: 'Campos conselho e registro são obrigatórios' });
+  }
+  const tipo = String(conselho).toUpperCase();
+  if (!CONSELHOS_SUPORTADOS.includes(tipo)) {
+    return res.status(400).json({
+      error: `Conselho não suportado. Suportados: ${CONSELHOS_SUPORTADOS.join(', ')}`
+    });
+  }
+
+  const resultado = await verificarEClassificar(tipo, String(registro));
+  const agora = new Date().toISOString();
+
+  // Atualiza o detalhe
+  db.prepare(`
+    UPDATE profissionais_detalhes
+       SET verificacao_status  = ?,
+           verificacao_fonte   = ?,
+           verificacao_observacao = ?,
+           verificado_em       = ?,
+           registro_verificado = ?,
+           atualizado_em       = datetime('now')
+     WHERE id_user = ?
+  `).run(
+    resultado.status,
+    resultado.fonte,
+    resultado.observacao,
+    agora,
+    resultado.status === 'verificado_auto' ? 1 : 0,
+    req.user.id
+  );
+
+  // Log de auditoria
+  db.prepare(`
+    INSERT INTO verificacao_logs (id_profissional, conselho, registro_conselho, resultado_encontrado, resultado_json, fonte)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(
+    req.user.id,
+    tipo,
+    String(registro),
+    resultado.dados?.encontrado ? 1 : 0,
+    JSON.stringify(resultado.dados || {}),
+    resultado.fonte
+  );
+
+  // Retorna o detalhe atualizado
+  const detalhes = db.prepare('SELECT * FROM profissionais_detalhes WHERE id_user = ?').get(req.user.id);
+  res.json({
+    status: resultado.status,
+    fonte: resultado.fonte,
+    observacao: resultado.observacao,
+    detalhes
+  });
+});
+
+/**
+ * GET /api/profissionais/me/verificacao-logs
+ *
+ * Lista o histórico de tentativas de verificação do profissional logado.
+ */
+router.get('/me/verificacao-logs', authRequired, requireTipo('profissional'), (req, res) => {
+  const rows = db.prepare(`
+    SELECT id, conselho, registro_conselho, resultado_encontrado, fonte, criado_em
+      FROM verificacao_logs
+     WHERE id_profissional = ?
+     ORDER BY criado_em DESC
+     LIMIT 50
+  `).all(req.user.id);
+  res.json({ logs: rows });
 });
 
 export default router;

@@ -19,6 +19,15 @@ router.post('/', authRequired, requireTipo('profissional'),
     const { id_vaga, mensagem } = req.body;
     const vaga = db.prepare('SELECT * FROM vagas WHERE id = ? AND status = \'ativa\'').get(id_vaga);
     if (!vaga) return res.status(404).json({ error: 'Vaga não disponível' });
+    // Bloqueia candidatura se o profissional foi rejeitado na verificação de conselho
+    const detalhe = db.prepare(
+      'SELECT verificacao_status FROM profissionais_detalhes WHERE id_user = ?'
+    ).get(req.user.id);
+    if (detalhe && detalhe.verificacao_status === 'rejeitado') {
+      return res.status(403).json({
+        error: 'Sua conta não pode se candidatar enquanto o registro do conselho estiver rejeitado. Entre em contato com o suporte.'
+      });
+    }
     try {
       const info = db.prepare(`
         INSERT INTO candidaturas (id_vaga, id_profissional, mensagem)
@@ -78,7 +87,8 @@ router.get('/vaga/:id', authRequired, requireTipo('contratante'), (req, res) => 
            u.id AS profissional_id, u.nome AS profissional_nome, u.email AS profissional_email,
            u.telefone AS profissional_telefone,
            d.registro_conselho, d.tipo_registro, d.diploma_verificado,
-           d.registro_verificado, d.especialidades, d.disponibilidade, d.bio
+           d.registro_verificado, d.especialidades, d.disponibilidade, d.bio,
+           d.verificacao_status
       FROM candidaturas c
       JOIN users u ON u.id = c.id_profissional
       LEFT JOIN profissionais_detalhes d ON d.id_user = u.id

@@ -75,23 +75,53 @@
       "proCtaButton": "Soy profesional"
     },
     "stepsFamiles": [
-      { "title": "Crea tu cuenta +Saúde", "desc": "Registro rápido con nombre, e-mail y teléfono." },
-      { "title": "Publica la vacante", "desc": "Describe al paciente, la jornada y el profesional deseado." },
-      { "title": "Elige candidatos", "desc": "Recibe perfiles verificados, chatea y cierra." }
+      {
+        "title": "Crea tu cuenta +Saúde",
+        "desc": "Registro rápido con nombre, e-mail y teléfono."
+      },
+      {
+        "title": "Publica la vacante",
+        "desc": "Describe al paciente, la jornada y el profesional deseado."
+      },
+      {
+        "title": "Elige candidatos",
+        "desc": "Recibe perfiles verificados, chatea y cierra."
+      }
     ],
     "stepsProfessionals": [
-      { "title": "Regístrate", "desc": "Envía diploma, registro y tus especialidades." },
-      { "title": "Encuentra vacantes", "desc": "Filtra por región, complejidad y remuneración." },
-      { "title": "Postúlate", "desc": "Muestra tu interés y conversa directamente por el chat." }
+      {
+        "title": "Regístrate",
+        "desc": "Envía diploma, registro y tus especialidades."
+      },
+      {
+        "title": "Encuentra vacantes",
+        "desc": "Filtra por región, complejidad y remuneración."
+      },
+      {
+        "title": "Postúlate",
+        "desc": "Muestra tu interés y conversa directamente por el chat."
+      }
     ],
     "security": {
       "badge": "🛡️ Seguridad ante todo",
       "title": "Por qué confiar en Essência",
       "items": [
-        { "title": "Registro verificado", "desc": "Validamos CRM, COREN, CREFITO, CRP y CRN." },
-        { "title": "Diploma adjunto", "desc": "Los profesionales suben PDF/foto del diploma." },
-        { "title": "Chat transparente", "desc": "Toda negociación queda registrada en la plataforma." },
-        { "title": "Sin alta complejidad", "desc": "No aceptamos vacantes de UCI. Foco en baja/media." }
+        {
+          "title": "Registro verificado",
+          "desc": "Validamos CRM, COREN, CREFITO, CRP y CRN."
+        },
+        {
+          "title": "Diploma adjunto",
+          "desc": "Los profesionales suben PDF/foto del diploma."
+        },
+        {
+          "title": "Chat transparente",
+          "desc": "Toda negociación queda registrada en la plataforma."
+        },
+        {
+          "title": "Sin alta complejidad",
+          "desc": "No aceptamos vacantes de UCI. Foco en baja/media."
+        }
       ]
     },
     "finalCta": {
@@ -107,18 +137,48 @@
     "familiesTitle": "🏠 Para quien busca profesional",
     "professionalsTitle": "🩺 Para profesionales",
     "families": [
-      { "title": "Regístrate como +Saúde", "desc": "Crea tu cuenta gratis con nombre, e-mail y teléfono." },
-      { "title": "Publica la vacante", "desc": "Detalla al paciente, jornada deseada y tipo de profesional." },
-      { "title": "Recibe candidatos verificados", "desc": "Los profesionales con diploma y registro aparecen primero." },
-      { "title": "Conversa y cierra", "desc": "Usa el chat interno para acordar detalles con seguridad." },
-      { "title": "Acompaña la atención", "desc": "La vacante queda activa hasta que la pauses o cierres." }
+      {
+        "title": "Regístrate como +Saúde",
+        "desc": "Crea tu cuenta gratis con nombre, e-mail y teléfono."
+      },
+      {
+        "title": "Publica la vacante",
+        "desc": "Detalla al paciente, jornada deseada y tipo de profesional."
+      },
+      {
+        "title": "Recibe candidatos verificados",
+        "desc": "Los profesionales con diploma y registro aparecen primero."
+      },
+      {
+        "title": "Conversa y cierra",
+        "desc": "Usa el chat interno para acordar detalles con seguridad."
+      },
+      {
+        "title": "Acompaña la atención",
+        "desc": "La vacante queda activa hasta que la pauses o cierres."
+      }
     ],
     "professionals": [
-      { "title": "Regístrate gratis", "desc": "Completa tus datos personales, especialidad y disponibilidad." },
-      { "title": "Sube tu diploma", "desc": "PDF o imagen del diploma/registro para obtener el sello verificado." },
-      { "title": "Filtra y postúlate", "desc": "Busca vacantes por región, complejidad y remuneración." },
-      { "title": "Conversa con la familia", "desc": "Chat interno para alinear todo antes de empezar." },
-      { "title": "Recibe el contacto", "desc": "Al ser aceptado, recibes el teléfono del contratante para coordinar la llegada." }
+      {
+        "title": "Regístrate gratis",
+        "desc": "Completa tus datos personales, especialidad y disponibilidad."
+      },
+      {
+        "title": "Sube tu diploma",
+        "desc": "PDF o imagen del diploma/registro para obtener el sello verificado."
+      },
+      {
+        "title": "Filtra y postúlate",
+        "desc": "Busca vacantes por región, complejidad y remuneración."
+      },
+      {
+        "title": "Conversa con la familia",
+        "desc": "Chat interno para alinear todo antes de empezar."
+      },
+      {
+        "title": "Recibe el contacto",
+        "desc": "Al ser aceptado, recibes el teléfono del contratante para coordinar la llegada."
+      }
     ],
     "safety": {
       "title": "⚠️ Importante sobre seguridad",
@@ -140,10 +200,22 @@
     "signupLink": "Regístrate",
     "demoTitle": "Cuentas demo (contraseña: {{password}})",
     "demos": [
-      { "email": "maria@demo.com", "label": "contratante +Saúde" },
-      { "email": "ana@demo.com", "label": "profesional" },
-      { "email": "joao@demo.com", "label": "profesional" },
-      { "email": "bia@demo.com", "label": "profesional" }
+      {
+        "email": "maria@demo.com",
+        "label": "contratante +Saúde"
+      },
+      {
+        "email": "ana@demo.com",
+        "label": "profesional"
+      },
+      {
+        "email": "joao@demo.com",
+        "label": "profesional"
+      },
+      {
+        "email": "bia@demo.com",
+        "label": "profesional"
+      }
     ]
   },
   "cadastro": {
@@ -460,5 +532,33 @@
   "notFound": {
     "title": "404",
     "subtitle": "Página no encontrada"
+  },
+  "verification": {
+    "section": "Verificación de consejo",
+    "intro": "Confirma tu registro en el consejo profesional. La verificación automática depende de la API pública del consejo; cuando no esté disponible, el estado queda pendiente y el equipo administrativo revisa manualmente.",
+    "buttonTrigger": "Verificar ahora",
+    "triggerSuccess": "Solicitud enviada",
+    "triggerFailed": "Error al verificar",
+    "conselhoLabel": "Consejo",
+    "conselhoPlaceholder": "Selecciona el consejo",
+    "registroLabel": "Número de registro",
+    "registroPlaceholder": "Ej: CRM-SP 123456",
+    "conselhoOptions": {
+      "CRM": "CRM — Medicina",
+      "COREN": "COREN — Enfermería",
+      "CREFITO": "CREFITO — Fisioterapia",
+      "CRP": "CRP — Psicología",
+      "CRN": "CRN — Nutrición"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "verified_auto": "Verificado automáticamente",
+      "verified_manual": "Verificado (revisión manual)",
+      "rejected": "Registro rechazado",
+      "inactive": "Inactivo"
+    },
+    "lastVerified": "Última verificación",
+    "history": "Historial de verificaciones",
+    "noHistory": "Aún no hay verificaciones."
   }
 }

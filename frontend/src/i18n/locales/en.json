@@ -75,23 +75,53 @@
       "proCtaButton": "I'm a professional"
     },
     "stepsFamiles": [
-      { "title": "Create your +Saúde account", "desc": "Quick sign-up with name, e-mail and phone." },
-      { "title": "Post the job", "desc": "Describe the patient, the schedule and the desired professional." },
-      { "title": "Choose candidates", "desc": "Receive verified profiles, chat in-app and close the deal." }
+      {
+        "title": "Create your +Saúde account",
+        "desc": "Quick sign-up with name, e-mail and phone."
+      },
+      {
+        "title": "Post the job",
+        "desc": "Describe the patient, the schedule and the desired professional."
+      },
+      {
+        "title": "Choose candidates",
+        "desc": "Receive verified profiles, chat in-app and close the deal."
+      }
     ],
     "stepsProfessionals": [
-      { "title": "Sign up", "desc": "Send your diploma, registry and specialties." },
-      { "title": "Find jobs", "desc": "Filter by region, complexity and pay." },
-      { "title": "Apply", "desc": "Show your interest and chat directly with families." }
+      {
+        "title": "Sign up",
+        "desc": "Send your diploma, registry and specialties."
+      },
+      {
+        "title": "Find jobs",
+        "desc": "Filter by region, complexity and pay."
+      },
+      {
+        "title": "Apply",
+        "desc": "Show your interest and chat directly with families."
+      }
     ],
     "security": {
       "badge": "🛡️ Safety first",
       "title": "Why trust Essência",
       "items": [
-        { "title": "Verified registry", "desc": "We validate CRM, COREN, CREFITO, CRP and CRN." },
-        { "title": "Diploma uploaded", "desc": "Professionals upload a PDF/photo of their diploma." },
-        { "title": "Transparent chat", "desc": "All negotiation is recorded on the platform." },
-        { "title": "No high complexity", "desc": "We do not accept ICU jobs. We focus on low/medium complexity." }
+        {
+          "title": "Verified registry",
+          "desc": "We validate CRM, COREN, CREFITO, CRP and CRN."
+        },
+        {
+          "title": "Diploma uploaded",
+          "desc": "Professionals upload a PDF/photo of their diploma."
+        },
+        {
+          "title": "Transparent chat",
+          "desc": "All negotiation is recorded on the platform."
+        },
+        {
+          "title": "No high complexity",
+          "desc": "We do not accept ICU jobs. We focus on low/medium complexity."
+        }
       ]
     },
     "finalCta": {
@@ -107,18 +137,48 @@
     "familiesTitle": "🏠 For those who need a professional",
     "professionalsTitle": "🩺 For professionals",
     "families": [
-      { "title": "Sign up as +Saúde", "desc": "Create your free account with name, e-mail and phone." },
-      { "title": "Post the job", "desc": "Detail the patient, desired schedule and professional type." },
-      { "title": "Receive verified candidates", "desc": "Professionals with a verified diploma and registry appear first." },
-      { "title": "Chat and close", "desc": "Use the in-app chat to agree on details safely." },
-      { "title": "Follow the service", "desc": "The job stays active until you pause or close it." }
+      {
+        "title": "Sign up as +Saúde",
+        "desc": "Create your free account with name, e-mail and phone."
+      },
+      {
+        "title": "Post the job",
+        "desc": "Detail the patient, desired schedule and professional type."
+      },
+      {
+        "title": "Receive verified candidates",
+        "desc": "Professionals with a verified diploma and registry appear first."
+      },
+      {
+        "title": "Chat and close",
+        "desc": "Use the in-app chat to agree on details safely."
+      },
+      {
+        "title": "Follow the service",
+        "desc": "The job stays active until you pause or close it."
+      }
     ],
     "professionals": [
-      { "title": "Sign up for free", "desc": "Fill in your personal info, specialty and availability." },
-      { "title": "Upload your diploma", "desc": "PDF or image of your diploma/registry to earn the verified seal." },
-      { "title": "Filter and apply", "desc": "Search jobs by region, complexity and pay." },
-      { "title": "Chat with the family", "desc": "In-app chat to align everything before starting." },
-      { "title": "Receive the contact", "desc": "Once accepted, you get the contractor's phone to coordinate arrival." }
+      {
+        "title": "Sign up for free",
+        "desc": "Fill in your personal info, specialty and availability."
+      },
+      {
+        "title": "Upload your diploma",
+        "desc": "PDF or image of your diploma/registry to earn the verified seal."
+      },
+      {
+        "title": "Filter and apply",
+        "desc": "Search jobs by region, complexity and pay."
+      },
+      {
+        "title": "Chat with the family",
+        "desc": "In-app chat to align everything before starting."
+      },
+      {
+        "title": "Receive the contact",
+        "desc": "Once accepted, you get the contractor's phone to coordinate arrival."
+      }
     ],
     "safety": {
       "title": "⚠️ Important safety notes",
@@ -140,10 +200,22 @@
     "signupLink": "Sign up",
     "demoTitle": "Demo accounts (password: <code>{{password}}</code>)",
     "demos": [
-      { "email": "maria@demo.com", "label": "contractor +Saúde" },
-      { "email": "ana@demo.com", "label": "professional" },
-      { "email": "joao@demo.com", "label": "professional" },
-      { "email": "bia@demo.com", "label": "professional" }
+      {
+        "email": "maria@demo.com",
+        "label": "contractor +Saúde"
+      },
+      {
+        "email": "ana@demo.com",
+        "label": "professional"
+      },
+      {
+        "email": "joao@demo.com",
+        "label": "professional"
+      },
+      {
+        "email": "bia@demo.com",
+        "label": "professional"
+      }
     ]
   },
   "cadastro": {
@@ -460,5 +532,33 @@
   "notFound": {
     "title": "404",
     "subtitle": "Page not found"
+  },
+  "verification": {
+    "section": "Council verification",
+    "intro": "Confirm your professional council registration. Automatic verification depends on the council public API — when unavailable, status stays pending and the admin team reviews manually.",
+    "buttonTrigger": "Verify now",
+    "triggerSuccess": "Request sent",
+    "triggerFailed": "Verification failed",
+    "conselhoLabel": "Council",
+    "conselhoPlaceholder": "Select council",
+    "registroLabel": "Registration number",
+    "registroPlaceholder": "e.g. CRM-SP 123456",
+    "conselhoOptions": {
+      "CRM": "CRM — Medicine",
+      "COREN": "COREN — Nursing",
+      "CREFITO": "CREFITO — Physiotherapy",
+      "CRP": "CRP — Psychology",
+      "CRN": "CRN — Nutrition"
+    },
+    "status": {
+      "pending": "Pending",
+      "verified_auto": "Auto-verified",
+      "verified_manual": "Verified (manual review)",
+      "rejected": "Registration rejected",
+      "inactive": "Inactive"
+    },
+    "lastVerified": "Last verification",
+    "history": "Verification history",
+    "noHistory": "No verifications yet."
   }
 }
