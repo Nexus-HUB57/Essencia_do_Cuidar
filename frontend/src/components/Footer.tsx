@@ -7,7 +7,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid gap-8 md:grid-cols-4">
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <img src="/favicon.svg" className="w-7 h-7" alt={t('footer.logoAlt')} />
+            <img src="/logo.jpg" className="w-8 h-8 rounded-full object-cover" alt={t('footer.logoAlt')} />
             <span className="text-white font-semibold">{t('app.name')}</span>
           </div>
           <p className="text-sm text-slate-400">

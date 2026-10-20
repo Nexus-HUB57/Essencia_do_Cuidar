@@ -19,7 +19,7 @@ export default function Navbar() {
     <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <img src="/favicon.svg" className="w-8 h-8" alt={t('navbar.logoAlt')} />
+          <img src="/logo.jpg" className="w-9 h-9 rounded-full object-cover" alt={t('navbar.logoAlt')} />
           <span className="font-bold text-lg text-slate-900">{t('app.name')}</span>
         </Link>
 
