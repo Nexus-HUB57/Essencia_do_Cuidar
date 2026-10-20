@@ -1,0 +1,53 @@
+services:
+  # Backend Node.js + Express
+  - type: web
+    name: essencia-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    healthCheckPath: /api/health
+    buildCommand: npm install
+    startCommand: node src/index.js
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      # Banco de dados. Para Render Postgres nativo, troque para usar Internal Database URL.
+      # Para SQLite persistente, adicione um disk em /var/data/backend com 1GB.
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        value: https://essencia-do-cuidar.netlify.app
+      - key: NETLIFY_AI_URL
+        value: https://netlify.ai
+      - key: NETLIFY_AI_TIMEOUT_MS
+        value: 5000
+      - key: MAX_UPLOAD_MB
+        value: 5
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      # Stripe Connect (deixe MOCK=true até configurar)
+      - key: STRIPE_MOCK
+        value: "true"
+      - key: PLATFORM_FEE_PCT
+        value: 10
+      # Web Push VAPID (gere com: npx web-push generate-vapid-keys)
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:admin@essencia-do-cuidar.app
+    disk:
+      name: essencia-data
+      mountPath: /var/data
+      sizeGB: 1
+
+  # Frontend Netlify — manter como site estático, build pelo netlify.toml
+  # Não é parte deste render.yaml; use Netlify para o frontend.
