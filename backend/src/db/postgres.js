@@ -135,6 +135,17 @@ export async function initSchema() {
       criado_em TEXT NOT NULL DEFAULT (now()::text)
     );
 
+    CREATE TABLE IF NOT EXISTS avaliacoes (
+      id SERIAL PRIMARY KEY,
+      id_contratante INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id_profissional INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id_vaga INTEGER REFERENCES vagas(id) ON DELETE SET NULL,
+      nota INTEGER NOT NULL CHECK(nota BETWEEN 1 AND 5),
+      comentario TEXT,
+      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      UNIQUE(id_contratante, id_vaga)
+    );
+
     CREATE TABLE IF NOT EXISTS webhook_logs (
       id SERIAL PRIMARY KEY,
       tipo TEXT NOT NULL,
@@ -229,6 +240,8 @@ export async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(id_user);
     CREATE INDEX IF NOT EXISTS idx_verify_user ON verificacao_registros(id_user);
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+    CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
+    CREATE INDEX IF NOT EXISTS idx_av_contratante ON avaliacoes(id_contratante);
   `);
   console.log('[db:postgres] schema inicializado');
 }

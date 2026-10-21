@@ -126,17 +126,21 @@ CODE=$(http_code -X PATCH "$BASE/api/candidaturas/$CAND_ID" \
 assert_eq 200 "$CODE" "Aceitar candidatura retorna 200"
 
 # --- 10. Chat
+# Resolve o id real do profissional via /auth/me (evita depender de ID fixo)
 echo "[10] Chat entre contratante e profissional"
+PROF_ID=$(http_body "$BASE/api/auth/me" -H "Authorization: Bearer $PROF_TOKEN" \
+  | python3 -c "import json,sys;print(json.load(sys.stdin)['user']['id'])" 2>/dev/null || echo "")
+[ -n "$PROF_ID" ] && PASS=$((PASS+1)) || { echo "  não resolveu id do profissional"; FAIL=$((FAIL+1)); }
 MSG=$(http_body -X POST "$BASE/api/mensagens" \
   -H "Authorization: Bearer $CONT_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"id_destinatario\":2,\"conteudo\":\"Oi, smoke test!\"}")
+  -d "{\"id_destinatario\":$PROF_ID,\"conteudo\":\"Oi, smoke test!\"}")
 MSG_ID=$(echo "$MSG" | python3 -c "import json,sys;print(json.load(sys.stdin)['mensagem']['id'])" 2>/dev/null || echo "")
 [ -n "$MSG_ID" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 
 # --- 11. Perfil público
 echo "[11] Perfil público do profissional"
-RESP=$(http_body "$BASE/api/profissionais/2")
+RESP=$(http_body "$BASE/api/profissionais/$PROF_ID")
 NOME=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['user']['nome'])" 2>/dev/null || echo "")
 [ -n "$NOME" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 echo "  nome: $NOME"
@@ -158,7 +162,16 @@ assert_eq 400 "$CODE" "Senha curta retorna 400"
 # --- 14. Webhook logado
 echo "[14] Webhook logado"
 sleep 3
-WEBHOOK_COUNT=$(cd /workspace/Essencia_do_Cuidar/backend 2>/dev/null && node -e "import('./src/db/index.js').then(m=>{const db=m.default;const total=db.prepare('SELECT COUNT(*) AS n FROM webhook_logs').get();process.stderr.write('');console.log(total.n);}).catch(e=>console.log(0))" 2>/dev/null | tail -1)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$(dirname "$SCRIPT_DIR")/backend"
+WEBHOOK_COUNT=$(cd "$BACKEND_DIR" 2>/dev/null && node -e "
+  import('./src/db/index.js')
+    .then(async (m) => {
+      const r = await m.default.get('SELECT COUNT(*) AS n FROM webhook_logs');
+      console.log(r.n);
+    })
+    .catch(() => console.log(0));
+" 2>/dev/null | tail -1)
 echo "  total webhooks no DB: $WEBHOOK_COUNT"
 [ -n "$WEBHOOK_COUNT" ] && [ "$WEBHOOK_COUNT" -gt 0 ] 2>/dev/null && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 

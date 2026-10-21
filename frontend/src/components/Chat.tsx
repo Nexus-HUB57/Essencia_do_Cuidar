@@ -15,6 +15,8 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
   const [msgs, setMsgs] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState('');
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [digitando, setDigitando] = useState(false);
+  const typingTimeout = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,6 +40,13 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
         (m.id_remetente === user?.id && m.id_destinatario === outroId)
       ) {
         setMsgs((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
+      }
+    });
+    s.on('mensagem:typing', ({ de }: { de: number }) => {
+      if (de === outroId) {
+        setDigitando(true);
+        clearTimeout(typingTimeout.current);
+        typingTimeout.current = setTimeout(() => setDigitando(false), 2500);
       }
     });
     return () => { s.disconnect(); };
@@ -70,6 +79,13 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
     }
   }
 
+  function handleTextoChange(v: string) {
+    setTexto(v);
+    if (socket && v.length > 0) {
+      socket.emit('mensagem:typing', { para: outroId });
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40">
       <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-card w-full sm:max-w-md h-[80vh] sm:h-[600px] flex flex-col">
@@ -80,7 +96,9 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
             </div>
             <div>
               <p className="font-semibold text-sm">{outroNome}</p>
-              <p className="text-[10px] text-emerald-600">● online</p>
+              <p className="text-[10px] text-emerald-600">
+                {digitando ? <span className="text-amber-600">está digitando...</span> : '● online'}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
@@ -114,7 +132,7 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
             className="input flex-1"
             placeholder="Digite uma mensagem..."
             value={texto}
-            onChange={(e) => setTexto(e.target.value)}
+            onChange={(e) => handleTextoChange(e.target.value)}
           />
           <button type="submit" className="btn-primary px-4">Enviar</button>
         </form>

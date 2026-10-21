@@ -126,6 +126,20 @@ export function initSchema() {
       FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE SET NULL
     );
 
+    CREATE TABLE IF NOT EXISTS avaliacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_contratante INTEGER NOT NULL,
+      id_profissional INTEGER NOT NULL,
+      id_vaga INTEGER,
+      nota INTEGER NOT NULL CHECK(nota BETWEEN 1 AND 5),
+      comentario TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(id_contratante, id_vaga),
+      FOREIGN KEY (id_contratante) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_profissional) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE SET NULL
+    );
+
     CREATE TABLE IF NOT EXISTS webhook_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tipo TEXT NOT NULL,
@@ -236,6 +250,8 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(id_user);
     CREATE INDEX IF NOT EXISTS idx_verify_user ON verificacao_registros(id_user);
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+    CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
+    CREATE INDEX IF NOT EXISTS idx_av_contratante ON avaliacoes(id_contratante);
   `);
 
   // Migrações idempotentes para bancos pré-existentes

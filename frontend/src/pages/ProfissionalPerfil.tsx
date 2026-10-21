@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api, { getErrorMessage } from '../utils/api';
+import Estrelas from '../components/Estrelas';
 
 interface ProfDetalhes {
   id_user: number;
@@ -21,6 +22,19 @@ interface ProfUser {
   criado_em: string;
 }
 
+interface AvalStats {
+  total: number;
+  media: number;
+  cinco: number; quatro: number; tres: number; dois: number; um: number;
+}
+
+interface Aval {
+  nota: number;
+  comentario: string | null;
+  criado_em: string;
+  contratante_nome: string;
+}
+
 const DISP_LABEL: Record<string, string> = {
   manha: 'Manhã', tarde: 'Tarde', noite: 'Noite', '12h': 'Turno 12h', '24h': 'Plantão 24h'
 };
@@ -29,21 +43,27 @@ export default function ProfissionalPerfil() {
   const { id } = useParams();
   const [user, setUser] = useState<ProfUser | null>(null);
   const [detalhes, setDetalhes] = useState<ProfDetalhes | null>(null);
+  const [stats, setStats] = useState<AvalStats | null>(null);
+  const [avaliacoes, setAvaliacoes] = useState<Aval[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
 
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await api.get(`/profissionais/${id}`);
-        setUser(data.user);
-        // Parse JSON
-        const d = data.detalhes;
+        const [p, a] = await Promise.all([
+          api.get(`/profissionais/${id}`),
+          api.get(`/avaliacoes/profissional/${id}`)
+        ]);
+        setUser(p.data.user);
+        const d = p.data.detalhes;
         if (d) {
           try { d.especialidades = JSON.parse(d.especialidades || '[]'); } catch { d.especialidades = []; }
           try { d.disponibilidade = JSON.parse(d.disponibilidade || '[]'); } catch { d.disponibilidade = []; }
           setDetalhes(d);
         }
+        setStats(a.data.stats);
+        setAvaliacoes(a.data.avaliacoes);
       } catch (err) {
         setErro(getErrorMessage(err));
       } finally {
@@ -136,6 +156,67 @@ export default function ProfissionalPerfil() {
           )}
         </div>
       </div>
+
+      {/* Avaliações */}
+      {stats && stats.total > 0 && (
+        <div className="card mt-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h2 className="font-semibold">Avaliações</h2>
+            <Estrelas value={stats.media} total={stats.total} size="lg" />
+          </div>
+          {/* Distribuição */}
+          <div className="grid grid-cols-5 gap-1.5 text-xs text-slate-600 mb-4">
+            {[
+              { label: '5⭐', val: stats.cinco },
+              { label: '4⭐', val: stats.quatro },
+              { label: '3⭐', val: stats.tres },
+              { label: '2⭐', val: stats.dois },
+              { label: '1⭐', val: stats.um }
+            ].map((b) => {
+              const pct = stats.total > 0 ? (b.val / stats.total) * 100 : 0;
+              return (
+                <div key={b.label}>
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="w-7 text-right">{b.label}</span>
+                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-400 rounded-full transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="space-y-3">
+            {avaliacoes.slice(0, 5).map((a, i) => (
+              <div key={i} className="border-b border-slate-100 last:border-0 pb-3 last:pb-0">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-medium text-sm">{a.contratante_nome}</p>
+                  <Estrelas value={a.nota} size="sm" showNumber={false} />
+                </div>
+                {a.comentario ? (
+                  <p className="text-sm text-slate-600 italic">"{a.comentario}"</p>
+                ) : (
+                  <p className="text-xs text-slate-400">Sem comentário.</p>
+                )}
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {new Date(a.criado_em + 'Z').toLocaleDateString('pt-BR')}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state se não há avaliações */}
+      {stats && stats.total === 0 && (
+        <div className="card mt-4 text-center py-8 text-slate-500 text-sm">
+          Ainda sem avaliações. Este profissional é novo na plataforma.
+        </div>
+      )}
 
       {/* Documentos */}
       <div className="card mt-4">
