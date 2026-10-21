@@ -53,7 +53,21 @@ router.get('/:id', async (req, res) => {
     [id]
   );
   if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
-  res.json({ vaga });
+
+  // Registra view
+  const auth = req.headers.authorization;
+  let userId = null;
+  if (auth && auth.startsWith('Bearer ')) {
+    try {
+      const payload = jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'dev-secret-trocar');
+      userId = payload.id;
+    } catch {}
+  }
+  db.prepare('INSERT INTO vaga_visualizacoes (id_vaga, id_user) VALUES (?, ?)')
+    .run(id, userId);
+
+  const visualizacoes = db.prepare('SELECT COUNT(*) AS n FROM vaga_visualizacoes WHERE id_vaga = ?').get(id).n;
+  res.json({ vaga, visualizacoes });
 });
 
 router.post('/', authRequired, requireTipo('contratante'),

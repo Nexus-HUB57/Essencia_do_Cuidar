@@ -175,6 +175,79 @@ WEBHOOK_COUNT=$(cd "$BACKEND_DIR" 2>/dev/null && node -e "
 echo "  total webhooks no DB: $WEBHOOK_COUNT"
 [ -n "$WEBHOOK_COUNT" ] && [ "$WEBHOOK_COUNT" -gt 0 ] 2>/dev/null && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 
+# --- 15. Favoritar vaga
+echo "[15] Favoritar vaga (profissional)"
+CODE=$(http_code -X POST "$BASE/api/favoritos" \
+  -H "Authorization: Bearer $PROF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"tipo\":\"vaga\",\"id_recurso\":$VAGA_ID}")
+assert_eq 201 "$CODE" "Favoritar vaga retorna 201"
+
+# --- 16. Listar favoritos
+FAVS=$(http_body -H "Authorization: Bearer $PROF_TOKEN" "$BASE/api/favoritos?tipo=vaga")
+TOTAL_FAVS=$(echo "$FAVS" | python3 -c "import json,sys;print(len(json.load(sys.stdin)['favoritos']))" 2>/dev/null || echo "0")
+[ "$TOTAL_FAVS" -gt 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+echo "  favoritos: $TOTAL_FAVS"
+
+# --- 17. Toggle favoritar (desfavorita)
+CODE=$(http_code -X POST "$BASE/api/favoritos" \
+  -H "Authorization: Bearer $PROF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"tipo\":\"vaga\",\"id_recurso\":$VAGA_ID}")
+assert_eq 200 "$CODE" "Toggle favoritar retorna 200 (já existia)"
+
+# --- 18. Stats do profissional
+echo "[18] Stats do profissional"
+RESP=$(http_body "$BASE/api/profissionais/2")
+STATS_TOTAL=$(echo "$RESP" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['stats']['total_candidaturas'])" 2>/dev/null || echo "0")
+echo "  total de candidaturas: $STATS_TOTAL"
+[ "$STATS_TOTAL" -gt 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+# --- 19. Avaliação de profissional
+echo "[19] Avaliação pública do profissional"
+RESP=$(http_body "$BASE/api/avaliacoes/profissional/2")
+MEDIA=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['stats']['media'])" 2>/dev/null || echo "0")
+TOTAL_AV=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['stats']['total'])" 2>/dev/null || echo "0")
+echo "  média: $MEDIA de $TOTAL_AV avaliações"
+[ "$TOTAL_AV" -gt 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+# --- 20. Visualização de vaga
+echo "[20] Contador de visualizações"
+RESP=$(http_body "$BASE/api/vagas/$VAGA_ID")
+VIEWS=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['visualizacoes'])" 2>/dev/null || echo "0")
+echo "  views: $VIEWS"
+[ "$VIEWS" -gt 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+# --- 21. Notificações do contratante
+echo "[21] Endpoint de notificações (contratante)"
+CODE=$(http_code -H "Authorization: Bearer $CONT_TOKEN" "$BASE/api/notificacoes")
+assert_eq 200 "$CODE" "GET /notificacoes retorna 200"
+
+# --- 22. Contador de notificações
+RESP=$(http_body -H "Authorization: Bearer $CONT_TOKEN" "$BASE/api/notificacoes/contador")
+TOTAL_NL=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['nao_lidas'])" 2>/dev/null || echo "0")
+echo "  não lidas: $TOTAL_NL"
+[ "$TOTAL_NL" -ge 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+# --- 23. Ordenação de vagas
+echo "[23] Ordenação por remuneração"
+RESP=$(http_body "$BASE/api/vagas?ordenar=remuneracao&limite=3")
+TOP=$(echo "$RESP" | python3 -c "import json,sys;vagas=json.load(sys.stdin)['vagas'];print(vagas[0]['remuneracao_valor'] if vagas else 0)" 2>/dev/null || echo "0")
+[ "$TOP" -gt 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+echo "  vaga mais bem paga: R\$ $TOP"
+
+# --- 24. Histórico de contratações
+echo "[24] Histórico de contratações"
+RESP=$(http_body -H "Authorization: Bearer $CONT_TOKEN" "$BASE/api/candidaturas/contratante/historico")
+TOTAL_HIST=$(echo "$RESP" | python3 -c "import json,sys;print(len(json.load(sys.stdin)['historico']))" 2>/dev/null || echo "0")
+echo "  total no histórico: $TOTAL_HIST"
+[ "$TOTAL_HIST" -ge 0 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+# --- 25. Marcar mensagens como lidas
+echo "[25] Marcar notificações como lidas"
+CODE=$(http_code -X POST -H "Authorization: Bearer $CONT_TOKEN" "$BASE/api/notificacoes/marcar-lidas")
+assert_eq 200 "$CODE" "POST /notificacoes/marcar-lidas retorna 200"
+
 echo ""
 echo "============================================================"
 echo -e "  ${GREEN}Passou: $PASS${NC} | ${RED}Falhou: $FAIL${NC}"

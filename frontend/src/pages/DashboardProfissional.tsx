@@ -8,9 +8,10 @@ import OnboardingConnectModal from '../components/OnboardingConnectModal';
 
 export default function DashboardProfissional() {
   const { user, refreshUser } = useAuth();
-  const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'perfil'>('buscar');
+  const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'favoritos' | 'perfil'>('buscar');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [cands, setCands] = useState<Candidatura[]>([]);
+  const [favoritas, setFavoritas] = useState<Vaga[]>([]);
   const [detalhes, setDetalhes] = useState<ProfissionalDetalhes | null>(null);
   const [loading, setLoading] = useState(false);
   const [chatCom, setChatCom] = useState<{ id: number; nome: string } | null>(null);
@@ -26,6 +27,8 @@ export default function DashboardProfissional() {
   useEffect(() => { if (tab === 'buscar') carregarVagas(); }, [tab, fProf, fCx, fReg]);
 
   useEffect(() => { if (tab === 'candidaturas') carregarCands(); }, [tab]);
+
+  useEffect(() => { if (tab === 'favoritos') carregarFavoritas(); }, [tab]);
 
   async function carregarDetalhes() {
     try {
@@ -53,6 +56,17 @@ export default function DashboardProfissional() {
     try {
       const { data } = await api.get('/candidaturas/profissional/minhas');
       setCands(data.candidaturas);
+    } catch (err) {
+      console.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function carregarFavoritas() {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/favoritos/vagas');
+      setFavoritas(data.vagas);
     } catch (err) {
       console.error(getErrorMessage(err));
     } finally {
@@ -91,6 +105,7 @@ export default function DashboardProfissional() {
         {[
           { k: 'buscar', l: '🔍 Buscar vagas' },
           { k: 'candidaturas', l: '📋 Minhas candidaturas' },
+          { k: 'favoritos', l: '❤️ Favoritas' },
           { k: 'perfil', l: '👤 Meu perfil' }
         ].map((t) => (
           <button
@@ -195,6 +210,45 @@ export default function DashboardProfissional() {
                         💬 Chat
                       </button>
                     )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: FAVORITOS */}
+      {tab === 'favoritos' && (
+        <div>
+          {loading ? (
+            <p className="text-center text-slate-400 py-12">Carregando...</p>
+          ) : favoritas.length === 0 ? (
+            <div className="card text-center py-12 text-slate-500">
+              Você ainda não favoritou nenhuma vaga. Clique no 🤍 em uma vaga para salvar.
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {favoritas.map((v) => (
+                <div key={v.id} className="card flex flex-col">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold">{v.profissional_desejado}</h3>
+                    <span className={v.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
+                      {v.complexidade}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-500 line-clamp-2 mt-1">{v.servico_descricao}</p>
+                  <div className="flex flex-wrap gap-2 text-xs text-slate-500 mt-2">
+                    {v.regiao && <span>📍 {v.regiao}</span>}
+                    {v.remuneracao_valor && (
+                      <span className="font-semibold text-emerald-600">
+                        💰 R$ {v.remuneracao_valor}/{v.remuneracao_tipo === 'hora' ? 'h' : 'plantão'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-auto pt-3 flex gap-2">
+                    <Link to={`/vagas/${v.id}`} className="btn-ghost flex-1 text-center text-sm">Ver</Link>
+                    <button onClick={() => candidatar(v.id)} className="btn-primary flex-1 text-sm">Candidatar</button>
                   </div>
                 </div>
               ))}
