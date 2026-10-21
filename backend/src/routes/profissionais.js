@@ -7,6 +7,7 @@ import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { verificarRegistro, verificarEClassificar, CONSELHOS_SUPORTADOS } from '../services/conselhos/index.js';
+import { normalize } from '../services/registroValidator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
