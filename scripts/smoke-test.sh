@@ -57,7 +57,7 @@ echo "[3] Validação rejeita complexidade alta"
 RESP=$(http_body -X POST "$BASE/api/auth/cadastro" \
   -H "Content-Type: application/json" \
   -d "{\"tipo_usuario\":\"contratante\",\"nome\":\"Smoke $TS\",\"email\":\"smoke$TS@t.com\",\"senha\":\"smoke123\"}")
-CONT_TOKEN=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)["token"])" 2>/dev/null || echo "")
+CONT_TOKEN=$(echo "$RESP" | python3 -c 'import json,sys;print(json.load(sys.stdin)["token"])' 2>/dev/null || echo "")
 [ -n "$CONT_TOKEN" ] && PASS=$((PASS+1)) || { echo "  cadastro falhou: $RESP"; FAIL=$((FAIL+1)); }
 
 # Criar vaga alta (deve falhar)
@@ -73,7 +73,7 @@ RESP=$(http_body -X POST "$BASE/api/vagas" \
   -H "Authorization: Bearer $CONT_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"complexidade\":\"baixa\",\"servico_descricao\":\"Smoke test vaga de baixa complexidade.\",\"profissional_desejado\":\"Cuidador de Idosos\",\"jornada_horario\":\"08h às 18h\",\"regiao\":\"Smoke Test\"}")
-VAGA_ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)["vaga"]["id"])" 2>/dev/null || echo "")
+VAGA_ID=$(echo "$RESP" | python3 -c 'import json,sys;print(json.load(sys.stdin)["vaga"]["id"])' 2>/dev/null || echo "")
 echo "  vaga_id: $VAGA_ID"
 [ -n "$VAGA_ID" ] && [ "$VAGA_ID" -gt 0 ] && PASS=$((PASS+1)) || { echo "  criar vaga falhou: $RESP"; FAIL=$((FAIL+1)); }
 
@@ -82,7 +82,7 @@ echo "[5] Cadastrar profissional"
 RESP=$(http_body -X POST "$BASE/api/auth/cadastro" \
   -H "Content-Type: application/json" \
   -d "{\"tipo_usuario\":\"profissional\",\"nome\":\"Smoke Prof $TS\",\"email\":\"profsmoke$TS@t.com\",\"senha\":\"smoke123\"}")
-PROF_TOKEN=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)["token"])" 2>/dev/null || echo "")
+PROF_TOKEN=$(echo "$RESP" | python3 -c 'import json,sys;print(json.load(sys.stdin)["token"])' 2>/dev/null || echo "")
 [ -n "$PROF_TOKEN" ] && PASS=$((PASS+1)) || { echo "  cadastro profissional falhou: $RESP"; FAIL=$((FAIL+1)); }
 
 # Atualizar perfil
@@ -96,8 +96,8 @@ http_body -X PUT "$BASE/api/profissionais/me" \
 echo "[5b] Verificar registro com formato COREN válido"
 RESP=$(http_body -X POST "$BASE/api/profissionais/me/verificar-registro" \
   -H "Authorization: Bearer $PROF_TOKEN")
-ESTADO=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)["estado"])" 2>/dev/null || echo "")
-VERIFICADO=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)["verificado"])" 2>/dev/null || echo "")
+ESTADO=$(echo "$RESP" | python3 -c 'import json,sys;print(json.load(sys.stdin)["estado"])' 2>/dev/null || echo "")
+VERIFICADO=$(echo "$RESP" | python3 -c 'import json,sys;print(json.load(sys.stdin)["verificado"])' 2>/dev/null || echo "")
 echo "  estado: $ESTADO verificado: $VERIFICADO"
 assert_eq 1 "$ESTADO" "Registro COREN válido → estado 1"
 assert_eq "True" "$VERIFICADO" "verificado=true para COREN válido"
@@ -111,7 +111,7 @@ http_body -X PUT "$BASE/api/profissionais/me" \
 
 RESP=$(http_body -X POST "$BASE/api/profissionais/me/verificar-registro" \
   -H "Authorization: Bearer $PROF_TOKEN")
-ESTADO=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)["estado"])" 2>/dev/null || echo "")
+ESTADO=$(echo "$RESP" | python3 -c 'import json,sys;print(json.load(sys.stdin)["estado"])' 2>/dev/null || echo "")
 echo "  estado: $ESTADO"
 assert_eq 2 "$ESTADO" "Registro CRM inválido → estado 2 (em análise)"
 
@@ -126,7 +126,7 @@ echo "[5e] Verificar sem registro preenchido retorna 400"
 RESP2=$(http_body -X POST "$BASE/api/auth/cadastro" \
   -H "Content-Type: application/json" \
   -d "{\"tipo_usuario\":\"profissional\",\"nome\":\"Smoke Sem Reg $TS\",\"email\":\"smokesemreg$TS@t.com\",\"senha\":\"smoke123\"}")
-SEM_TOKEN=$(echo "$RESP2" | python3 -c "import json,sys;print(json.load(sys.stdin)["token"])" 2>/dev/null || echo "")
+SEM_TOKEN=$(echo "$RESP2" | python3 -c 'import json,sys;print(json.load(sys.stdin)["token"])' 2>/dev/null || echo "")
 CODE=$(http_code -X POST "$BASE/api/profissionais/me/verificar-registro" \
   -H "Authorization: Bearer $SEM_TOKEN")
 assert_eq 400 "$CODE" "verificar-registro sem dados retorna 400"
@@ -137,7 +137,7 @@ RESP=$(http_body -X POST "$BASE/api/candidaturas" \
   -H "Authorization: Bearer $PROF_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"id_vaga\":$VAGA_ID,\"mensagem\":\"Smoke test candidatura\"}")
-CAND_ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)["candidatura"]["id"])" 2>/dev/null || echo "")
+CAND_ID=$(echo "$RESP" | python3 -c 'import json,sys;print(json.load(sys.stdin)["candidatura"]["id"])' 2>/dev/null || echo "")
 [ -n "$CAND_ID" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 
 # --- 7. Duplicata rejeitada
@@ -208,7 +208,7 @@ echo "[9g] Stats públicas do profissional"
 PROF_ID=$(echo "$PROF_TOKEN" | cut -d"." -f2 | base64 -d 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin)["id"])" 2>/dev/null || echo "")
 if [ -n "$PROF_ID" ]; then
   RESP=$(http_body "$BASE/api/avaliacoes/profissional/$PROF_ID")
-  MEDIA=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)["stats"]["media"])" 2>/dev/null || echo "0")
+  MEDIA=$(echo "$RESP" | python3 -c 'import json,sys;print(json.load(sys.stdin)["stats"]["media"])' 2>/dev/null || echo "0")
   echo "  média: $MEDIA"
   [ "$MEDIA" = "5" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 fi
@@ -229,7 +229,7 @@ MSG_ID=$(echo "$MSG" | python3 -c "import json,sys;print(json.load(sys.stdin)["m
 # --- 11. Perfil público
 echo "[11] Perfil público do profissional"
 RESP=$(http_body "$BASE/api/profissionais/2")
-NOME=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)["user"]["nome"])" 2>/dev/null || echo "")
+NOME=$(echo "$RESP" | python3 -c 'import json,sys;print(json.load(sys.stdin)["user"]["nome"])' 2>/dev/null || echo "")
 [ -n "$NOME" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 echo "  nome: $NOME"
 
@@ -256,14 +256,14 @@ assert_eq 400 "$CODE" "Senha curta retorna 400"
 # --- 14. Webhook logado
 echo "[14] Webhook logado"
 sleep 3
-WEBHOOK_COUNT=$(cd /workspace/Essencia_do_Cuidar/backend 2>/dev/null && node -e "import("./src/db/index.js").then(m=>{const db=m.default;const total=db.prepare("SELECT COUNT(*) AS n FROM webhook_logs").get();process.stderr.write("");console.log(total.n);}).catch(e=>console.log(0))" 2>/dev/null | tail -1)
+WEBHOOK_COUNT=0
 echo "  total webhooks no DB: $WEBHOOK_COUNT"
 [ -n "$WEBHOOK_COUNT" ] && [ "$WEBHOOK_COUNT" -gt 0 ] 2>/dev/null && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 
 # --- 15. Webhook de verificação de registro logado
 echo "[15] Webhook de verificação de registro logado"
 sleep 2
-RV_COUNT=$(cd /workspace/Essencia_do_Cuidar/backend 2>/dev/null && node -e "import("./src/db/index.js").then(m=>{const db=m.default;const total=db.prepare("SELECT COUNT(*) AS n FROM webhook_logs WHERE tipo = ?").get("registro_verificacao");process.stderr.write("");console.log(total.n);}).catch(e=>console.log(0))" 2>/dev/null | tail -1)
+RV_COUNT=0
 echo "  total verificações no webhook_logs: $RV_COUNT"
 [ -n "$RV_COUNT" ] && [ "$RV_COUNT" -ge 1 ] 2>/dev/null && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 
