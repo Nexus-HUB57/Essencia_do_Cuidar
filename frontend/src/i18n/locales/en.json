@@ -143,5 +143,15 @@
     "enablePush": "Enable push notifications",
     "enabled": "Notifications enabled",
     "permissionDenied": "Permission denied by browser"
+  },
+  "verification": {
+    "section": "Council verification",
+    "status": {
+      "pending": "Pending",
+      "approved": "Verified",
+      "rejected": "Registration rejected",
+      "inactive": "Inactive"
+    },
+    "noHistory": "No verifications yet."
   }
 }

@@ -143,5 +143,15 @@
     "enablePush": "Ativar notificações push",
     "enabled": "Notificações ativadas",
     "permissionDenied": "Permissão negada pelo navegador"
+  },
+  "verification": {
+    "section": "Verificação de conselho",
+    "status": {
+      "pending": "Pendente",
+      "approved": "Verificado",
+      "rejected": "Registro rejeitado",
+      "inactive": "Inativo"
+    },
+    "noHistory": "Nenhuma verificação ainda."
   }
 }
