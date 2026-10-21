@@ -28,6 +28,7 @@ function seed() {
     'admin', 'Admin Demo', 'admin@demo.com', hash('demo1234'),
     '11999990000'
   ).lastInsertRowid;
+  db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(adminId);
 
   // Contratante demo
   const contratanteId = insertUser.run(
