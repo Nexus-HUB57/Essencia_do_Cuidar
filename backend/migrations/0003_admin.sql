@@ -36,8 +36,8 @@ CREATE TABLE __users_new (
   suspended_reason TEXT,
   criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-INSERT INTO __users_new (id, tipo_usuario, nome, email, senha_hash, telefone, is_admin, suspended_at, suspended_reason, criado_em)
-SELECT id, tipo_usuario, nome, email, senha_hash, telefone, COALESCE(is_admin, 0), suspended_at, suspended_reason, criado_em FROM users;
+INSERT INTO __users_new (id, tipo_usuario, nome, email, senha_hash, telefone, criado_em)
+SELECT id, tipo_usuario, nome, email, senha_hash, telefone, criado_em FROM users;
 DROP TABLE users;
 ALTER TABLE __users_new RENAME TO users;
 
