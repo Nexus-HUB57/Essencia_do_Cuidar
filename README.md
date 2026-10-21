@@ -282,12 +282,51 @@ Para instalar: abra no Chrome mobile, banner aparecerá automaticamente.
 
 ## 🛠️ Próximos passos
 
-- [ ] Migração para PostgreSQL em produção
-- [ ] Verificação automática de registros via APIs dos conselhos
-- [ ] Pagamento via Pix / Stripe Connect
-- [ ] Notificações push (FCM) para chat
-- [ ] Painel administrativo (moderação de vagas)
-- [ ] Internacionalização (pt-BR, es, en)
+- [x] Migração para PostgreSQL em produção
+- [x] Verificação de registros (CRM/COREN/CREFITO/CRP/CRN)
+- [x] Pagamento via Pix / Stripe Connect (split 90/10)
+- [x] Notificações push (Web Push / VAPID)
+- [x] Painel administrativo (moderação, stats, users, verificações, pagamentos)
+- [x] Internacionalização (pt-BR, es, en) com react-i18next
+
+### Novas features (branch `feat/6-features`)
+
+#### 1. PostgreSQL ready
+Driver unificado (`backend/src/db/driver.js`) — `DATABASE_URL` ausente usa SQLite,
+presente usa `pg`. Migração: `npm --prefix backend run migrate:pg`.
+
+#### 2. Verificação de registros
+Validação de formato para CRM/COREN/CREFITO/CRP/CRN + UF. Endpoint
+`PUT /api/profissionais/me` valida; histórico em `GET /api/profissionais/:id/verificacoes`.
+Admin aprova/rejeita em `PATCH /api/admin/verificacoes/:id` (atualiza selo no perfil).
+
+#### 3. Stripe Connect + Pix
+Marketplace pattern: profissional cria conta Connect Express, contratante paga
+via Pix com `application_fee_amount` (10% plataforma). Modo `STRIPE_MOCK=true`
+simula o fluxo sem API key — útil pra dev. Frontend tem `PaymentModal.tsx` e
+`OnboardingConnectModal.tsx`.
+
+#### 4. Web Push (VAPID)
+Funciona em PWA sem FCM. Gera chaves com `npx web-push generate-vapid-keys` e
+seta `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` no `.env`. Sem chaves, opera em
+no-op. Frontend: `components/PushPrompt.tsx`.
+
+#### 5. Painel administrativo
+Login: `admin@demo.com` / `admin1234`. 6 tabs (stats, users, vagas, verificações,
+pagamentos, webhooks). Endpoints sob `/api/admin/*` — todos exigem `is_admin=1`.
+Admin pode suspender usuários, fechar vagas, aprovar/rejeitar registros.
+
+#### 6. i18n (pt-BR, es, en)
+Frontend: `react-i18next` com detecção automática via `localStorage` (chave
+`essencia_lang`). Backend: dicionários em `src/i18n/dictionaries.js`, expostos
+em `/api/i18n/:locale` para sincronizar.
+
+### Smoke test
+```bash
+npm --prefix backend run seed && node backend/src/index.js
+BASE=http://localhost:4000 bash scripts/smoke-test-v2.sh
+# 28/28 deve passar
+```
 
 ---
 

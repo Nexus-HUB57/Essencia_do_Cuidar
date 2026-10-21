@@ -1,8 +1,11 @@
 version: '3.9'
 
-# Exemplo opcional de orquestração.
+# Orquestração simples para desenvolvimento (backend + frontend, SQLite).
 # Para rodar local sem Docker, basta `npm run install:all && npm run seed && npm run dev:backend`
 # em um terminal e `npm run dev:frontend` em outro.
+#
+# Para a stack completa com PostgreSQL (produção/staging):
+#   docker compose -f docker-compose.prod.yml up -d
 
 services:
   backend:
@@ -17,6 +20,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change-me-in-prod-please}
       - FRONTEND_URL=http://localhost:5173
       - NETLIFY_AI_URL=https://netlify.ai
+      - STRIPE_MOCK=true
     volumes:
       - ./backend/data:/app/data
       - ./backend/uploads:/app/uploads
@@ -25,9 +29,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL=/api
     ports:
       - "5173:80"
     depends_on:
       - backend
     environment:
-      - VITE_API_URL=http://localhost:4000/api
+      - VITE_API_URL=/api
