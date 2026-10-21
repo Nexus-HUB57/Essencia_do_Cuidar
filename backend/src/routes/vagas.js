@@ -27,7 +27,7 @@ const vagaSchema = {
  * Filtros via query: ?profissional=...&complexidade=...&regiao=...&remuneracaoMin=...
  * Vagas com moderacao_status='removida' são ocultas do público.
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { profissional, complexidade, regiao, remuneracaoMin, ordenar, limite, offset } = req.query;
   const filters = ["v.status = 'ativa'", "v.moderacao_status != 'removida'"];
   const params = [];
@@ -54,7 +54,7 @@ router.get('/', (req, res) => {
  * GET /api/vagas/:id  — detalhe de uma vaga
  * Vagas com moderacao_status='removida' só são visíveis para admin.
  */
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const vaga = await db.get(
     `SELECT v.*, u.nome AS contratante_nome, u.telefone AS contratante_telefone

@@ -31,9 +31,13 @@ CREATE TABLE __users_new (
   email TEXT NOT NULL UNIQUE,
   senha_hash TEXT NOT NULL,
   telefone TEXT,
+  is_admin INTEGER NOT NULL DEFAULT 0,
+  suspended_at TEXT,
+  suspended_reason TEXT,
   criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-INSERT INTO __users_new SELECT * FROM users;
+INSERT INTO __users_new (id, tipo_usuario, nome, email, senha_hash, telefone, is_admin, suspended_at, suspended_reason, criado_em)
+SELECT id, tipo_usuario, nome, email, senha_hash, telefone, COALESCE(is_admin, 0), suspended_at, suspended_reason, criado_em FROM users;
 DROP TABLE users;
 ALTER TABLE __users_new RENAME TO users;
 
