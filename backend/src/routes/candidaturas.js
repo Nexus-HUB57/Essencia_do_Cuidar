@@ -16,6 +16,15 @@ router.post('/', authRequired, requireTipo('profissional'),
     const { id_vaga, mensagem } = req.body;
     const vaga = await db.get("SELECT * FROM vagas WHERE id = ? AND status = 'ativa'", [id_vaga]);
     if (!vaga) return res.status(404).json({ error: 'Vaga não disponível' });
+    // Bloqueia candidatura se o profissional foi rejeitado na verificação de conselho
+    const detalhe = db.prepare(
+      'SELECT verificacao_status FROM profissionais_detalhes WHERE id_user = ?'
+    ).get(req.user.id);
+    if (detalhe && detalhe.verificacao_status === 'rejeitado') {
+      return res.status(403).json({
+        error: 'Sua conta não pode se candidatar enquanto o registro do conselho estiver rejeitado. Entre em contato com o suporte.'
+      });
+    }
     try {
       const info = await db.run(
         `INSERT INTO candidaturas (id_vaga, id_profissional, mensagem)
@@ -61,24 +70,26 @@ router.get('/vaga/:id', authRequired, requireTipo('contratante'), async (req, re
   if (vaga.id_contratante !== req.user.id) {
     return res.status(403).json({ error: 'Você não é dono desta vaga' });
   }
-  await db.run(
-    `UPDATE candidaturas SET status_candidatura = 'visualizada'
-      WHERE id_vaga = ? AND status_candidatura = 'pendente'`,
-    [id]
-  );
-  const rows = await db.all(
-    `SELECT c.id, c.mensagem, c.status_candidatura, c.criado_em,
-            u.id AS profissional_id, u.nome AS profissional_nome, u.email AS profissional_email,
-            u.telefone AS profissional_telefone,
-            d.registro_conselho, d.tipo_registro, d.diploma_verificado,
-            d.registro_verificado, d.especialidades, d.disponibilidade, d.bio
-       FROM candidaturas c
-       JOIN users u ON u.id = c.id_profissional
-       LEFT JOIN profissionais_detalhes d ON d.id_user = u.id
-      WHERE c.id_vaga = ?
-      ORDER BY c.criado_em DESC`,
-    [id]
-  );
+  // Marca como visualizada
+  db.prepare(`
+    UPDATE candidaturas SET status_candidatura = 'visualizada'
+     WHERE id_vaga = ? AND status_candidatura = 'pendente'
+  `).run(id);
+
+  const rows = db.prepare(`
+    SELECT c.id, c.mensagem, c.status_candidatura, c.criado_em,
+           u.id AS profissional_id, u.nome AS profissional_nome, u.email AS profissional_email,
+           u.telefone AS profissional_telefone,
+           d.registro_conselho, d.tipo_registro, d.diploma_verificado,
+           d.registro_verificado, d.especialidades, d.disponibilidade, d.bio,
+           d.verificacao_status
+      FROM candidaturas c
+      JOIN users u ON u.id = c.id_profissional
+      LEFT JOIN profissionais_detalhes d ON d.id_user = u.id
+     WHERE c.id_vaga = ?
+     ORDER BY c.criado_em DESC
+  `).all(id);
+  // Parse JSON
   for (const r of rows) {
     try { r.especialidades = JSON.parse(r.especialidades || '[]'); } catch { r.especialidades = []; }
     try { r.disponibilidade = JSON.parse(r.disponibilidade || '[]'); } catch { r.disponibilidade = []; }

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../components/Toast';
 import api from '../utils/api';
-import type { Vaga } from '../types';
+import type { Vaga, AvaliacaoPendente } from '../types';
 import Chat from '../components/Chat';
-import PaymentModal from '../components/PaymentModal';
+import AvaliacaoModal from '../components/AvaliacaoModal';
+import StarRating from '../components/StarRating';
+import VerificationBadge, { type VerificationStatus } from '../components/VerificationBadge';
 
 interface Candidato {
   id: number;
@@ -23,6 +25,7 @@ interface Candidato {
   especialidades: string[];
   disponibilidade: string[];
   bio: string | null;
+  verificacao_status?: 'pendente' | 'verificado_auto' | 'verificado_manual' | 'rejeitado' | 'inativo';
 }
 
 interface HistoricoItem {
@@ -55,14 +58,15 @@ const PROFISSIONAIS_OPCOES = [
 export default function DashboardContratante() {
   const { user } = useAuth();
   const toast = useToast();
-  const [tab, setTab] = useState<'vagas' | 'nova' | 'historico'>('vagas');
+  const [tab, setTab] = useState<'vagas' | 'nova' | 'avaliacoes'>('vagas');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);
   const [vagaSel, setVagaSel] = useState<Vaga | null>(null);
+  const [avPendentes, setAvPendentes] = useState<AvaliacaoPendente[]>([]);
   const [loading, setLoading] = useState(false);
   const [chatCom, setChatCom] = useState<{ id: number; nome: string } | null>(null);
-  const [pagarVaga, setPagarVaga] = useState<number | null>(null);
+  const [avaliar, setAvaliar] = useState<AvaliacaoPendente | null>(null);
 
   // form de nova vaga
   const [form, setForm] = useState({
@@ -84,7 +88,7 @@ export default function DashboardContratante() {
 
   useEffect(() => { carregarVagas(); }, []);
   useEffect(() => { if (vagaSel) carregarCandidatos(vagaSel.id); }, [vagaSel]);
-  useEffect(() => { if (tab === 'historico') carregarHistorico(); }, [tab]);
+  useEffect(() => { if (tab === 'avaliacoes') carregarAvPendentes(); }, [tab]);
 
   async function carregarVagas() {
     setLoading(true);
@@ -164,35 +168,9 @@ export default function DashboardContratante() {
     try {
       await api.patch(`/candidaturas/${id}`, { status_candidatura: status });
       if (vagaSel) await carregarCandidatos(vagaSel.id);
-      toast.success(status === 'aceita' ? 'Candidatura aceita!' : 'Candidatura recusada');
+      toast.success(status === 'aceita' ? 'Candidatura aceita!' : 'Candidatura recusada.');
     } catch (err) {
-      toast.error('Erro ao atualizar', getErrorMessage(err));
-    }
-  }
-
-  // Modal de avaliação
-  const [avalModal, setAvalModal] = useState<{ cand: Candidato } | null>(null);
-  const [avalNota, setAvalNota] = useState(0);
-  const [avalComent, setAvalComent] = useState('');
-
-  async function enviarAvaliacao() {
-    if (!avalModal || !avalNota) {
-      toast.warning('Selecione uma nota de 1 a 5 estrelas');
-      return;
-    }
-    try {
-      await api.post('/avaliacoes', {
-        id_profissional: avalModal.cand.profissional_id,
-        id_vaga: vagaSel!.id,
-        nota: avalNota,
-        comentario: avalComent || undefined
-      });
-      toast.success('Avaliação enviada!', 'Obrigado pelo seu feedback.');
-      setAvalModal(null);
-      setAvalNota(0);
-      setAvalComent('');
-    } catch (err) {
-      toast.error('Erro ao avaliar', getErrorMessage(err));
+      toast.error(getErrorMessage(err));
     }
   }
 
@@ -204,8 +182,23 @@ export default function DashboardContratante() {
         const { data } = await api.get(`/vagas/${id}`);
         setVagaSel(data.vaga);
       }
+      if (status === 'fechada') {
+        toast.success('Vaga encerrada! Agora você pode avaliar o profissional.');
+      }
     } catch (err) {
-      alert(getErrorMessage(err));
+      toast.error(getErrorMessage(err));
+    }
+  }
+
+  async function carregarAvPendentes() {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/avaliacoes/pendentes');
+      setAvPendentes(data.pendentes);
+    } catch (err) {
+      console.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -261,6 +254,9 @@ export default function DashboardContratante() {
                         {c.tipo_registro} {c.registro_conselho}
                         {c.registro_verificado === 1 && <span className="badge-green ml-2 text-[10px]">✓ Verificado</span>}
                       </p>
+                      <div className="mt-1">
+                        <VerificationBadge status={c.verificacao_status} size="sm" />
+                      </div>
                     </div>
                   </div>
                   <div>
@@ -331,16 +327,16 @@ export default function DashboardContratante() {
         <p className="text-slate-500 text-sm">Gerencie suas vagas e candidatos</p>
       </div>
 
-      <div className="flex gap-1 border-b border-slate-200 mb-6">
+      <div className="flex gap-1 border-b border-slate-200 mb-6 overflow-x-auto">
         {[
           { k: 'vagas', l: `📋 Minhas vagas (${vagas.length})` },
           { k: 'nova', l: '➕ Publicar vaga' },
-          { k: 'historico', l: `📚 Histórico (${historico.length})` }
+          { k: 'avaliacoes', l: `⭐ Avaliações${avPendentes.length ? ` (${avPendentes.length})` : ''}` }
         ].map((t) => (
           <button
             key={t.k}
             onClick={() => setTab(t.k as any)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
               tab === t.k ? 'border-serenity-500 text-serenity-600' : 'border-transparent text-slate-500'
             }`}
           >{t.l}</button>
@@ -489,71 +485,45 @@ export default function DashboardContratante() {
         </div>
       )}
 
-      {/* ABA: HISTÓRICO DE CONTRATAÇÕES */}
-      {tab === 'historico' && (
-        loading ? <p className="text-center py-12 text-slate-400">Carregando histórico...</p> :
-        historico.length === 0 ? (
-          <div className="card text-center py-12 text-slate-500">
-            <p className="mb-1">Nenhuma contratação concluída ainda.</p>
-            <p className="text-xs">Vagas fechadas com profissional aceito aparecerão aqui.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {historico.map((h) => (
-              <div key={h.candidatura_id} className="card">
-                <div className="flex items-start justify-between flex-wrap gap-3">
+      {tab === 'avaliacoes' && (
+        <div>
+          {loading ? (
+            <p className="text-center py-12 text-slate-400">Carregando...</p>
+          ) : avPendentes.length === 0 ? (
+            <div className="card text-center py-12 text-slate-500">
+              <div className="text-4xl mb-2">⭐</div>
+              <p>Nenhuma avaliação pendente.</p>
+              <p className="text-xs mt-1">Quando uma vaga for encerrada, você poderá avaliar o profissional aqui.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {avPendentes.map((p) => (
+                <div key={p.candidatura_id} className="card flex items-center justify-between flex-wrap gap-3">
                   <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold">{h.profissional_desejado}</h3>
-                      <span className={h.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
-                        {h.complexidade}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-500 mt-1">
-                      ✅ Contratação concluída com{' '}
-                      <Link to={`/profissional/${h.profissional_id}`} className="font-medium text-serenity-600 dark:text-serenity-300 hover:underline">
-                        {h.profissional_nome}
-                      </Link>
+                    <h3 className="font-semibold">{p.profissional_desejado}</h3>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      {p.regiao || '—'} • Com <strong>{p.outro_nome}</strong>
+                      {p.tipo_registro && <span className="ml-2 text-xs">({p.tipo_registro} {p.registro_conselho})</span>}
                     </p>
-                    <div className="flex flex-wrap gap-3 text-xs text-slate-500 mt-2">
-                      {h.regiao && <span>📍 {h.regiao}</span>}
-                      {h.remuneracao_valor && (
-                        <span className="font-semibold text-emerald-600">
-                          💰 R$ {h.remuneracao_valor}/{h.remuneracao_tipo === 'hora' ? 'h' : 'plantão'}
-                        </span>
-                      )}
-                      <span className="text-slate-400">
-                        Concluída em {new Date(h.criado_em + 'Z').toLocaleDateString('pt-BR')}
-                      </span>
-                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {h.avaliacao ? (
-                      <div className="flex items-center gap-1">
-                        <span className="text-amber-500 text-lg">{'★'.repeat(h.avaliacao.nota)}{'☆'.repeat(5 - h.avaliacao.nota)}</span>
-                      </div>
-                    ) : (
-                      <span className="badge-slate text-xs">Sem avaliação</span>
-                    )}
-                    {h.profissional_telefone && (
-                      <a href={`https://wa.me/55${h.profissional_telefone.replace(/\D/g, '')}`}
-                        target="_blank" rel="noopener"
-                        className="text-xs text-serenity-600 dark:text-serenity-300 hover:underline">
-                        📱 {h.profissional_telefone}
-                      </a>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => setAvaliar(p)}
+                    className="btn-primary text-sm"
+                  >
+                    ⭐ Avaliar
+                  </button>
                 </div>
-                {h.avaliacao?.comentario && (
-                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-3 italic border-t border-slate-100 dark:border-slate-700 pt-3">
-                    "💬 {h.avaliacao.comentario}"
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        )
+              ))}
+            </div>
+          )}
+        </div>
       )}
+
+      <AvaliacaoModal
+        pendente={avaliar}
+        onClose={() => setAvaliar(null)}
+        onSuccess={carregarAvPendentes}
+      />
     </div>
   );
 }

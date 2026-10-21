@@ -1,231 +1,271 @@
-/**
- * Feature 5 — Painel administrativo.
- *
- * Endpoints (todos exigem is_admin=1):
- *   GET  /api/admin/stats                          → métricas gerais
- *   GET  /api/admin/users                          → lista usuários (com filtro tipo)
- *   PATCH /api/admin/users/:id                     → suspender / ativar
- *   POST /api/admin/users/:id/admin                → promover a admin
- *   GET  /api/admin/vagas                          → todas as vagas (com filtro status)
- *   PATCH /api/admin/vagas/:id                     → fechar / reativar (moderação)
- *   DELETE /api/admin/vagas/:id                    → remover
- *   GET  /api/admin/reports                        → denúncias
- *   PATCH /api/admin/reports/:id                   → analisar / resolver
- *   GET  /api/admin/verificacoes                   → verificações de registro pendentes
- *   PATCH /api/admin/verificacoes/:id              → aprovar / rejeitar verificação
- *   GET  /api/admin/webhooks                       → últimos webhooks
- *   GET  /api/admin/pagamentos                     → todos os pagamentos
- */
 import express from 'express';
-import db from '../db/driver.js';
-import { authRequired, requireAdmin } from '../middleware/auth.js';
+import db from '../db/index.js';
+import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
+import { notifyNetlify } from '../services/netlify.js';
 
 const router = express.Router();
 
-router.use(authRequired, requireAdmin);
+// Todas as rotas abaixo exigem usuário do tipo 'admin'.
+router.use(authRequired, requireTipo('admin'));
 
-router.get('/stats', async (req, res) => {
-  const [users, profissionais, contratantes, vagasAtivas, candidaturas, mensagens, pagamentosPagos, reportsAbertos, verPendentes] = await Promise.all([
-    db.get('SELECT COUNT(*) AS n FROM users'),
-    db.get("SELECT COUNT(*) AS n FROM users WHERE tipo_usuario = 'profissional'"),
-    db.get("SELECT COUNT(*) AS n FROM users WHERE tipo_usuario = 'contratante'"),
-    db.get("SELECT COUNT(*) AS n FROM vagas WHERE status = 'ativa'"),
-    db.get('SELECT COUNT(*) AS n FROM candidaturas'),
-    db.get('SELECT COUNT(*) AS n FROM mensagens'),
-    db.get("SELECT COUNT(*) AS n, COALESCE(SUM(valor_centavos), 0) AS total FROM pagamentos WHERE status IN ('pago', 'split_realizado')"),
-    db.get("SELECT COUNT(*) AS n FROM reports WHERE status = 'aberto'"),
-    db.get("SELECT COUNT(*) AS n FROM verificacao_registros WHERE status = 'pendente'")
-  ]);
-  res.json({
-    users: users.n, profissionais: profissionais.n, contratantes: contratantes.n,
-    vagas_ativas: vagasAtivas.n, candidaturas: candidaturas.n, mensagens: mensagens.n,
-    receita_total_centavos: Number(pagamentosPagos.total || 0),
-    pagamentos_realizados: pagamentosPagos.n,
-    reports_abertos: reportsAbertos.n,
-    verificacoes_pendentes: verPendentes.n
-  });
+/* ------------------------------------------------------------------ *
+ *  Helpers
+ * ------------------------------------------------------------------ */
+
+function logModeracao(idVaga, idAdmin, acao, motivo) {
+  db.prepare(`
+    INSERT INTO vagas_moderacao (id_vaga, id_admin, acao, motivo)
+    VALUES (?, ?, ?, ?)
+  `).run(idVaga, idAdmin, acao, motivo || null);
+}
+
+function applyModeracao(idVaga, idAdmin, acao, motivo) {
+  // acao: 'flag' | 'unflag' | 'remove' | 'restore'
+  const updates = {
+    flag:    'flagged',
+    unflag:  'ok',
+    remove:  'removida',
+    restore: 'ok'
+  };
+  const novoStatus = updates[acao];
+  if (!novoStatus) throw new Error(`acao inválida: ${acao}`);
+
+  db.prepare(`
+    UPDATE vagas
+       SET moderacao_status = ?,
+           moderacao_motivo = ?,
+           moderado_por = ?,
+           moderado_em = CURRENT_TIMESTAMP
+     WHERE id = ?
+  `).run(novoStatus, motivo || null, idAdmin, idVaga);
+
+  // Log: usa o 'acao' cru (flag/unflag/remove/restore) — bate com o CHECK
+  // do schema. O `column` (novoStatus) é o que vai pra coluna moderacao_status.
+  logModeracao(idVaga, idAdmin, acao, motivo);
+  notifyNetlify('admin.moderacao', { id_vaga: idVaga, acao, novo_status: novoStatus, motivo }).catch(() => {});
+}
+
+const flagSchema = {
+  motivo: { type: 'string', min: 3, max: 500 }
+};
+
+/* ------------------------------------------------------------------ *
+ *  GET /api/admin/stats  — KPIs do sistema
+ * ------------------------------------------------------------------ */
+router.get('/stats', (req, res) => {
+  const get = (sql, ...params) => db.prepare(sql).get(...params);
+
+  const totais = {
+    usuarios: get("SELECT COUNT(*) AS n FROM users").n,
+    profissionais: get("SELECT COUNT(*) AS n FROM users WHERE tipo_usuario = 'profissional'").n,
+    contratantes: get("SELECT COUNT(*) AS n FROM users WHERE tipo_usuario = 'contratante'").n,
+    admins: get("SELECT COUNT(*) AS n FROM users WHERE tipo_usuario = 'admin'").n,
+    vagas: {
+      total: get('SELECT COUNT(*) AS n FROM vagas').n,
+      ativas: get("SELECT COUNT(*) AS n FROM vagas WHERE status = 'ativa'").n,
+      pausadas: get("SELECT COUNT(*) AS n FROM vagas WHERE status = 'pausada'").n,
+      fechadas: get("SELECT COUNT(*) AS n FROM vagas WHERE status = 'fechada'").n
+    },
+    moderacao: {
+      ok: get("SELECT COUNT(*) AS n FROM vagas WHERE moderacao_status = 'ok'").n,
+      flagged: get("SELECT COUNT(*) AS n FROM vagas WHERE moderacao_status = 'flagged'").n,
+      removidas: get("SELECT COUNT(*) AS n FROM vagas WHERE moderacao_status = 'removida'").n
+    },
+    profissionais_verificados: get("SELECT COUNT(*) AS n FROM profissionais_detalhes WHERE registro_verificado = 1").n,
+    profissionais_pendentes: get("SELECT COUNT(*) AS n FROM profissionais_detalhes WHERE registro_verificado IN (0,2)").n,
+    candidaturas: get('SELECT COUNT(*) AS n FROM candidaturas').n,
+    avaliacoes: get('SELECT COUNT(*) AS n FROM avaliacoes').n,
+    mensagens: get('SELECT COUNT(*) AS n FROM mensagens').n
+  };
+
+  // Vagas por dia nos últimos 14 dias (mini gráfico)
+  const vagasPorDia = db.prepare(`
+    SELECT DATE(criado_em) AS dia, COUNT(*) AS n
+      FROM vagas
+     WHERE criado_em >= datetime('now', '-14 days')
+     GROUP BY DATE(criado_em)
+     ORDER BY dia ASC
+  `).all();
+
+  // Profissionais por tipo de registro (COREN/CRM/etc.)
+  const porTipoRegistro = db.prepare(`
+    SELECT COALESCE(tipo_registro, 'não informado') AS tipo,
+           COUNT(*) AS n
+      FROM profissionais_detalhes
+     GROUP BY tipo_registro
+     ORDER BY n DESC
+  `).all();
+
+  res.json({ totais, vagasPorDia, porTipoRegistro });
 });
 
-router.get('/users', async (req, res) => {
-  const { tipo, q, limit = 50, offset = 0 } = req.query;
-  const filters = [];
+/* ------------------------------------------------------------------ *
+ *  GET /api/admin/vagas  — listagem com filtros
+ *  ?status=ativa|pausada|fechada  &moderacao=ok|flagged|removida
+ *  &q=texto  &contratante=N  &lim=50
+ * ------------------------------------------------------------------ */
+router.get('/vagas', (req, res) => {
+  const { status, moderacao, q, contratante, lim } = req.query;
+  const where = ['1=1'];
   const params = [];
-  if (tipo) { filters.push('tipo_usuario = ?'); params.push(tipo); }
-  if (q) { filters.push('(nome LIKE ? OR email LIKE ?)'); params.push(`%${q}%`, `%${q}%`); }
-  const where = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
-  const rows = await db.all(
-    `SELECT id, tipo_usuario, nome, email, telefone, is_admin, suspended_at, criado_em
-       FROM users ${where} ORDER BY criado_em DESC LIMIT ? OFFSET ?`,
-    [...params, Number(limit), Number(offset)]
-  );
-  res.json({ users: rows });
+  if (status)   { where.push('v.status = ?');          params.push(status); }
+  if (moderacao){ where.push('v.moderacao_status = ?'); params.push(moderacao); }
+  if (contratante) { where.push('v.id_contratante = ?'); params.push(Number(contratante)); }
+  if (q) {
+    where.push('(v.servico_descricao LIKE ? OR v.profissional_desejado LIKE ? OR v.regiao LIKE ? OR u.nome LIKE ?)');
+    const t = `%${q}%`;
+    params.push(t, t, t, t);
+  }
+  const limit = Math.min(Number(lim) || 100, 500);
+  const rows = db.prepare(`
+    SELECT v.*,
+           u.nome AS contratante_nome,
+           u.email AS contratante_email,
+           (SELECT COUNT(*) FROM candidaturas WHERE id_vaga = v.id) AS total_candidatos,
+           ma.nome AS moderado_por_nome
+      FROM vagas v
+      JOIN users u ON u.id = v.id_contratante
+      LEFT JOIN users ma ON ma.id = v.moderado_por
+     WHERE ${where.join(' AND ')}
+     ORDER BY
+       CASE v.moderacao_status WHEN 'removida' THEN 0 WHEN 'flagged' THEN 1 ELSE 2 END,
+       v.criado_em DESC
+     LIMIT ${limit}
+  `).all(...params);
+  res.json({ vagas: rows, total: rows.length });
 });
 
-router.patch('/users/:id', validateBody({
-  suspended: { type: 'boolean' },
-  motivo:    { type: 'string', max: 200 }
-}), async (req, res) => {
+/* ------------------------------------------------------------------ *
+ *  GET /api/admin/vagas/:id  — detalhe completo
+ * ------------------------------------------------------------------ */
+router.get('/vagas/:id', (req, res) => {
   const id = Number(req.params.id);
-  const u = await db.get('SELECT id, is_admin FROM users WHERE id = ?', [id]);
-  if (!u) return res.status(404).json({ error: 'Usuário não encontrado' });
-  if (u.is_admin && req.body.suspended) {
-    return res.status(400).json({ error: 'Não é possível suspender outro admin' });
-  }
-  if (req.body.suspended) {
-    await db.run(
-      `UPDATE users SET suspended_at = datetime('now'), suspended_reason = ? WHERE id = ?`,
-      [req.body.motivo || 'Violação dos termos', id]
-    );
-  } else {
-    await db.run(
-      `UPDATE users SET suspended_at = NULL, suspended_reason = NULL WHERE id = ?`,
-      [id]
-    );
-  }
-  await db.run(
-    `INSERT INTO admin_audit (id_admin, acao, alvo_tipo, alvo_id, detalhes) VALUES (?, ?, ?, ?, ?)`,
-    [req.user.id, req.body.suspended ? 'user.suspend' : 'user.unsuspend', 'user', id, req.body.motivo || null]
-  );
-  res.json({ ok: true });
-});
-
-router.post('/users/:id/admin', validateBody({ is_admin: { required: true, type: 'boolean' } }),
-  async (req, res) => {
-    const id = Number(req.params.id);
-    await db.run('UPDATE users SET is_admin = ? WHERE id = ?', [req.body.is_admin ? 1 : 0, id]);
-    await db.run(
-      `INSERT INTO admin_audit (id_admin, acao, alvo_tipo, alvo_id, detalhes) VALUES (?, ?, ?, ?, ?)`,
-      [req.user.id, req.body.is_admin ? 'user.promote_admin' : 'user.demote_admin', 'user', id, null]
-    );
-    res.json({ ok: true });
-  }
-);
-
-router.get('/vagas', async (req, res) => {
-  const { status, limit = 50, offset = 0 } = req.query;
-  const filters = [];
-  const params = [];
-  if (status) { filters.push('v.status = ?'); params.push(status); }
-  const where = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
-  const rows = await db.all(
-    `SELECT v.*, u.nome AS contratante_nome, u.email AS contratante_email
-       FROM vagas v JOIN users u ON u.id = v.id_contratante
-       ${where} ORDER BY v.criado_em DESC LIMIT ? OFFSET ?`,
-    [...params, Number(limit), Number(offset)]
-  );
-  res.json({ vagas: rows });
-});
-
-router.patch('/vagas/:id', validateBody({
-  status: { type: 'enum', values: ['ativa', 'pausada', 'fechada'] }
-}), async (req, res) => {
-  const id = Number(req.params.id);
-  const vaga = await db.get('SELECT id FROM vagas WHERE id = ?', [id]);
+  const vaga = db.prepare(`
+    SELECT v.*,
+           u.nome AS contratante_nome, u.email AS contratante_email, u.telefone AS contratante_telefone
+      FROM vagas v
+      JOIN users u ON u.id = v.id_contratante
+     WHERE v.id = ?
+  `).get(id);
   if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
-  await db.run('UPDATE vagas SET status = ? WHERE id = ?', [req.body.status, id]);
-  await db.run(
-    `INSERT INTO admin_audit (id_admin, acao, alvo_tipo, alvo_id, detalhes) VALUES (?, ?, ?, ?, ?)`,
-    [req.user.id, 'vaga.moderate', 'vaga', id, JSON.stringify(req.body)]
-  );
-  res.json({ ok: true });
+
+  const cands = db.prepare(`
+    SELECT c.*, p.nome AS profissional_nome
+      FROM candidaturas c
+      JOIN users p ON p.id = c.id_profissional
+     WHERE c.id_vaga = ?
+     ORDER BY c.criado_em DESC
+  `).all(id);
+
+  const historico = db.prepare(`
+    SELECT m.*, u.nome AS admin_nome
+      FROM vagas_moderacao m
+      JOIN users u ON u.id = m.id_admin
+     WHERE m.id_vaga = ?
+     ORDER BY m.criado_em DESC
+     LIMIT 50
+  `).all(id);
+
+  // Log de "view" — append-only, sem mutar vaga
+  logModeracao(id, req.user.id, 'view', null);
+
+  res.json({ vaga, candidaturas: cands, historico });
 });
 
-router.delete('/vagas/:id', async (req, res) => {
+/* ------------------------------------------------------------------ *
+ *  POST /api/admin/vagas/:id/flag
+ *  body: { motivo }
+ * ------------------------------------------------------------------ */
+router.post('/vagas/:id/flag', validateBody(flagSchema), (req, res) => {
   const id = Number(req.params.id);
-  await db.run('DELETE FROM vagas WHERE id = ?', [id]);
-  await db.run(
-    `INSERT INTO admin_audit (id_admin, acao, alvo_tipo, alvo_id, detalhes) VALUES (?, ?, ?, ?, ?)`,
-    [req.user.id, 'vaga.delete', 'vaga', id, null]
-  );
+  const v = db.prepare('SELECT id FROM vagas WHERE id = ?').get(id);
+  if (!v) return res.status(404).json({ error: 'Vaga não encontrada' });
+  applyModeracao(id, req.user.id, 'flag', req.body.motivo);
   res.json({ ok: true });
 });
 
-router.get('/reports', async (req, res) => {
-  const { status } = req.query;
-  const filters = [];
+/* ------------------------------------------------------------------ *
+ *  POST /api/admin/vagas/:id/unflag
+ *  body: { motivo? }
+ * ------------------------------------------------------------------ */
+router.post('/vagas/:id/unflag', validateBody(flagSchema), (req, res) => {
+  const id = Number(req.params.id);
+  const v = db.prepare('SELECT id FROM vagas WHERE id = ?').get(id);
+  if (!v) return res.status(404).json({ error: 'Vaga não encontrada' });
+  applyModeracao(id, req.user.id, 'unflag', req.body.motivo);
+  res.json({ ok: true });
+});
+
+/* ------------------------------------------------------------------ *
+ *  POST /api/admin/vagas/:id/remove   (soft delete)
+ *  body: { motivo }
+ *  Vaga some da listagem pública mas o histórico fica preservado.
+ * ------------------------------------------------------------------ */
+router.post('/vagas/:id/remove', validateBody(flagSchema), (req, res) => {
+  const id = Number(req.params.id);
+  const v = db.prepare('SELECT id FROM vagas WHERE id = ?').get(id);
+  if (!v) return res.status(404).json({ error: 'Vaga não encontrada' });
+  applyModeracao(id, req.user.id, 'remove', req.body.motivo);
+  res.json({ ok: true });
+});
+
+/* ------------------------------------------------------------------ *
+ *  POST /api/admin/vagas/:id/restore
+ *  body: { motivo? }
+ * ------------------------------------------------------------------ */
+router.post('/vagas/:id/restore', validateBody(flagSchema), (req, res) => {
+  const id = Number(req.params.id);
+  const v = db.prepare('SELECT id FROM vagas WHERE id = ?').get(id);
+  if (!v) return res.status(404).json({ error: 'Vaga não encontrada' });
+  applyModeracao(id, req.user.id, 'restore', req.body.motivo);
+  res.json({ ok: true });
+});
+
+/* ------------------------------------------------------------------ *
+ *  GET /api/admin/usuarios  — lista com filtros
+ *  ?tipo=profissional|contratante|admin  &q=  &lim=100
+ * ------------------------------------------------------------------ */
+router.get('/usuarios', (req, res) => {
+  const { tipo, q, lim } = req.query;
+  const where = ['1=1'];
   const params = [];
-  if (status) { filters.push('r.status = ?'); params.push(status); }
-  const where = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
-  const rows = await db.all(
-    `SELECT r.*, u.nome AS reportou_nome, u.email AS reportou_email
-       FROM reports r JOIN users u ON u.id = r.id_user_reportou
-       ${where} ORDER BY r.criado_em DESC LIMIT 100`,
-    params
-  );
-  res.json({ reports: rows });
-});
-
-router.patch('/reports/:id', validateBody({
-  status: { required: true, type: 'enum', values: ['analisando', 'resolvido', 'descartado'] }
-}), async (req, res) => {
-  const id = Number(req.params.id);
-  const upd = req.body.status === 'resolvido' ? `, resolvido_em = datetime('now'), resolvido_por = ?` : '';
-  await db.run(`UPDATE reports SET status = ? ${upd} WHERE id = ?`,
-    req.body.status === 'resolvido'
-      ? [req.body.status, req.user.id, id]
-      : [req.body.status, id]
-  );
-  res.json({ ok: true });
-});
-
-router.get('/verificacoes', async (req, res) => {
-  const { status = 'pendente' } = req.query;
-  const rows = await db.all(
-    `SELECT v.*, u.nome AS profissional_nome, u.email AS profissional_email, d.diploma_url
-       FROM verificacao_registros v
-       JOIN users u ON u.id = v.id_user
-       LEFT JOIN profissionais_detalhes d ON d.id_user = u.id
-      WHERE v.status = ?
-      ORDER BY v.criado_em ASC LIMIT 100`,
-    [status]
-  );
-  res.json({ verificacoes: rows });
-});
-
-router.patch('/verificacoes/:id', validateBody({
-  status: { required: true, type: 'enum', values: ['aprovado', 'rejeitado'] },
-  motivo: { type: 'string', max: 500 }
-}), async (req, res) => {
-  const id = Number(req.params.id);
-  const v = await db.get('SELECT * FROM verificacao_registros WHERE id = ?', [id]);
-  if (!v) return res.status(404).json({ error: 'Verificação não encontrada' });
-  await db.run(
-    `UPDATE verificacao_registros
-        SET status = ?, motivo = COALESCE(?, motivo), verificado_por = ?, verificado_em = datetime('now')
-      WHERE id = ?`,
-    [req.body.status, req.body.motivo || null, req.user.id, id]
-  );
-  if (req.body.status === 'aprovado') {
-    await db.run(
-      'UPDATE profissionais_detalhes SET registro_verificado = 1 WHERE id_user = ?',
-      [v.id_user]
-    );
+  if (tipo) { where.push('u.tipo_usuario = ?'); params.push(tipo); }
+  if (q) {
+    where.push('(u.nome LIKE ? OR u.email LIKE ?)');
+    const t = `%${q}%`;
+    params.push(t, t);
   }
-  await db.run(
-    `INSERT INTO admin_audit (id_admin, acao, alvo_tipo, alvo_id, detalhes) VALUES (?, ?, ?, ?, ?)`,
-    [req.user.id, `verificacao.${req.body.status}`, 'verificacao', id, req.body.motivo || null]
-  );
-  res.json({ ok: true });
+  const limit = Math.min(Number(lim) || 100, 500);
+  const rows = db.prepare(`
+    SELECT u.id, u.tipo_usuario, u.nome, u.email, u.telefone, u.criado_em,
+           pd.registro_conselho, pd.tipo_registro, pd.registro_verificado,
+           (SELECT COUNT(*) FROM vagas WHERE id_contratante = u.id) AS total_vagas,
+           (SELECT COUNT(*) FROM candidaturas WHERE id_profissional = u.id) AS total_candidaturas
+      FROM users u
+      LEFT JOIN profissionais_detalhes pd ON pd.id_user = u.id
+     WHERE ${where.join(' AND ')}
+     ORDER BY u.criado_em DESC
+     LIMIT ${limit}
+  `).all(...params);
+  res.json({ usuarios: rows, total: rows.length });
 });
 
-router.get('/webhooks', async (req, res) => {
-  const rows = await db.all(
-    'SELECT * FROM webhook_logs ORDER BY criado_em DESC LIMIT 100'
-  );
-  res.json({ webhooks: rows });
-});
-
-router.get('/pagamentos', async (req, res) => {
-  const rows = await db.all(
-    `SELECT p.*, v.profissional_desejado, c.nome AS contratante_nome, pr.nome AS profissional_nome
-       FROM pagamentos p
-       JOIN vagas v ON v.id = p.id_vaga
-       JOIN users c ON c.id = p.id_contratante
-       JOIN users pr ON pr.id = p.id_profissional
-       ORDER BY p.criado_em DESC LIMIT 100`
-  );
-  res.json({ pagamentos: rows });
+/* ------------------------------------------------------------------ *
+ *  GET /api/admin/moderacao  — log global de ações
+ *  ?lim=50
+ * ------------------------------------------------------------------ */
+router.get('/moderacao', (req, res) => {
+  const lim = Math.min(Number(req.query.lim) || 50, 200);
+  const rows = db.prepare(`
+    SELECT m.*, u.nome AS admin_nome, v.servico_descricao
+      FROM vagas_moderacao m
+      JOIN users u ON u.id = m.id_admin
+      JOIN vagas v ON v.id = m.id_vaga
+     ORDER BY m.criado_em DESC
+     LIMIT ${lim}
+  `).all();
+  res.json({ acoes: rows });
 });
 
 export default router;

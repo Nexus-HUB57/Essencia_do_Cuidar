@@ -21,9 +21,14 @@ const vagaSchema = {
   regiao:               { type: 'string', max: 80 }
 };
 
-router.get('/', async (req, res) => {
-  const { profissional, complexidade, regiao, remuneracaoMin } = req.query;
-  const filters = ["v.status = 'ativa'"];
+/**
+ * GET /api/vagas  — lista pública de vagas ativas
+ * Filtros via query: ?profissional=...&complexidade=...&regiao=...&remuneracaoMin=...
+ * Vagas com moderacao_status='removida' são ocultas do público.
+ */
+router.get('/', (req, res) => {
+  const { profissional, complexidade, regiao, remuneracaoMin, ordenar, limite, offset } = req.query;
+  const filters = ["v.status = 'ativa'", "v.moderacao_status != 'removida'"];
   const params = [];
 
   if (profissional) { filters.push('v.profissional_desejado LIKE ?'); params.push(`%${profissional}%`); }
@@ -44,7 +49,11 @@ router.get('/', async (req, res) => {
   res.json({ vagas: rows });
 });
 
-router.get('/:id', async (req, res) => {
+/**
+ * GET /api/vagas/:id  — detalhe de uma vaga
+ * Vagas com moderacao_status='removida' só são visíveis para admin.
+ */
+router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
   const vaga = await db.get(
     `SELECT v.*, u.nome AS contratante_nome, u.telefone AS contratante_telefone
@@ -53,21 +62,21 @@ router.get('/:id', async (req, res) => {
     [id]
   );
   if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
-
-  // Registra view
-  const auth = req.headers.authorization;
-  let userId = null;
-  if (auth && auth.startsWith('Bearer ')) {
-    try {
-      const payload = jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'dev-secret-trocar');
-      userId = payload.id;
-    } catch {}
+  if (vaga.moderacao_status === 'removida') {
+    // Tenta identificar admin pelo token, sem exigir auth
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith('Bearer ')) {
+      try {
+        const payload = jwt.verify(auth.slice(7), process.env.JWT_SECRET || 'dev-secret-trocar');
+        const u = db.prepare('SELECT tipo_usuario FROM users WHERE id = ?').get(payload.id);
+        if (u && u.tipo_usuario === 'admin') {
+          return res.json({ vaga });
+        }
+      } catch { /* fallthrough */ }
+    }
+    return res.status(404).json({ error: 'Vaga não encontrada' });
   }
-  db.prepare('INSERT INTO vaga_visualizacoes (id_vaga, id_user) VALUES (?, ?)')
-    .run(id, userId);
-
-  const visualizacoes = db.prepare('SELECT COUNT(*) AS n FROM vaga_visualizacoes WHERE id_vaga = ?').get(id).n;
-  res.json({ vaga, visualizacoes });
+  res.json({ vaga });
 });
 
 router.post('/', authRequired, requireTipo('contratante'),

@@ -8,11 +8,10 @@ import bcrypt from 'bcryptjs';
 import db from './driver.js';
 import { initSchema } from './driver.js';
 
-await initSchema();
-
-async function seed() {
-  await db.exec(`
-    DELETE FROM avaliacoes;
+function seed() {
+  // Limpa dados de demo (idempotente para desenvolvimento)
+  db.exec(`
+    DELETE FROM vagas_moderacao;
     DELETE FROM mensagens;
     DELETE FROM candidaturas;
     DELETE FROM vagas;
@@ -33,18 +32,17 @@ async function seed() {
     ['contratante', 'Admin da Plataforma', 'admin@demo.com', hash('admin1234'), '11999990000']
   );
 
-  const prof1 = await db.run(
-    `INSERT INTO users (tipo_usuario, nome, email, senha_hash, telefone) VALUES (?, ?, ?, ?, ?)`,
-    ['profissional', 'Ana Carolina Souza', 'ana@demo.com', hash('demo1234'), '11999990002']
-  );
-  const prof2 = await db.run(
-    `INSERT INTO users (tipo_usuario, nome, email, senha_hash, telefone) VALUES (?, ?, ?, ?, ?)`,
-    ['profissional', 'João Pedro Lima', 'joao@demo.com', hash('demo1234'), '11999990003']
-  );
-  const prof3 = await db.run(
-    `INSERT INTO users (tipo_usuario, nome, email, senha_hash, telefone) VALUES (?, ?, ?, ?, ?)`,
-    ['profissional', 'Beatriz Mendes', 'bia@demo.com', hash('demo1234'), '11999990004']
-  );
+  // Admin demo (criado só via seed — cadastro público não aceita 'admin')
+  const adminId = insertUser.run(
+    'admin', 'Admin Demo', 'admin@demo.com', hash('demo1234'),
+    '11999990000'
+  ).lastInsertRowid;
+
+  // Contratante demo
+  const contratanteId = insertUser.run(
+    'contratante', 'Maria Silva', 'maria@demo.com', hash('demo1234'),
+    '11999990001'
+  ).lastInsertRowid;
 
   // Detalhes profissionais
   const insertProf = async (id, args) => {
@@ -79,82 +77,46 @@ async function seed() {
     'Psicóloga clínica com 5 anos de experiência em saúde do idoso.'
   ]);
 
-  // Vagas
-  const insertVaga = async (args) => {
-    return db.run(
-      `INSERT INTO vagas
-        (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
-         complexidade, servico_descricao, profissional_desejado,
-         jornada_horario, jornada_escala, tipo_contrato, remuneracao_tipo,
-         remuneracao_valor, regiao, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args
-    );
-  };
-  await insertVaga([
-    contratante.lastInsertRowid, 'F', 82, 'Alzheimer moderado',
+  // Vagas demo
+  const insertVaga = db.prepare(`
+    INSERT INTO vagas
+      (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
+       complexidade, servico_descricao, profissional_desejado,
+       jornada_horario, jornada_escala, tipo_contrato, remuneracao_tipo,
+       remuneracao_valor, regiao, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const vaga1 = insertVaga.run(
+    contratanteId, 'F', 82, 'Alzheimer moderado',
     'media', 'Acompanhante diurno para idosa com Alzheimer. Auxílio em medicação, alimentação e mobilidade.',
     'Cuidador de Idosos', '08h às 18h', 'Segunda a Sexta', 'CLT', 'hora', 35, 'Zona Sul - SP', 'ativa'
-  ]);
-  await insertVaga([
-    contratante.lastInsertRowid, 'M', 70, 'Pós-operatório de quadril',
+  ).lastInsertRowid;
+  const vaga2 = insertVaga.run(
+    contratanteId, 'M', 70, 'Pós-operatório de quadril',
     'media', 'Sessões de fisioterapia domiciliar, 3x por semana, foco em mobilidade.',
     'Fisioterapeuta', '14h às 16h', 'Seg/Qua/Sex', 'PJ', 'hora', 80, 'Zona Oeste - SP', 'ativa'
-  ]);
-  await insertVaga([
-    contratante.lastInsertRowid, 'F', 75, 'Hipertensão e mobilidade reduzida',
+  ).lastInsertRowid;
+  insertVaga.run(
+    contratanteId, 'F', 75, 'Hipertensão e mobilidade reduzida',
     'baixa', 'Cuidador noturno para idosa independente que precisa de companhia e supervisão.',
     'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP', 'ativa'
   ]);
 
-  // Avaliações demo (de "contratantes" fictícios para popular o perfil)
-  // Cria contratantes extras só pra popular avaliações
-  const novoContratante = async (nome, email, tel) => {
-    const r = await db.run(
-      `INSERT INTO users (tipo_usuario, nome, email, senha_hash, telefone) VALUES (?, ?, ?, ?, ?)`,
-      ['contratante', nome, email, hash('demo1234'), tel]
-    );
-    return r.lastInsertRowid;
-  };
-  const c2 = await novoContratante('Família Oliveira', 'oliveira@demo.com', '11999990010');
-  const c3 = await novoContratante('Família Santos', 'santos@demo.com', '11999990011');
-  const c4 = await novoContratante('Clínica Vida Plus', 'vidaplus@demo.com', '11999990012');
-  const c5 = await novoContratante('Família Pereira', 'pereira@demo.com', '11999990013');
-  const c6 = await novoContratante('Família Costa', 'costa@demo.com', '11999990014');
+  // Marca uma vaga como flagged e outra como removida para o admin ter
+  // algo para revisar no dashboard logo no primeiro login.
+  db.prepare(`UPDATE vagas SET moderacao_status='flagged', moderacao_motivo='Relato de descrição vaga', moderado_por=?, moderado_em=CURRENT_TIMESTAMP WHERE id=?`)
+    .run(adminId, vaga1);
+  db.prepare(`INSERT INTO vagas_moderacao (id_vaga, id_admin, acao, motivo) VALUES (?, ?, 'flag', 'Relato de descrição vaga')`)
+    .run(vaga1, adminId);
 
-  // Vagas fechadas dos contratantes extras (base para as avaliações)
-  const vagaFechada = async (args) => {
-    const r = await insertVaga(args);
-    return r.lastInsertRowid;
-  };
-  const vf1 = await vagaFechada([c2, 'M', 80, 'AVC', 'media', 'Fisioterapia pós-AVC.', 'Fisioterapeuta', '10h-12h', 'Seg a Sex', 'PJ', 'hora', 90, 'Zona Norte', 'fechada']);
-  const vf2 = await vagaFechada([c3, 'F', 70, 'Diabetes', 'baixa', 'Acompanhante para idosa com diabetes controlada.', 'Cuidador de Idosos', '14h-18h', 'Segunda a Sexta', 'CLT', 'hora', 30, 'Zona Leste', 'fechada']);
-  const vf3 = await vagaFechada([c4, 'M', 65, 'Pós-cirúrgico', 'media', 'Acompanhamento pós-cirurgia cardíaca.', 'Técnico de Enfermagem', '07h-19h', '12x36', 'CLT', 'plantao', 280, 'Zona Oeste', 'fechada']);
-  const vf5 = await vagaFechada([c5, 'F', 88, 'Alzheimer avançado', 'media', 'Cuidado integral a idosa acamada.', 'Cuidador de Idosos', '08h-20h', '12x36', 'CLT', 'plantao', 250, 'Zona Sul', 'fechada']);
-  const vf6 = await vagaFechada([c6, 'M', 72, 'Parkinson', 'media', 'Acompanhamento diurno.', 'Cuidador de Idosos', '09h-17h', 'Seg a Sex', 'PJ', 'hora', 45, 'Zona Oeste', 'fechada']);
-
-  // Candidaturas aceitas (base para as avaliações — a API exige aceite)
-  const insertCand = (vagaId, profId, msg) => db.run(
-    `INSERT INTO candidaturas (id_vaga, id_profissional, mensagem, status_candidatura) VALUES (?, ?, ?, 'aceita')`,
-    [vagaId, profId, msg]
-  );
-  await insertCand(vf1, prof1.lastInsertRowid, 'Experiência com AVC');
-  await insertCand(vf2, prof2.lastInsertRowid, 'Disponível para início imediato');
-  await insertCand(vf3, prof3.lastInsertRowid, 'Boa referência profissional');
-  await insertCand(vf5, prof1.lastInsertRowid, 'Atendimento 24h');
-  await insertCand(vf6, prof1.lastInsertRowid, 'Acompanhamento Parkinson');
-
-  const insertAv = (contratanteId, profId, vagaId, nota, comentario) => db.run(
-    `INSERT INTO avaliacoes (id_contratante, id_profissional, id_vaga, nota, comentario) VALUES (?, ?, ?, ?, ?)`,
-    [contratanteId, profId, vagaId, nota, comentario]
-  );
-  await insertAv(c2, prof1.lastInsertRowid, vf1, 5, 'Excelente profissional! Cuidou do meu pai com muito carinho e atenção. Recomendo demais.');
-  await insertAv(c3, prof2.lastInsertRowid, vf2, 5, 'Pontual, educado e muito competente. A minha mãe adorou.');
-  await insertAv(c4, prof3.lastInsertRowid, vf3, 4, 'Boa profissional. Um pouco tímida mas muito atenciosa.');
-  await insertAv(c5, prof1.lastInsertRowid, vf5, 5, null);
-  await insertAv(c6, prof1.lastInsertRowid, vf6, 4, 'Muito atenciosa com paciente difícil.');
+  db.prepare(`UPDATE vagas SET moderacao_status='removida', moderacao_motivo='Conteúdo inadequado', moderado_por=?, moderado_em=CURRENT_TIMESTAMP WHERE id=?`)
+    .run(adminId, vaga2);
+  db.prepare(`INSERT INTO vagas_moderacao (id_vaga, id_admin, acao, motivo) VALUES (?, ?, 'remove', 'Conteúdo inadequado')`)
+    .run(vaga2, adminId);
 
   console.log('[seed] dados demo criados:');
+  console.log('   - admin:       admin@demo.com / demo1234');
   console.log('   - contratante: maria@demo.com / demo1234');
   console.log('   - contratante: oliveira@demo.com / demo1234');
   console.log('   - contratante: santos@demo.com / demo1234');
@@ -162,7 +124,7 @@ async function seed() {
   console.log('   - profissional: ana@demo.com / demo1234');
   console.log('   - profissional: joao@demo.com / demo1234');
   console.log('   - profissional: bia@demo.com / demo1234');
-  console.log('   - admin:       admin@demo.com / admin1234');
+  console.log('[seed] 1 vaga flagged e 1 removida para o admin revisar');
 }
 
 await seed();

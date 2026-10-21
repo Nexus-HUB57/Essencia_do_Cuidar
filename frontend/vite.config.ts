@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'img/logo.jpg'],
+      includeAssets: ['favicon.svg', 'logo.jpg'],
       manifest: {
         name: 'Essência do Cuidar',
         short_name: 'Essência',

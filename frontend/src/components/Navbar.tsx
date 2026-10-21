@@ -1,12 +1,13 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth, getErrorMessage } from '../context/AuthContext';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
+import { useUnreadCount } from '../hooks/useUnreadCount';
 import LanguageSwitcher from './LanguageSwitcher';
-import PushPrompt from './PushPrompt';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
+  const unread = useUnreadCount();
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -18,42 +19,60 @@ export default function Navbar() {
     <nav className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-serenity-500 to-emerald-500 text-white flex items-center justify-center font-bold text-sm">EC</div>
-          <span className="font-bold text-slate-800 hidden sm:inline">{t('common.appName')}</span>
+          <img src="/logo.jpg" className="w-9 h-9 rounded-full object-cover" alt={t('navbar.logoAlt')} />
+          <span className="font-bold text-lg text-slate-900">{t('app.name')}</span>
         </Link>
 
-        <div className="flex items-center gap-1 sm:gap-3 text-sm">
-          <Link to="/vagas" className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5">{t('nav.vagas')}</Link>
-          <Link to="/como-funciona" className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5 hidden sm:inline">{t('nav.howItWorks')}</Link>
+        <nav className="hidden md:flex items-center gap-6 text-sm">
+          <NavLink to="/" end className={({ isActive }) =>
+            isActive ? 'text-serenity-600 font-medium' : 'text-slate-600 hover:text-serenity-600'}>
+            {t('navbar.home')}
+          </NavLink>
+          <NavLink to="/vagas" className={({ isActive }) =>
+            isActive ? 'text-serenity-600 font-medium' : 'text-slate-600 hover:text-serenity-600'}>
+            {t('navbar.jobs')}
+          </NavLink>
+          <NavLink to="/como-funciona" className={({ isActive }) =>
+            isActive ? 'text-serenity-600 font-medium' : 'text-slate-600 hover:text-serenity-600'}>
+            {t('navbar.howItWorks')}
+          </NavLink>
+        </nav>
 
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
           {user ? (
             <>
-              <Link
-                to={user.tipo_usuario === 'profissional' ? '/dashboard/profissional' : '/dashboard/contratante'}
-                className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5"
-              >
-                {t('nav.dashboard')}
-              </Link>
-              {user.is_admin && (
-                <Link to="/admin" className="text-amber-600 hover:underline px-2 sm:px-3 py-1.5 text-xs font-semibold">
-                  🛡️ {t('nav.admin')}
-                </Link>
+              {user.tipo_usuario === 'admin' && (
+                <NavLink to="/admin" className={({ isActive }) =>
+                  isActive
+                    ? 'text-amber-600 font-semibold text-xs sm:text-sm'
+                    : 'text-amber-700 hover:text-amber-600 text-xs sm:text-sm font-medium'}>
+                  {t('admin.title')}
+                </NavLink>
               )}
-              <div className="hidden sm:flex items-center gap-1">
-                <LanguageSwitcher />
-                <PushPrompt />
-              </div>
-              <button onClick={handleLogout} className="text-slate-500 hover:text-rose-500 text-xs sm:text-sm">
-                {t('nav.logout')}
+              <Link
+                to={
+                  user.tipo_usuario === 'profissional' ? '/dashboard/profissional'
+                  : user.tipo_usuario === 'contratante' ? '/dashboard/contratante'
+                  : '/admin'
+                }
+                className="btn-ghost text-xs sm:text-sm relative"
+              >
+                {user.nome.split(' ')[0]}
+                {unread > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
+              </Link>
+              <button onClick={handleLogout} className="text-sm text-slate-500 hover:text-rose-500 px-2">
+                {t('navbar.logout')}
               </button>
             </>
           ) : (
             <>
-              <div className="hidden sm:flex items-center gap-1">
-                <LanguageSwitcher />
-              </div>
-              <Link to="/login" className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5">{t('nav.login')}</Link>
-              <Link to="/cadastro" className="btn-primary text-xs px-3 py-1.5">{t('nav.register')}</Link>
+              <Link to="/login" className="btn-ghost text-xs sm:text-sm">{t('navbar.login')}</Link>
+              <Link to="/cadastro" className="btn-primary text-xs sm:text-sm">{t('navbar.signup')}</Link>
             </>
           )}
         </div>

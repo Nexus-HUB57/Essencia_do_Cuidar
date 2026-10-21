@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import api, { getErrorMessage } from '../utils/api';
 import type { User } from '../types';
 
@@ -70,6 +71,17 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth precisa estar dentro de AuthProvider');
   return ctx;
+}
+
+// Hook for components that need a translation function alongside error handling.
+export function useErrorTranslator() {
+  const { t } = useTranslation();
+  return (err: unknown): string => {
+    const raw = getErrorMessage(err);
+    if (raw === 'Network Error' || /network/i.test(raw)) return t('errors.network');
+    if (/unexpected/i.test(raw)) return t('errors.unexpected');
+    return raw;
+  };
 }
 
 export { getErrorMessage };

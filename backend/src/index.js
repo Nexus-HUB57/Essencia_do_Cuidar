@@ -15,10 +15,7 @@ import vagasRouter from './routes/vagas.js';
 import candidaturasRouter from './routes/candidaturas.js';
 import mensagensRouter from './routes/mensagens.js';
 import avaliacoesRouter from './routes/avaliacoes.js';
-import pagamentosRouter from './routes/pagamentos.js';
-import pushRouter from './routes/push.js';
 import adminRouter from './routes/admin.js';
-import i18nRouter from './routes/i18n.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,10 +48,7 @@ app.use('/api/vagas', vagasRouter);
 app.use('/api/candidaturas', candidaturasRouter);
 app.use('/api/mensagens', mensagensRouter);
 app.use('/api/avaliacoes', avaliacoesRouter);
-app.use('/api/pagamentos', pagamentosRouter);
-app.use('/api/push', pushRouter);
 app.use('/api/admin', adminRouter);
-app.use('/api/i18n', i18nRouter);
 
 // SPA fallback
 const distPath = path.resolve(__dirname, '../../frontend/dist');
