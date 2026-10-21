@@ -8,7 +8,7 @@ import { Server as SocketServer } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import fs from 'fs';
 
-import db from './db/driver.js';
+import db from './db/index.js';
 import authRouter from './routes/auth.js';
 import profissionaisRouter from './routes/profissionais.js';
 import vagasRouter from './routes/vagas.js';
@@ -24,9 +24,6 @@ const PORT = Number(process.env.PORT || 4000);
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-trocar';
 
-// Inicializa o schema do driver escolhido
-await db.initSchema();
-
 const app = express();
 app.use(cors({ origin: FRONTEND_URL.split(','), credentials: true }));
 app.use(express.json({ limit: '1mb' }));
@@ -38,7 +35,7 @@ app.get('/api/health', (req, res) => {
     ok: true,
     service: 'essencia-do-cuidar',
     timestamp: new Date().toISOString(),
-    db: db.driver
+    db: db.kind || 'sqlite'
   });
 });
 
