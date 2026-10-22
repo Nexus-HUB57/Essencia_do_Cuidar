@@ -1,0 +1,83 @@
+name: Deploy Netlify
+
+# Sincronização automática: todo push em main dispara build + deploy na Netlify.
+# Só roda se o repositório já estiver conectado na Netlify (o deploy
+# automático da Netlify é o caminho principal; este workflow é o
+# caminho explícito/observável, com logs no GitHub).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: netlify-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    name: Build e deploy na Netlify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependências
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        working-directory: frontend
+        env:
+          # VITE_* é build-time. Default usa /api porque o netlify.toml
+          # faz proxy pro backend. Override com secret se necessário.
+          VITE_API_URL: ${{ vars.VITE_API_URL || '/api' }}
+        run: npm run build
+
+      - name: Valida o build (index.html + manifesto PWA + imagens)
+        working-directory: frontend
+        run: |
+          set -e
+          test -f dist/index.html          || { echo "❌ dist/index.html ausente"; exit 1; }
+          test -f dist/manifest.webmanifest|| { echo "❌ manifest ausente"; exit 1; }
+          test -f dist/sw.js              || { echo "❌ service worker ausente"; exit 1; }
+          test -f dist/img/logo.jpg       || { echo "❌ logo da marca ausente"; exit 1; }
+          echo "✅ build íntegro:"
+          du -sh dist
+          ls dist/img/
+
+      - uses: nwtgck/actions-netlify@v3
+        id: netlify
+        with:
+          publish-dir: ./frontend/dist
+          deploy-message: "Deploy ${{ github.sha }} — ${{ github.actor }}"
+          site-url: ${{ secrets.NETLIFY_SITE_URL }}
+          enable-pull-request-comment: false
+          alias: deploy-preview-${{ github.run_number }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Resumo
+        if: always()
+        run: |
+          {
+            echo "### 🚀 Deploy Essência do Cuidar"
+            echo ""
+            echo "- **Commit:** \`${{ github.sha }}\`"
+            echo "- **Branch:** \`${{ github.ref_name }}\`"
+            echo "- **Deploy URL:** ${{ steps.netlify.outputs.deploy-url }}"
+            echo ""
+            echo "### 📸 Artefatos"
+            echo '```'
+            cd frontend && ls -la dist/img/ 2>/dev/null || echo "(sem imagens)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
