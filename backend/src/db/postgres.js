@@ -265,6 +265,16 @@ export async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
     CREATE INDEX IF NOT EXISTS idx_vaga_views ON vaga_visualizacoes(id_vaga);
   `);
+
+  // S2 — Idempotência do webhook Stripe (idempotente — IF NOT EXISTS via DO block)
+  // Note: PG não suporta "ALTER TABLE ... ADD COLUMN IF NOT EXISTS" em todas as versões;
+  // usamos um bloco DO anônimo para capturar o erro.
+  try {
+    await pool.query(`ALTER TABLE pagamentos ADD COLUMN stripe_event_id TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+
   console.log('[db:postgres] schema inicializado');
 }
 

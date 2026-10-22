@@ -8,6 +8,7 @@ import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { validateRegistro } from '../services/registros.js';
 import { normalize, validate, verifyWithCouncil } from '../services/registroValidator.js';
+import { recomendarParaProfissional } from '../services/matching.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -271,6 +272,20 @@ router.get('/:id', async (req, res) => {
     detalhes,
     stats: { total: stats?.total || 0, media: stats?.media || 0 }
   });
+});
+
+/**
+ * GET /api/profissionais/me/recomendar
+ * M1 — Matching automático: top N vagas recomendadas para o profissional logado.
+ * Apenas o próprio profissional logado pode ver suas recomendações.
+ * Query: limite (default 10, max 50), minScore (default 0.3)
+ */
+router.get('/me/recomendar', authRequired, requireTipo('profissional'), async (req, res) => {
+  const limite = Math.min(Number(req.query.limite) || 10, 50);
+  const minScore = Number(req.query.minScore) || 0.3;
+  const result = await recomendarParaProfissional(req.user.id, { limite, minScore });
+  if (!result) return res.status(404).json({ error: 'Perfil profissional não encontrado' });
+  res.json(result);
 });
 
 /**

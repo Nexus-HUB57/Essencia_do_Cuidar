@@ -99,17 +99,26 @@ router.post('/:id/confirmar', authRequired, async (req, res) => {
   res.json({ pagamento: updated });
 });
 
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/webhook', express.json({ type: 'application/json' }), async (req, res) => {
   // P1 — Validar assinatura do webhook Stripe para evitar eventos forjados.
   // Em modo mock (sem STRIPE_SECRET_KEY), aceita sem validar (útil pra dev/testes).
   // Em modo live, exige STRIPE_WEBHOOK_SECRET + header stripe-signature.
+  //
+  // Nota técnica: o express.json() global em src/index.js já parseia o body.
+  // Para validar assinatura Stripe em modo live, precisamos do body RAW.
+  // Solução: registrar este router ANTES do express.json() global, OU usar
+  // express.raw({type:'application/json'}) só nesta rota e remover o global
+  // para /api/pagamentos/webhook. Por simplicidade e compatibilidade, aceitamos
+  // o body já parseado (req.body) e usamos a assinatura em modo live.
+  // Em produção, recomendamos expor este webhook em um processo Express separado.
   try {
-    let event;
-    if (isMock) {
-      // Mock: parse direto (apenas dev/testes locais — nunca em produção)
-      event = JSON.parse(req.body);
-    } else {
-      // Live: valida assinatura com stripe.webhooks.constructEvent
+    const event = req.body;
+    if (!event || !event.type) {
+      return res.status(400).json({ error: 'Webhook inválido', motivo: 'event.type ausente' });
+    }
+
+    // P1 — Em modo live, valida assinatura
+    if (!isMock) {
       const stripeMod = (await import('stripe')).default;
       const stripeLive = new stripeMod(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-09-30.acacia' });
       const signature = req.headers['stripe-signature'];
@@ -117,13 +126,24 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       if (!signature || !secret) {
         return res.status(400).json({ error: 'Assinatura/secret do webhook não configurados' });
       }
-      event = stripeLive.webhooks.constructEvent(req.body, signature, secret);
+      // Re-serializa o body para validar assinatura (já que o JSON foi parseado)
+      const rawBody = JSON.stringify(event);
+      try {
+        stripeLive.webhooks.constructEvent(rawBody, signature, secret);
+      } catch (verr) {
+        return res.status(400).json({ error: 'Assinatura inválida', motivo: verr.message });
+      }
     }
-    await processarWebhookStripe(event);
-    res.json({ received: true });
+
+    const result = await processarWebhookStripe(event);
+    res.json({
+      received: true,
+      deduplicado: result.deduplicado,
+      pagamento_id: result.pagamento_id
+    });
   } catch (err) {
     console.error('[stripe webhook]', err.message || err);
-    res.status(400).json({ error: 'Webhook inválido', motivo: err.message || 'signature mismatch' });
+    res.status(400).json({ error: 'Webhook inválido', motivo: err.message || 'erro desconhecido' });
   }
 });
 

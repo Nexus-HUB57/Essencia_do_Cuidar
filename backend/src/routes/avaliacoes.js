@@ -51,7 +51,7 @@ router.post('/', authRequired, requireTipo('contratante'),
       const av = await db.get('SELECT * FROM avaliacoes WHERE id = ?', [info.lastInsertRowid]);
       notifyNetlify('avaliacao_criada', {
         avaliacao_id: av.id, vaga_id: id_vaga, profissional_id: id_profissional, nota
-      });
+      }).catch(e => console.warn('[webhook]', e.message));
       res.status(201).json({ avaliacao: av });
     } catch (err) {
       if (String(err.message).includes('UNIQUE')) {

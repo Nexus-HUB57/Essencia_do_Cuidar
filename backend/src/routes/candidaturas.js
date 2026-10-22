@@ -25,7 +25,7 @@ router.post('/', authRequired, requireTipo('profissional'),
       const cand = await db.get('SELECT * FROM candidaturas WHERE id = ?', [info.lastInsertRowid]);
       notifyNetlify('candidatura_enviada', {
         candidatura_id: cand.id, vaga_id: id_vaga, profissional_id: req.user.id
-      });
+      }).catch(e => console.warn('[webhook]', e.message));
       res.status(201).json({ candidatura: cand });
     } catch (err) {
       if (String(err.message).includes('UNIQUE') || String(err.code).includes('SQLITE_CONSTRAINT')) {
@@ -103,10 +103,17 @@ router.patch('/:id', authRequired, requireTipo('contratante'),
       return res.status(403).json({ error: 'Você não é dono desta vaga' });
     }
     await db.run('UPDATE candidaturas SET status_candidatura = ? WHERE id = ?', [req.body.status_candidatura, id]);
+
+    // M7 — Auto-close vaga após primeiro aceite (default true via env AUTO_CLOSE_ON_ACCEPT)
+    // Evita que outros profissionais continuem se candidatando a uma vaga já fechada.
+    if (req.body.status_candidatura === 'aceita' && process.env.AUTO_CLOSE_ON_ACCEPT !== 'false') {
+      await db.run("UPDATE vagas SET status = 'fechada' WHERE id = ? AND status = 'ativa'", [cand.id_vaga]);
+    }
+
     const updated = await db.get('SELECT * FROM candidaturas WHERE id = ?', [id]);
     notifyNetlify(`candidatura_${req.body.status_candidatura}`, {
       candidatura_id: id, vaga_id: cand.id_vaga, profissional_id: cand.id_profissional
-    });
+    }).catch(e => console.warn('[webhook]', e.message));
     res.json({ candidatura: updated });
   }
 );

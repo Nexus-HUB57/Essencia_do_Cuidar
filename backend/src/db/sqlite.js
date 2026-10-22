@@ -285,6 +285,8 @@ export function initSchema() {
   safeExec("ALTER TABLE users ADD COLUMN suspended_reason TEXT");
   // Adiciona coluna atualizada_em em candidaturas (usada por notificacoes.js)
   safeExec("ALTER TABLE candidaturas ADD COLUMN atualizada_em TEXT");
+  // S2 — Idempotência do webhook Stripe: coluna para registrar o último event_id processado
+  safeExec("ALTER TABLE pagamentos ADD COLUMN stripe_event_id TEXT");
   console.log('[db:sqlite] schema inicializado em', dbPath);
 }
 
