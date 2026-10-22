@@ -28,7 +28,15 @@ const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT || 4000);
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const NODE_ENV = process.env.NODE_ENV || 'development';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-trocar';
+
+// P2 — Em produção, JWT_SECRET é obrigatório. Abortar startup se ausente ou fallback.
+if (NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'dev-secret-trocar')) {
+  console.error('[FATAL] JWT_SECRET não configurado em produção. Gere com: openssl rand -hex 32');
+  console.error('       Defina a variável JWT_SECRET antes de subir o servidor.');
+  process.exit(1);
+}
 
 // Inicializa o schema do driver escolhido
 await db.initSchema();
@@ -96,8 +104,13 @@ if (fs.existsSync(distPath)) {
 app.use((req, res) => res.status(404).json({ error: 'Rota não encontrada' }));
 
 app.use((err, req, res, _next) => {
+  // P3 — Loga erro internamente, mas em produção NÃO expõe detalhe ao cliente
   console.error('[erro]', err);
-  res.status(500).json({ error: 'Erro interno do servidor', detalhe: err.message });
+  const isProd = process.env.NODE_ENV === 'production';
+  res.status(500).json({
+    error: 'Erro interno do servidor',
+    detalhe: isProd ? undefined : err.message
+  });
 });
 
 const server = http.createServer(app);
