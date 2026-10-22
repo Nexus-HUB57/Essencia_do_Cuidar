@@ -163,7 +163,7 @@ export default function Landing() {
               </ol>
               <Link to="/cadastro?tipo=profissional" className="btn-secondary w-full mt-6">{t('home.ctaProfessional')}</Link>
             </div>
-          </details>
+          </div>
         </div>
       </section>
 

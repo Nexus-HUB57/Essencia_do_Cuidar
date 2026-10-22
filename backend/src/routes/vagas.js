@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
@@ -54,7 +55,7 @@ router.get('/:id', async (req, res) => {
   );
   if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
 
-  // Registra view
+  // Registra view (best-effort — se a tabela não existir, ignora)
   const auth = req.headers.authorization;
   let userId = null;
   if (auth && auth.startsWith('Bearer ')) {
@@ -63,10 +64,25 @@ router.get('/:id', async (req, res) => {
       userId = payload.id;
     } catch {}
   }
-  db.prepare('INSERT INTO vaga_visualizacoes (id_vaga, id_user) VALUES (?, ?)')
-    .run(id, userId);
+  try {
+    await db.run(
+      'INSERT INTO vaga_visualizacoes (id_vaga, id_user) VALUES (?, ?)',
+      [id, userId]
+    );
+  } catch {
+    // tabela pode não existir em alguns ambientes — best-effort
+  }
 
-  const visualizacoes = db.prepare('SELECT COUNT(*) AS n FROM vaga_visualizacoes WHERE id_vaga = ?').get(id).n;
+  let visualizacoes = 0;
+  try {
+    const v = await db.get(
+      'SELECT COUNT(*) AS n FROM vaga_visualizacoes WHERE id_vaga = ?',
+      [id]
+    );
+    visualizacoes = v?.n || 0;
+  } catch {
+    // tabela pode não existir
+  }
   res.json({ vaga, visualizacoes });
 });
 

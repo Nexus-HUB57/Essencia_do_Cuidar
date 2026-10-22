@@ -19,6 +19,8 @@ import pushRouter from './routes/push.js';
 import adminRouter from './routes/admin.js';
 import i18nRouter from './routes/i18n.js';
 import avaliacoesRouter from './routes/avaliacoes.js';
+import favoritosRouter from './routes/favoritos.js';
+import notificacoesRouter from './routes/notificacoes.js';
 import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
 
 const __filename = fileURLToPath(import.meta.url);

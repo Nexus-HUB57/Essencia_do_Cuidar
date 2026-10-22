@@ -234,6 +234,24 @@ export async function initSchema() {
       resolvido_em TEXT
     );
 
+    -- Favoritos: usuario favorita vagas ou profissionais (toggle)
+    CREATE TABLE IF NOT EXISTS favoritos (
+      id SERIAL PRIMARY KEY,
+      id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga', 'profissional')),
+      id_recurso INTEGER NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      UNIQUE(id_user, tipo, id_recurso)
+    );
+
+    -- Visualizacoes de vagas (contador de views)
+    CREATE TABLE IF NOT EXISTS vaga_visualizacoes (
+      id SERIAL PRIMARY KEY,
+      id_vaga INTEGER NOT NULL REFERENCES vagas(id) ON DELETE CASCADE,
+      id_user INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      criado_em TEXT NOT NULL DEFAULT (now()::text)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_vagas_contratante ON vagas(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
@@ -244,6 +262,8 @@ export async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(id_user);
     CREATE INDEX IF NOT EXISTS idx_verify_user ON verificacao_registros(id_user);
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+    CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
+    CREATE INDEX IF NOT EXISTS idx_vaga_views ON vaga_visualizacoes(id_vaga);
   `);
   console.log('[db:postgres] schema inicializado');
 }

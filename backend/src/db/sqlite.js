@@ -244,6 +244,27 @@ export function initSchema() {
       FOREIGN KEY (resolvido_por) REFERENCES users(id) ON DELETE SET NULL
     );
 
+    -- Favoritos: usuario favorita vagas ou profissionais (toggle)
+    CREATE TABLE IF NOT EXISTS favoritos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_user INTEGER NOT NULL,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga', 'profissional')),
+      id_recurso INTEGER NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(id_user, tipo, id_recurso),
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Visualizacoes de vagas (contador de views)
+    CREATE TABLE IF NOT EXISTS vaga_visualizacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_vaga INTEGER NOT NULL,
+      id_user INTEGER,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE SET NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_vagas_contratante ON vagas(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
@@ -254,12 +275,16 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(id_user);
     CREATE INDEX IF NOT EXISTS idx_verify_user ON verificacao_registros(id_user);
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+    CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
+    CREATE INDEX IF NOT EXISTS idx_vaga_views ON vaga_visualizacoes(id_vaga);
   `);
 
   // Migrações idempotentes para bancos pré-existentes
   safeExec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
   safeExec("ALTER TABLE users ADD COLUMN suspended_at TEXT");
   safeExec("ALTER TABLE users ADD COLUMN suspended_reason TEXT");
+  // Adiciona coluna atualizada_em em candidaturas (usada por notificacoes.js)
+  safeExec("ALTER TABLE candidaturas ADD COLUMN atualizada_em TEXT");
   console.log('[db:sqlite] schema inicializado em', dbPath);
 }
 
