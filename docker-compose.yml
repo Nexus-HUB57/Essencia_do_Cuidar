@@ -1,33 +1,47 @@
-version: '3.9'
-
-# Exemplo opcional de orquestração.
-# Para rodar local sem Docker, basta `npm run install:all && npm run seed && npm run dev:backend`
-# em um terminal e `npm run dev:frontend` em outro.
+# Orquestração local com Docker. Para rodar sem Docker, use:
+#   npm run install:all && npm run seed && npm run dev:backend
+# (em um terminal) e `npm run dev:frontend` (em outro).
 
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: essencia-backend:dev
+    container_name: essencia-backend
+    restart: unless-stopped
     ports:
       - "4000:4000"
     environment:
       - NODE_ENV=production
       - PORT=4000
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-prod-please}
-      - FRONTEND_URL=http://localhost:5173
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env or shell before running}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - NETLIFY_AI_URL=https://netlify.ai
     volumes:
       - ./backend/data:/app/data
       - ./backend/uploads:/app/uploads
+    healthcheck:
+      # Chama o /api/health que agora verifica o DB (commit anterior).
+      # Marca como unhealthy se o endpoint retornar 503 (DB fora)
+      # ou se o próprio endpoint não responder em 5s.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    image: essencia-frontend:dev
+    container_name: essencia-frontend
+    restart: unless-stopped
     ports:
       - "5173:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     environment:
       - VITE_API_URL=http://localhost:4000/api

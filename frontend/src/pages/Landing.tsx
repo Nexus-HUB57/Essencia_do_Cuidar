@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const WHATSAPP_URL = 'https://wa.me/5519988322428';
 const WHATSAPP_DISPLAY = '(19) 98832-2428';
@@ -6,6 +7,7 @@ const INSTAGRAM_URL = 'https://instagram.com/jeane_silva1208';
 const INSTAGRAM_HANDLE = '@jeane_silva1208';
 
 export default function Landing() {
+  const { t } = useTranslation();
   return (
     <div className="fade-in">
       {/* HERO — usa a capa "Como trabalhamos" como background */}
@@ -21,33 +23,19 @@ export default function Landing() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center">
           <div>
-            <span className="inline-flex items-center gap-2 badge-blue mb-4">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              Cuidado humanizado, profissional e atencioso
-            </span>
+            <span className="badge-blue mb-4">🩺 {t('home.subtitle')}</span>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-slate-900">
-              Cuidar de quem você ama,
-              <span className="block text-serenity-500">com quem entende.</span>
+              {t('home.hero').split(',')[0]},
+              <span className="block text-serenity-500">{t('home.hero').split(',').slice(1).join(',')}</span>
             </h1>
-            <p className="mt-6 text-lg text-slate-600 max-w-xl">
-              Plataforma da <strong>Essência do Cuidar</strong> — por Jeane Silva.
-              Conectamos famílias a profissionais de saúde verificados para
-              cuidado domiciliar de idosos e pacientes de baixa e média complexidade.
-            </p>
+            <p className="mt-6 text-lg text-slate-600 max-w-xl">{t('home.subtitle')}</p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <Link to="/cadastro?tipo=contratante" className="btn-primary">
-                🏠 Busco profissional
-              </Link>
-              <Link to="/cadastro?tipo=profissional" className="btn-secondary">
-                🩺 Sou profissional
-              </Link>
+              <Link to="/cadastro?tipo=contratante" className="btn-primary">🏠 {t('home.ctaContractor')}</Link>
+              <Link to="/cadastro?tipo=profissional" className="btn-secondary">🩺 {t('home.ctaProfessional')}</Link>
             </div>
-            <div className="mt-6 flex items-center gap-3 text-sm text-slate-600">
-              <span>📍 Campinas e região</span>
-              <span>•</span>
-              <a href={WHATSAPP_URL} target="_blank" rel="noopener" className="hover:text-emerald-600 font-medium">
-                {WHATSAPP_DISPLAY}
-              </a>
+            <div className="mt-8 flex items-center gap-6 text-sm text-slate-500">
+              <div className="flex items-center gap-2"><span className="w-2 h-2 bg-emerald-500 rounded-full" /> CRM/COREN/CREFITO</div>
+              <div className="flex items-center gap-2"><span className="w-2 h-2 bg-serenity-500 rounded-full" /> Pix + Stripe</div>
             </div>
           </div>
 
@@ -55,22 +43,36 @@ export default function Landing() {
           <div className="relative">
             <div className="card relative z-10 max-w-md mx-auto">
               <div className="flex items-center gap-3 mb-4">
-                <img src="/img/logo.jpg" className="w-14 h-14 rounded-full" alt="logo" />
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-serenity-400 to-emerald-400 flex items-center justify-center text-white text-xl">👵</div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">Essência do Cuidar</h3>
-                  <p className="text-xs text-slate-500">por Jeane Silva</p>
+                  <h3 className="font-semibold text-slate-900">Cuidadora Ana C.</h3>
+                  <p className="text-xs text-slate-500">COREN-SP • {t('perfil.verified')}</p>
                 </div>
-                <span className="ml-auto badge-green">✓ Verificada</span>
+                <span className="ml-auto badge-green">✓ {t('perfil.verified')}</span>
               </div>
               <p className="text-sm text-slate-600 italic mb-4">
                 "Cuidar com amor é a nossa essência. Cuidado, Acolhimento e Respeito em cada detalhe."
               </p>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {['Cuidado', 'Acolhimento', 'Respeito'].map((p) => (
-                  <div key={p} className="bg-emerald-50 text-emerald-800 rounded-xl py-2 text-xs font-semibold">
-                    {p}
-                  </div>
-                ))}
+              <div className="flex flex-wrap gap-1.5">
+                <span className="badge-blue">Alzheimer</span>
+                <span className="badge-blue">Cuidados Paliativos</span>
+                <span className="badge-blue">Idosos</span>
+              </div>
+              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-slate-500">A partir de</p>
+                  <p className="text-lg font-bold text-serenity-600">R$ 35<span className="text-xs text-slate-400 font-normal">/hora</span></p>
+                </div>
+                <button className="btn-primary text-xs py-2">Ver perfil</button>
+              </div>
+            </div>
+            <div className="hidden md:block absolute -bottom-6 -left-6 card p-4 z-20 max-w-[200px]">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🔒</span>
+                <div>
+                  <p className="text-xs font-semibold">{t('perfil.verified')} diploma</p>
+                  <p className="text-[10px] text-slate-500">Última checagem hoje</p>
+                </div>
               </div>
               <a
                 href={WHATSAPP_URL}
@@ -123,59 +125,43 @@ export default function Landing() {
       {/* SERVIÇOS — 5 plantões */}
       <section className="py-20 bg-gradient-to-br from-slate-50 to-emerald-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="badge-blue mb-3">🩺 Nossos serviços</span>
-            <h2 className="text-3xl md:text-4xl font-bold">5 tipos de plantão</h2>
-            <p className="mt-3 text-slate-600">
-              Cobertura completa para todas as necessidades da sua família,
-              com qualidade e tranquilidade.
-            </p>
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold">{t('home.howItWorks')}</h2>
           </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              { i: '🌙', t: 'Plantão 12h', d: 'Diurno ou noturno. Cuidado contínuo, dia ou noite.' },
-              { i: '🤲', t: 'Plantão 24h', d: 'Com revezamento. Atenção total sem interrupções.' },
-              { i: '📅', t: 'Plantão Folguista', d: 'Fim de semana. Seu descanso garantido.' },
-              { i: '🏥', t: 'Acompanhamento Hospitalar', d: 'Segurança em internações e pós-cirúrgico.' },
-              { i: '🩺', t: 'Consultas e Exames', d: 'Levamos, anotamos e cuidamos de tudo.' }
-            ].map((s, i) => (
-              <div key={i} className="card hover:shadow-lg transition-shadow">
-                <div className="text-3xl mb-2">{s.i}</div>
-                <h3 className="font-semibold mb-1">{s.t}</h3>
-                <p className="text-sm text-slate-500">{s.d}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-8">
-            <Link to="/vagas" className="btn-primary">Ver vagas disponíveis →</Link>
-          </div>
-
-          {/* Material de marca: os slides originais da Essência */}
-          <details className="mt-8 group">
-            <summary className="cursor-pointer text-center text-sm text-slate-500 hover:text-serenity-600 select-none">
-              📄 Ver material institucional da Essência do Cuidar
-            </summary>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-              {[
-                { src: '/img/servicos.jpg', t: 'Nossos Serviços' },
-                { src: '/img/processo.jpg', t: 'Nosso Processo' },
-                { src: '/img/cta-cuidado.jpg', t: 'Cuidado que acolhe e protege' }
-              ].map((d) => (
-                <a
-                  key={d.src}
-                  href={d.src}
-                  target="_blank"
-                  rel="noopener"
-                  className="group/card block rounded-xl overflow-hidden shadow-card hover:shadow-lg transition"
-                >
-                  <img src={d.src} alt={d.t} className="w-full h-auto" loading="lazy" />
-                  <div className="p-3 bg-white dark:bg-slate-800 text-center text-xs font-medium text-slate-700 dark:text-slate-300">
-                    {d.t} ↗
-                  </div>
-                </a>
-              ))}
+          <div className="grid md:grid-cols-2 gap-12">
+            <div className="card border-t-4 border-serenity-500">
+              <span className="badge-blue mb-3">{t('auth.contractor')}</span>
+              <h3 className="text-xl font-semibold mb-6">3 passos</h3>
+              <ol className="space-y-4">
+                {[
+                  { t: 'Crie sua conta +Saúde', d: 'Cadastro rápido com nome, e-mail e telefone.' },
+                  { t: 'Publique a vaga', d: 'Descreva o paciente, a jornada e o profissional desejado.' },
+                  { t: 'Pague via Pix', d: 'Split automático: 90% profissional, 10% plataforma.' }
+                ].map((s, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="w-8 h-8 shrink-0 rounded-full bg-serenity-100 text-serenity-700 font-bold flex items-center justify-center text-sm">{i + 1}</span>
+                    <div><p className="font-medium">{s.t}</p><p className="text-sm text-slate-500">{s.d}</p></div>
+                  </li>
+                ))}
+              </ol>
+              <Link to="/cadastro?tipo=contratante" className="btn-primary w-full mt-6">{t('home.ctaContractor')}</Link>
+            </div>
+            <div className="card border-t-4 border-emerald-500">
+              <span className="badge-green mb-3">{t('auth.professional')}</span>
+              <h3 className="text-xl font-semibold mb-6">3 passos</h3>
+              <ol className="space-y-4">
+                {[
+                  { t: 'Cadastre-se + diploma', d: 'Validação do seu registro (CRM/COREN/CREFITO).' },
+                  { t: 'Conecte sua conta Stripe', d: 'Receba pagamentos via Pix com split.' },
+                  { t: 'Candidate-se e ative push', d: 'Notificações em tempo real no celular.' }
+                ].map((s, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="w-8 h-8 shrink-0 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-sm">{i + 1}</span>
+                    <div><p className="font-medium">{s.t}</p><p className="text-sm text-slate-500">{s.d}</p></div>
+                  </li>
+                ))}
+              </ol>
+              <Link to="/cadastro?tipo=profissional" className="btn-secondary w-full mt-6">{t('home.ctaProfessional')}</Link>
             </div>
           </details>
         </div>
@@ -228,14 +214,14 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-10">
             <span className="badge-green mb-3">🛡️ Segurança em primeiro lugar</span>
-            <h2 className="text-2xl md:text-3xl font-bold">Por que confiar na Essência</h2>
+            <h2 className="text-3xl md:text-4xl font-bold">Por que confiar na {t('common.appName')}</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { i: '🔐', t: 'Registro verificado', d: 'Validamos CRM, COREN, CREFITO, CRP e CRN.' },
-              { i: '📄', t: 'Diploma anexado', d: 'Profissionais sobem PDF/foto do diploma.' },
-              { i: '💬', t: 'Chat transparente', d: 'Toda negociação fica registrada na plataforma.' },
-              { i: '⚠️', t: 'Sem alta complexidade', d: 'Não aceitamos vagas de UTI. Foco em baixa/média.' }
+              { i: '🔐', t: t('perfil.verified') + ' de registro', d: 'Validamos CRM, COREN, CREFITO, CRP e CRN.' },
+              { i: '📄', t: t('perfil.diploma'), d: 'Profissionais sobem PDF/foto do diploma.' },
+              { i: '💰', t: 'Pix + Stripe Connect', d: 'Pagamento seguro com split automático.' },
+              { i: '🔔', t: 'Notificações push', d: 'Aviso em tempo real de mensagens e vagas.' }
             ].map((c, i) => (
               <div key={i} className="card text-center">
                 <div className="text-3xl mb-3">{c.i}</div>
@@ -268,37 +254,13 @@ export default function Landing() {
               <strong> Campinas e região</strong>. Agende uma visita gratuita
               e conheça o cuidado que faz a diferença.
             </p>
-
-            <div className="space-y-3 mb-8">
-              <a
-                href={WHATSAPP_URL}
-                target="_blank" rel="noopener"
-                className="flex items-center gap-3 p-3 rounded-xl border-2 border-emerald-200 hover:bg-emerald-50 transition"
-              >
-                <span className="text-2xl">💬</span>
-                <div>
-                  <p className="text-xs text-slate-500">WhatsApp</p>
-                  <p className="font-semibold text-slate-900">{WHATSAPP_DISPLAY}</p>
-                </div>
-              </a>
-              <a
-                href={INSTAGRAM_URL}
-                target="_blank" rel="noopener"
-                className="flex items-center gap-3 p-3 rounded-xl border-2 border-pink-200 hover:bg-pink-50 transition"
-              >
-                <span className="text-2xl">📸</span>
-                <div>
-                  <p className="text-xs text-slate-500">Instagram</p>
-                  <p className="font-semibold text-slate-900">{INSTAGRAM_HANDLE}</p>
-                </div>
-              </a>
-              <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-serenity-200">
-                <span className="text-2xl">📍</span>
-                <div>
-                  <p className="text-xs text-slate-500">Atendimento</p>
-                  <p className="font-semibold text-slate-900">Campinas e região</p>
-                </div>
-              </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link to="/cadastro?tipo=contratante" className="bg-white text-serenity-600 hover:bg-slate-50 font-medium px-6 py-3 rounded-xl">
+                Quero contratar
+              </Link>
+              <Link to="/cadastro?tipo=profissional" className="bg-serenity-700 hover:bg-serenity-800 text-white font-medium px-6 py-3 rounded-xl">
+                {t('home.ctaProfessional')}
+              </Link>
             </div>
 
             <a href={WHATSAPP_URL} target="_blank" rel="noopener" className="btn-primary text-base">

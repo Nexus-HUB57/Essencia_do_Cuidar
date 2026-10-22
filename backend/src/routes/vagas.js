@@ -1,6 +1,5 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
-import db from '../db/index.js';
+import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyNetlify } from '../services/netlify.js';
@@ -22,14 +21,8 @@ const vagaSchema = {
   regiao:               { type: 'string', max: 80 }
 };
 
-/**
- * GET /api/vagas  — lista pública de vagas ativas
- * Filtros via query: ?profissional=...&complexidade=...&regiao=...&remuneracaoMin=...
- * Ordenação: ?ordenar=recentes (default) | remuneracao
- * Paginação: ?limite=20&offset=0
- */
-router.get('/', (req, res) => {
-  const { profissional, complexidade, regiao, remuneracaoMin, ordenar, limite, offset } = req.query;
+router.get('/', async (req, res) => {
+  const { profissional, complexidade, regiao, remuneracaoMin } = req.query;
   const filters = ["v.status = 'ativa'"];
   const params = [];
 
@@ -39,39 +32,26 @@ router.get('/', (req, res) => {
   if (remuneracaoMin) { filters.push('v.remuneracao_valor >= ?'); params.push(Number(remuneracaoMin)); }
 
   const where = 'WHERE ' + filters.join(' AND ');
-  const orderBy = ordenar === 'remuneracao'
-    ? 'ORDER BY v.remuneracao_valor DESC'
-    : 'ORDER BY v.criado_em DESC';
-  const lim = Math.min(Number(limite) || 50, 100);
-  const off = Math.max(Number(offset) || 0, 0);
-
-  const rows = db.prepare(`
-    SELECT v.*, u.nome AS contratante_nome
-      FROM vagas v
-      JOIN users u ON u.id = v.id_contratante
-      ${where}
-      ${orderBy}
-     LIMIT ? OFFSET ?
-  `).all(...params, lim, off);
-
-  const total = db.prepare(`
-    SELECT COUNT(*) AS n FROM vagas v ${where}
-  `).get(...params).n;
-
-  res.json({ vagas: rows, total, limite: lim, offset: off });
+  const rows = await db.all(
+    `SELECT v.*, u.nome AS contratante_nome
+       FROM vagas v
+       JOIN users u ON u.id = v.id_contratante
+       ${where}
+      ORDER BY v.criado_em DESC
+      LIMIT 100`,
+    params
+  );
+  res.json({ vagas: rows });
 });
 
-/**
- * GET /api/vagas/:id  — detalhe de uma vaga
- * Registra uma visualização (analytics simples) e retorna a vaga + contagem.
- */
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
-  const vaga = db.prepare(`
-    SELECT v.*, u.nome AS contratante_nome, u.telefone AS contratante_telefone
-      FROM vagas v JOIN users u ON u.id = v.id_contratante
-     WHERE v.id = ?
-  `).get(id);
+  const vaga = await db.get(
+    `SELECT v.*, u.nome AS contratante_nome, u.telefone AS contratante_telefone
+       FROM vagas v JOIN users u ON u.id = v.id_contratante
+      WHERE v.id = ?`,
+    [id]
+  );
   if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
 
   // Registra view
@@ -90,60 +70,54 @@ router.get('/:id', (req, res) => {
   res.json({ vaga, visualizacoes });
 });
 
-/**
- * POST /api/vagas  — contratante cria uma vaga
- */
 router.post('/', authRequired, requireTipo('contratante'),
   validateBody(vagaSchema), async (req, res) => {
     const f = req.body;
-    const info = db.prepare(`
-      INSERT INTO vagas
+    const info = await db.run(
+      `INSERT INTO vagas
         (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
          complexidade, servico_descricao, profissional_desejado,
          jornada_horario, jornada_escala, tipo_contrato, remuneracao_tipo,
          remuneracao_valor, regiao, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ativa')
-    `).run(
-      req.user.id, f.paciente_sexo ?? null, f.paciente_idade ?? null, f.paciente_diagnostico ?? null,
-      f.complexidade, f.servico_descricao, f.profissional_desejado,
-      f.jornada_horario ?? null, f.jornada_escala ?? null,
-      f.tipo_contrato ?? null, f.remuneracao_tipo ?? null,
-      f.remuneracao_valor ?? null, f.regiao ?? null
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ativa')`,
+      [
+        req.user.id, f.paciente_sexo ?? null, f.paciente_idade ?? null, f.paciente_diagnostico ?? null,
+        f.complexidade, f.servico_descricao, f.profissional_desejado,
+        f.jornada_horario ?? null, f.jornada_escala ?? null,
+        f.tipo_contrato ?? null, f.remuneracao_tipo ?? null,
+        f.remuneracao_valor ?? null, f.regiao ?? null
+      ]
     );
-    const vaga = db.prepare('SELECT * FROM vagas WHERE id = ?').get(info.lastInsertRowid);
-    // Webhook notificação netlify.ai (best-effort)
+    const vaga = await db.get('SELECT * FROM vagas WHERE id = ?', [info.lastInsertRowid]);
     notifyNetlify('vaga_criada', { vaga_id: vaga.id, contratante_id: req.user.id });
     res.status(201).json({ vaga });
   }
 );
 
-/**
- * GET /api/vagas/minhas  — vagas do contratante logado
- */
-router.get('/contratante/minhas', authRequired, requireTipo('contratante'), (req, res) => {
-  const rows = db.prepare(`
-    SELECT * FROM vagas WHERE id_contratante = ? ORDER BY criado_em DESC
-  `).all(req.user.id);
-  // Para cada vaga, conta candidaturas
-  const countCand = db.prepare('SELECT COUNT(*) AS n FROM candidaturas WHERE id_vaga = ?');
-  const enriched = rows.map(v => ({ ...v, total_candidatos: countCand.get(v.id).n }));
+router.get('/contratante/minhas', authRequired, requireTipo('contratante'), async (req, res) => {
+  const rows = await db.all(
+    'SELECT * FROM vagas WHERE id_contratante = ? ORDER BY criado_em DESC',
+    [req.user.id]
+  );
+  const enriched = [];
+  for (const v of rows) {
+    const c = await db.get('SELECT COUNT(*) AS n FROM candidaturas WHERE id_vaga = ?', [v.id]);
+    enriched.push({ ...v, total_candidatos: c.n });
+  }
   res.json({ vagas: enriched });
 });
 
-/**
- * PATCH /api/vagas/:id/status  — pausar / fechar
- */
 router.patch('/:id/status', authRequired, requireTipo('contratante'),
   validateBody({ status: { required: true, type: 'enum', values: ['ativa', 'pausada', 'fechada'] } }),
-  (req, res) => {
+  async (req, res) => {
     const id = Number(req.params.id);
-    const vaga = db.prepare('SELECT * FROM vagas WHERE id = ?').get(id);
+    const vaga = await db.get('SELECT * FROM vagas WHERE id = ?', [id]);
     if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
     if (vaga.id_contratante !== req.user.id) {
       return res.status(403).json({ error: 'Você não é dono desta vaga' });
     }
-    db.prepare(`UPDATE vagas SET status = ? WHERE id = ?`).run(req.body.status, id);
-    const updated = db.prepare('SELECT * FROM vagas WHERE id = ?').get(id);
+    await db.run('UPDATE vagas SET status = ? WHERE id = ?', [req.body.status, id]);
+    const updated = await db.get('SELECT * FROM vagas WHERE id = ?', [id]);
     res.json({ vaga: updated });
   }
 );

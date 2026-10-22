@@ -1,12 +1,12 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useTema } from '../hooks/useTema';
-import BotaoInstalar from './BotaoInstalar';
-import SinoNotificacoes from './SinoNotificacoes';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth, getErrorMessage } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
+import PushPrompt from './PushPrompt';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-  const { isDark, toggle } = useTema();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -15,59 +15,49 @@ export default function Navbar() {
   }
 
   return (
-    <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <nav className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
         <Link to="/" className="flex items-center gap-2">
-          <img src="/img/logo.jpg" className="w-9 h-9 rounded-full" alt="Essência do Cuidar" />
-          <span className="font-bold text-lg text-slate-900 dark:text-white">Essência do Cuidar</span>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-serenity-500 to-emerald-500 text-white flex items-center justify-center font-bold text-sm">EC</div>
+          <span className="font-bold text-slate-800 hidden sm:inline">{t('common.appName')}</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-6 text-sm">
-          <NavLink to="/" end className={({ isActive }) =>
-            isActive ? 'text-serenity-600 dark:text-serenity-300 font-medium' : 'text-slate-600 dark:text-slate-300 hover:text-serenity-600 dark:hover:text-serenity-300'}>
-            Início
-          </NavLink>
-          <NavLink to="/vagas" className={({ isActive }) =>
-            isActive ? 'text-serenity-600 dark:text-serenity-300 font-medium' : 'text-slate-600 dark:text-slate-300 hover:text-serenity-600 dark:hover:text-serenity-300'}>
-            Vagas
-          </NavLink>
-          <NavLink to="/como-funciona" className={({ isActive }) =>
-            isActive ? 'text-serenity-600 dark:text-serenity-300 font-medium' : 'text-slate-600 dark:text-slate-300 hover:text-serenity-600 dark:hover:text-serenity-300'}>
-            Como funciona
-          </NavLink>
-        </nav>
+        <div className="flex items-center gap-1 sm:gap-3 text-sm">
+          <Link to="/vagas" className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5">{t('nav.vagas')}</Link>
+          <Link to="/como-funciona" className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5 hidden sm:inline">{t('nav.howItWorks')}</Link>
 
-        <div className="flex items-center gap-2">
-          <BotaoInstalar />
-          <SinoNotificacoes />
-          <button
-            onClick={toggle}
-            className="text-sm px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
-            aria-label="Alternar tema"
-            title={isDark ? 'Tema claro' : 'Tema escuro'}
-          >
-            {isDark ? '☀️' : '🌙'}
-          </button>
           {user ? (
             <>
               <Link
                 to={user.tipo_usuario === 'profissional' ? '/dashboard/profissional' : '/dashboard/contratante'}
-                className="btn-ghost text-xs sm:text-sm"
+                className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5"
               >
-                {user.nome.split(' ')[0]}
+                {t('nav.dashboard')}
               </Link>
-              <button onClick={handleLogout} className="text-sm text-slate-500 dark:text-slate-400 hover:text-rose-500 px-2">
-                Sair
+              {user.is_admin && (
+                <Link to="/admin" className="text-amber-600 hover:underline px-2 sm:px-3 py-1.5 text-xs font-semibold">
+                  🛡️ {t('nav.admin')}
+                </Link>
+              )}
+              <div className="hidden sm:flex items-center gap-1">
+                <LanguageSwitcher />
+                <PushPrompt />
+              </div>
+              <button onClick={handleLogout} className="text-slate-500 hover:text-rose-500 text-xs sm:text-sm">
+                {t('nav.logout')}
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="btn-ghost text-xs sm:text-sm">Entrar</Link>
-              <Link to="/cadastro" className="btn-primary text-xs sm:text-sm">Cadastrar</Link>
+              <div className="hidden sm:flex items-center gap-1">
+                <LanguageSwitcher />
+              </div>
+              <Link to="/login" className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5">{t('nav.login')}</Link>
+              <Link to="/cadastro" className="btn-primary text-xs px-3 py-1.5">{t('nav.register')}</Link>
             </>
           )}
         </div>
       </div>
-    </header>
+    </nav>
   );
 }
