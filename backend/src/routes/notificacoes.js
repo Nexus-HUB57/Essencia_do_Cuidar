@@ -1,5 +1,5 @@
 import express from 'express';
-import db from '../db/index.js';
+import db from '../db/driver.js';
 import { authRequired } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -18,7 +18,7 @@ const router = express.Router();
  *
  * Inclui contadores de "não lidos" para badge no Navbar.
  */
-router.get('/', authRequired, (req, res) => {
+router.get('/', authRequired, async (req, res) => {
   const userId = req.user.id;
   const tipo = req.user.tipo_usuario;
 
@@ -26,15 +26,16 @@ router.get('/', authRequired, (req, res) => {
   let naoLidas = 0;
 
   // 1) Mensagens não lidas
-  const msgs = db.prepare(`
-    SELECT m.id, m.id_remetente, m.conteudo, m.criado_em, m.id_vaga,
-           u.nome AS remetente_nome
-      FROM mensagens m
-      JOIN users u ON u.id = m.id_remetente
-     WHERE m.id_destinatario = ? AND m.lida = 0
-     ORDER BY m.criado_em DESC
-     LIMIT 20
-  `).all(userId);
+  const msgs = await db.all(
+    `SELECT m.id, m.id_remetente, m.conteudo, m.criado_em, m.id_vaga,
+            u.nome AS remetente_nome
+       FROM mensagens m
+       JOIN users u ON u.id = m.id_remetente
+      WHERE m.id_destinatario = ? AND m.lida = 0
+      ORDER BY m.criado_em DESC
+      LIMIT 20`,
+    [userId]
+  );
   naoLidas += msgs.length;
   for (const m of msgs) {
     items.push({
@@ -50,17 +51,18 @@ router.get('/', authRequired, (req, res) => {
 
   if (tipo === 'contratante') {
     // 2) Novas candidaturas (pendentes) nas vagas do contratante
-    const cands = db.prepare(`
-      SELECT c.id, c.id_profissional, c.criado_em, c.status_candidatura,
-             v.id AS vaga_id, v.profissional_desejado,
-             u.nome AS profissional_nome
+    const cands = await db.all(
+      `SELECT c.id, c.id_profissional, c.criado_em, c.status_candidatura,
+              v.id AS vaga_id, v.profissional_desejado,
+              u.nome AS profissional_nome
         FROM candidaturas c
         JOIN vagas v ON v.id = c.id_vaga
         JOIN users u ON u.id = c.id_profissional
        WHERE v.id_contratante = ? AND c.status_candidatura IN ('pendente', 'visualizada')
        ORDER BY c.criado_em DESC
-       LIMIT 20
-    `).all(userId);
+       LIMIT 20`,
+      [userId]
+    );
     naoLidas += cands.length;
     for (const c of cands) {
       items.push({
@@ -74,18 +76,21 @@ router.get('/', authRequired, (req, res) => {
     }
   } else {
     // 3) Profissional: respostas de candidaturas
-    const cands = db.prepare(`
-      SELECT c.id, c.id_vaga, c.status_candidatura, c.criado_em,
-             v.profissional_desejado, u.nome AS contratante_nome
+    // Usa COALESCE para compat com bancos que ainda não têm atualizada_em.
+    const cands = await db.all(
+      `SELECT c.id, c.id_vaga, c.status_candidatura, c.criado_em,
+              COALESCE(c.atualizada_em, c.criado_em) AS atualizada_em,
+              v.profissional_desejado, u.nome AS contratante_nome
         FROM candidaturas c
         JOIN vagas v ON v.id = c.id_vaga
         JOIN users u ON u.id = v.id_contratante
        WHERE c.id_profissional = ?
          AND c.status_candidatura IN ('aceita', 'recusada')
-         AND c.atualizada_em > datetime('now', '-30 day')
+         AND COALESCE(c.atualizada_em, c.criado_em) > datetime('now', '-30 day')
        ORDER BY c.criado_em DESC
-       LIMIT 20
-    `).all(userId);
+       LIMIT 20`,
+      [userId]
+    );
     for (const c of cands) {
       const isAceita = c.status_candidatura === 'aceita';
       items.push({
@@ -112,11 +117,11 @@ router.get('/', authRequired, (req, res) => {
  * POST /api/notificacoes/marcar-lidas
  * Marca todas as mensagens do usuário como lidas.
  */
-router.post('/marcar-lidas', authRequired, (req, res) => {
-  db.prepare(`
-    UPDATE mensagens SET lida = 1
-     WHERE id_destinatario = ? AND lida = 0
-  `).run(req.user.id);
+router.post('/marcar-lidas', authRequired, async (req, res) => {
+  await db.run(
+    'UPDATE mensagens SET lida = 1 WHERE id_destinatario = ? AND lida = 0',
+    [req.user.id]
+  );
   res.json({ ok: true });
 });
 
@@ -124,25 +129,28 @@ router.post('/marcar-lidas', authRequired, (req, res) => {
  * GET /api/notificacoes/contador
  * Apenas o número de não lidas (usado para polling leve no badge).
  */
-router.get('/contador', authRequired, (req, res) => {
+router.get('/contador', authRequired, async (req, res) => {
   const userId = req.user.id;
   const tipo = req.user.tipo_usuario;
 
-  const msgsNaoLidas = db.prepare(`
-    SELECT COUNT(*) AS n FROM mensagens WHERE id_destinatario = ? AND lida = 0
-  `).get(userId).n;
+  const msgsNaoLidas = await db.get(
+    'SELECT COUNT(*) AS n FROM mensagens WHERE id_destinatario = ? AND lida = 0',
+    [userId]
+  );
 
   let candNaoLidas = 0;
   if (tipo === 'contratante') {
-    candNaoLidas = db.prepare(`
-      SELECT COUNT(*) AS n
-        FROM candidaturas c
-        JOIN vagas v ON v.id = c.id_vaga
-       WHERE v.id_contratante = ? AND c.status_candidatura IN ('pendente', 'visualizada')
-    `).get(userId).n;
+    const r = await db.get(
+      `SELECT COUNT(*) AS n
+         FROM candidaturas c
+         JOIN vagas v ON v.id = c.id_vaga
+        WHERE v.id_contratante = ? AND c.status_candidatura IN ('pendente', 'visualizada')`,
+      [userId]
+    );
+    candNaoLidas = r?.n || 0;
   }
 
-  res.json({ nao_lidas: msgsNaoLidas + candNaoLidas });
+  res.json({ nao_lidas: (msgsNaoLidas?.n || 0) + candNaoLidas });
 });
 
 export default router;
