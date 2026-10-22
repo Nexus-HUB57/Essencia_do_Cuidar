@@ -1,151 +1,194 @@
 # 🚀 Guia de Deploy — Essência do Cuidar
 
-O projeto é **monorepo** com duas aplicações:
+## Como a sincronização funciona
 
-| Camada    | Stack                            | Pode ir em serverless? | Recomendação             |
-|-----------|----------------------------------|------------------------|--------------------------|
-| Frontend  | Vite + React 18 (PWA estática)   | ✅ Sim                 | **Netlify**              |
-| Backend   | Node 20 + Express + SQLite       | ❌ Não (stateful)      | **Render** / **Railway** |
+```
+  git push (main)
+        │
+        ├──► GitHub  (repo Nexus-HUB57/Essencia_do_Cuidar)
+        │              └─ netlify.toml detecta a config
+        │
+        └──► Netlify  (build automático: npm ci && npm run build)
+                       └─ publica frontend/dist
+                                 │
+                                 └──► redirects /api, /uploads, /socket.io
+                                        encaminham pro backend (Render/Railway)
 
----
-
-## 🌐 Frontend → Netlify
-
-### Opção A — Via dashboard (mais simples)
-1. Conecte seu GitHub em https://app.netlify.com
-2. **Add new site → Import existing project** → selecione `Nexus-HUB57/Essencia_do_Cuidar`
-3. Netlify vai detectar `netlify.toml` automaticamente
-4. Adicione variável de ambiente (Build environment):
-   - `VITE_API_URL` = `https://<seu-backend>.onrender.com/api`
-5. Deploy!
-
-### Opção B — Via CLI
-```bash
-npm i -g netlify-cli
-netlify login
-netlify init       # detecta netlify.toml
-netlify env:set VITE_API_URL https://<seu-backend>.onrender.com/api
-netlify deploy --prod
+  Render/Railway  (backend Node + SQLite, stateful — roda separado)
 ```
 
-> 💡 Se você ainda não subiu o backend, faça o deploy do frontend mesmo assim —
-> a UI carrega, mas chamadas de API vão falhar graciosamente. Bom para preview visual.
+Cada `git push` na branch `main` republica o site. Não é preciso deploy manual.
 
 ---
 
-## ⚙️ Backend → Render.com (recomendado, free tier)
+## ⚙️ Setup único (uma vez só)
 
-### Via dashboard
-1. https://dashboard.render.com → **New + → Web Service**
-2. Conecte o repo `Nexus-HUB57/Essencia_do_Cuidar`
+### 1. Conectar o repo na Netlify
+
+1. https://app.netlify.com → **Add new site** → **Import an existing project**
+2. Selecione `Nexus-HUB57/Essencia_do_Cuidar`
+3. A Netlify lê o `netlify.toml` da raiz e preenche sozinha:
+   - Base directory: `frontend`
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+4. **Deploy site** (esse primeiro build pode falhar no proxy — tudo bem, o frontend sobe)
+
+### 2. Subir o backend (Render.com, free)
+
+1. https://dashboard.render.com → **New +** → **Web Service**
+2. Conecte o mesmo repo
 3. Configure:
-   - **Root Directory:** `backend`
-   - **Runtime:** Node
-   - **Build Command:** `npm install`
-   - **Start Command:** `node src/index.js`
-   - **Plan:** Free
-4. **Environment Variables:**
-   ```
-   NODE_ENV=production
-   PORT=10000
-   JWT_SECRET=<gere uma string aleatória de 64 chars>
-   FRONTEND_URL=https://<seu-site>.netlify.app
-   NETLIFY_AI_URL=https://netlify.ai
-   ```
-5. **Disks (avançado):** adicione um disco persistente de 1 GB montado em
-   `/app/backend/data` se quiser preservar o SQLite entre deploys (opcional
-   para demo — os dados recomeçam do seed a cada restart).
-6. Deploy!
 
-### Via `render.yaml` (infra-as-code)
-Salve este arquivo como `render.yaml` na raiz e conecte via Blueprint:
+| Campo            | Valor                     |
+|------------------|---------------------------|
+| Root Directory   | `backend`                 |
+| Runtime          | Node                      |
+| Build Command    | `npm install`             |
+| Start Command    | `node src/index.js`       |
+| Plan             | Free                      |
 
-```yaml
-services:
-  - type: web
-    name: essencia-backend
-    runtime: node
-    rootDir: backend
-    plan: free
-    buildCommand: npm install
-    startCommand: node src/index.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: JWT_SECRET
-        generateValue: true
-      - key: FRONTEND_URL
-        value: https://<seu-site>.netlify.app
-      - key: NETLIFY_AI_URL
-        value: https://netlify.ai
+4. **Environment Variables** (todas):
+
 ```
+NODE_ENV         = production
+PORT             = 10000
+JWT_SECRET       = <gere: openssl rand -hex 32>
+JWT_EXPIRES_IN   = 7d
+FRONTEND_URL     = https://<seu-site>.netlify.app
+NETLIFY_AI_URL   = https://netlify.ai
+UPLOAD_DIR       = ./uploads
+MAX_UPLOAD_MB    = 5
+```
+
+5. Deploy. Anote a URL: `https://essencia-backend.onrender.com`
+
+> ⚠️ **Free tier do Render dorme.** A primeira request pode demorar ~50s.
+> Pra production use o plano pago (sempre ligado).
+
+### 3. Apontar o proxy pro backend
+
+Abra `netlify.toml` na raiz do repo e troque `essencia-backend.onrender.com`
+pelo host real do seu backend nas 3 regras de redirect. Commit + push.
+
+### 4. (Opcional) Automatizar via GitHub Actions
+
+O repo já tem `.github/workflows/deploy-netlify.yml`. Pra ativar:
+
+1. Gere um token: https://app.netlify.com/user/tokens → **Personal access token**
+2. No GitHub: **Settings → Secrets and variables → Actions → New repository secret**
+   - `NETLIFY_AUTH_TOKEN` = o token do passo 1
+   - `NETLIFY_SITE_ID` = em Netlify: Site settings → General → API ID
+3. (Opcional) `Settings → Secrets → New repository variable`:
+   - `VITE_API_URL` = `/api`
+
+Agora cada push mostra o deploy no GitHub em **Actions** e gera comentário com o resumo.
+
+---
+
+## 🔍 Checklist pós-deploy
+
+```bash
+# 1. Frontend no ar
+curl -I https://<seu-site>.netlify.app
+
+# 2. Imagens da marca
+for i in logo capa-trabalhamos sobre-nasceu servicos processo agenda-aberta cta-cuidado; do
+  curl -o /dev/null -w "$i.jpg → %{http_code}\n" https://<seu-site>.netlify.app/img/$i.jpg
+done
+
+# 3. PWA
+curl -o /dev/null -w "manifest → %{http_code}\n" https://<seu-site>.netlify.app/manifest.webmanifest
+curl -o /dev/null -w "sw.js   → %{http_code}\n" https://<seu-site>.netlify.app/sw.js
+
+# 4. API através do proxy
+curl https://<seu-site>.netlify.app/api/health
+# esperado: {"ok":true,"service":"essencia-do-cuidar",...}
+```
+
+Depois no navegador:
+- [ ] Landing abre com as 7 imagens da Essência
+- [ ] Botão flutuante do WhatsApp abre `wa.me/5519988322428`
+- [ ] Login demo: `maria@demo.com` / `demo1234`
+- [ ] Cadastro wizard profissional funciona
+- [ ] Chat entre dois navegadores
+- [ ] PWA instalável (Chrome mobile → menu → "Instalar app")
 
 ---
 
 ## 🐳 Alternativa: Docker em qualquer host
 
 ```bash
-# Backend
 cd backend
 docker build -t essencia-backend .
-docker run -p 4000:4000 \
+docker run -d --name essencia -p 4000:4000 \
+  -e NODE_ENV=production \
   -e JWT_SECRET=$(openssl rand -hex 32) \
-  -e FRONTEND_URL=https://<seu-frontend>.netlify.app \
+  -e FRONTEND_URL=https://<seu-site>.netlify.app \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/uploads:/app/uploads \
   essencia-backend
 ```
 
-Ou use `docker-compose.yml` (raiz) já configurado.
+Depois troque o host nos redirects do `netlify.toml`.
 
 ---
 
-## 🔄 Full E2E com proxy via Netlify
+## 🔧 Variáveis de ambiente
 
-Se você quiser que o frontend no Netlify converse com o backend **sem expor
-a URL do backend no cliente**, descomente os redirects de proxy no
-`netlify.toml`:
+### Frontend (build-time ⚠️)
 
-```toml
-[[redirects]]
-  from = "/api/*"
-  to   = "https://<seu-backend>.onrender.com/api/:splat"
-  status = 200
-  force  = true
-```
+| Variável       | Default | Descrição                                            |
+|----------------|---------|------------------------------------------------------|
+| `VITE_API_URL` | `/api`  | Path relativo (usa proxy) ou URL absoluta do backend |
 
-Aí o frontend não precisa da variável `VITE_API_URL` — ele usa `/api` que
-vai pro backend via proxy.
+> Variável `VITE_*` é **embutida no bundle durante o build**. Mudar a variável
+> exige novo deploy — não basta reiniciar.
 
----
+### Backend (runtime)
 
-## ✅ Checklist pós-deploy
-
-- [ ] Healthcheck do backend: `curl https://<backend>/api/health` → `{"ok":true,...}`
-- [ ] Frontend carrega: abrir `https://<site>.netlify.app` no navegador
-- [ ] Login demo funciona: `maria@demo.com` / `demo1234`
-- [ ] Cadastro de novo profissional dispara webhook (verificar logs do backend)
-- [ ] Chat funciona entre dois navegadores logados
-- [ ] PWA instalável: no Chrome mobile, abrir menu → "Instalar app"
+| Variável                 | Default                  | Descrição                          |
+|--------------------------|--------------------------|------------------------------------|
+| `PORT`                   | `4000`                   | Porta do servidor                  |
+| `NODE_ENV`               | `development`            | Modo                               |
+| `JWT_SECRET`             | `dev-secret-trocar`      | Chave de assinatura (**obrigatória trocar**) |
+| `JWT_EXPIRES_IN`         | `7d`                     | Validade do token                  |
+| `FRONTEND_URL`           | `http://localhost:5173`  | Origem permitida no CORS           |
+| `NETLIFY_AI_URL`         | `https://netlify.ai`     | Webhook de notificação             |
+| `NETLIFY_AI_TIMEOUT_MS`  | `5000`                   | Timeout do webhook                 |
+| `MAX_UPLOAD_MB`          | `5`                      | Tamanho máximo de upload           |
+| `UPLOAD_DIR`             | `./uploads`              | Pasta de uploads                   |
 
 ---
 
-## 🛠️ Variáveis de ambiente
+## 🪟 Sobre os deploys temporários do sandbox
 
-### Frontend (build-time)
-| Var             | Default | Descrição                              |
-|-----------------|---------|----------------------------------------|
-| `VITE_API_URL`  | `/api`  | URL absoluta do backend (sem trailing /api) ou path relativo |
+Deploys feitos pelo ambiente de sandbox geram URLs em
+`*.space.minimax.io` que são **efêmeras** — expiram e deixam de resolver.
+Para URL permanente use Netlify + Render conforme acima.
 
-### Backend
-| Var                | Default                  | Descrição                                |
-|--------------------|--------------------------|------------------------------------------|
-| `PORT`             | `4000`                   | Porta do servidor                        |
-| `NODE_ENV`         | `development`            | Modo                                     |
-| `JWT_SECRET`       | `dev-secret-trocar`      | Chave de assinatura JWT (**trocar em prod**) |
-| `JWT_EXPIRES_IN`   | `7d`                     | Validade do token                        |
-| `FRONTEND_URL`     | `http://localhost:5173`  | Origem do frontend (CORS)                |
-| `NETLIFY_AI_URL`   | `https://netlify.ai`     | Webhook de notificação                   |
-| `NETLIFY_AI_TIMEOUT_MS` | `5000`              | Timeout do webhook                       |
-| `MAX_UPLOAD_MB`    | `5`                      | Tamanho máximo de upload                 |
-| `UPLOAD_DIR`       | `./uploads`              | Pasta de uploads                         |
+---
+
+## 🚑 Troubleshooting
+
+**Sitemap mostra site em branco**
+`netlify.toml` tem `base = "frontend"`. Confirme que o publish directory
+no painel da Netlify é `dist` (não `frontend/dist`).
+
+**API retorna 404 no site**
+Os redirects de proxy estão **depois** do catch-all? Não. A ordem no
+`netlify.toml` importa: proxy primeiro, `/*` → index.html por último.
+
+**API retorna HTML em vez de JSON**
+O catch-all `/*` está pegando `/api/*`. Causa: regras na ordem errada
+ou `force = false` nos redirects de proxy.
+
+**Chat não conecta (WebSocket)**
+O redirect de `/socket.io/*` precisa existir **e** ter `force = true`.
+
+**Imagens não aparecem**
+Confirme que `frontend/public/img/*.jpg` foi commitado (`.gitignore`
+não deve ignorar `public/`). Cheque: `git ls-files frontend/public/img`
+
+**Backend dorme depois de 15min (Render free)**
+Esperado no free tier. Para evitar: plano pago, ou adicione um cron
+externo que pingue `/api/health` a cada 10 min.

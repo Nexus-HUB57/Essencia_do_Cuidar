@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
+import BotaoWhatsappFlutuante from './components/BotaoWhatsappFlutuante';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Cadastro from './pages/Cadastro';
@@ -62,6 +63,7 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+      <BotaoWhatsappFlutuante />
     </div>
   );
 }

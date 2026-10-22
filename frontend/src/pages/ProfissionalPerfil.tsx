@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api, { getErrorMessage } from '../utils/api';
 import Estrelas from '../components/Estrelas';
+import FavoritarBotao from '../components/FavoritarBotao';
 
 interface ProfDetalhes {
   id_user: number;
@@ -20,6 +21,13 @@ interface ProfUser {
   nome: string;
   telefone: string | null;
   criado_em: string;
+}
+
+interface ProfStats {
+  total_candidaturas: number;
+  aceitas: number;
+  vagas_aceitas: number;
+  vagas_concluidas: number;
 }
 
 interface AvalStats {
@@ -44,6 +52,7 @@ export default function ProfissionalPerfil() {
   const [user, setUser] = useState<ProfUser | null>(null);
   const [detalhes, setDetalhes] = useState<ProfDetalhes | null>(null);
   const [stats, setStats] = useState<AvalStats | null>(null);
+  const [profStats, setProfStats] = useState<ProfStats | null>(null);
   const [avaliacoes, setAvaliacoes] = useState<Aval[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
@@ -62,6 +71,7 @@ export default function ProfissionalPerfil() {
           try { d.disponibilidade = JSON.parse(d.disponibilidade || '[]'); } catch { d.disponibilidade = []; }
           setDetalhes(d);
         }
+        setProfStats(p.data.stats || null);
         setStats(a.data.stats);
         setAvaliacoes(a.data.avaliacoes);
       } catch (err) {
@@ -107,6 +117,18 @@ export default function ProfissionalPerfil() {
               {anosNaPlataforma > 0 ? `${anosNaPlataforma} ${anosNaPlataforma > 1 ? 'anos' : 'ano'} na plataforma` : 'Novo na plataforma'}
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            <FavoritarBotao tipo="profissional" id={Number(id)} size="md" />
+            {user.telefone && (
+              <a
+                href={`https://wa.me/55${user.telefone.replace(/\D/g, '')}`}
+                target="_blank" rel="noopener"
+                className="btn-secondary text-sm"
+              >
+                📱 WhatsApp
+              </a>
+            )}
+          </div>
           {user.telefone && (
             <a
               href={`https://wa.me/55${user.telefone.replace(/\D/g, '')}`}
@@ -118,6 +140,24 @@ export default function ProfissionalPerfil() {
           )}
         </div>
       </div>
+
+      {/* Estatísticas profissionais */}
+      {profStats && (profStats.total_candidaturas > 0 || profStats.vagas_concluidas > 0) && (
+        <div className="grid grid-cols-3 gap-3 mt-4">
+          <div className="card text-center py-4">
+            <p className="text-2xl font-bold text-serenity-600">{profStats.vagas_concluidas}</p>
+            <p className="text-xs text-slate-500 mt-1">Atendimentos concluídos</p>
+          </div>
+          <div className="card text-center py-4">
+            <p className="text-2xl font-bold text-emerald-600">{profStats.vagas_aceitas}</p>
+            <p className="text-xs text-slate-500 mt-1">Vagas aceitas</p>
+          </div>
+          <div className="card text-center py-4">
+            <p className="text-2xl font-bold text-amber-600">{profStats.total_candidaturas}</p>
+            <p className="text-xs text-slate-500 mt-1">Candidaturas totais</p>
+          </div>
+        </div>
+      )}
 
       {/* Bio */}
       {detalhes?.bio && (

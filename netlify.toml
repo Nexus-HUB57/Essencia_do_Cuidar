@@ -1,15 +1,13 @@
-# Configuração Netlify para o frontend Essência do Cuidar
-# O backend é uma aplicação Node.js stateful (SQLite), portanto precisa
-# ser hospedada em serviço que suporte processos persistentes:
-#   - Render.com (free tier, plano web service)
-#   - Railway.app
-#   - fly.io
-#   - Heroku (pago)
+# ==========================================================================
+# Netlify — Essência do Cuidar (frontend)
+# ==========================================================================
+# Este arquivo é detectado automaticamente pela Netlify ao conectar o repo
+# Nexus-HUB57/Essencia_do_Cuidar. A cada push em `main` a Netlify rebuilda
+# e republica o site automaticamente.
 #
-# Para o deploy full E2E:
-#   1. Suba o backend em um dos hosts acima
-#   2. Defina a URL em frontend/.env.production: VITE_API_URL=https://api.seu-dominio.com/api
-#   3. Faça o build do frontend (npm run build) e deploy via Netlify
+# Backend (Node + SQLite, stateful) NÃO roda em Netlify — precisa de host
+# persistente. Ver DEPLOY.md para Render/Railway/fly.io.
+# ==========================================================================
 
 [build]
   base    = "frontend"
@@ -18,42 +16,83 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # URL do backend. Ajuste no painel da Netlify (Site settings → Environment)
+  # para apontar pro seu deploy do Render/Railway.
+  VITE_API_URL = "/api"
 
-# SPA fallback: qualquer rota volta pro index.html (PWA)
+# --------------------------------------------------------------------------
+# 1) PROXY DO BACKEND (tem que vir ANTES do catch-all — a Netlify avalia
+#    as regras de cima pra baixo e o /* engoliria tudo se vier primeiro)
+# --------------------------------------------------------------------------
+# Troque o host abaixo pelo seu. Exemplos:
+#   https://essencia-backend.onrender.com
+#   https://essencia-backend.up.railway.app
+[[redirects]]
+  from   = "/api/*"
+  to     = "https://essencia-backend.onrender.com/api/:splat"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from   = "/uploads/*"
+  to     = "https://essencia-backend.onrender.com/uploads/:splat"
+  status = 200
+  force  = true
+
+# WebSocket do Socket.IO — precisa deRewrite + force pra não cair no SPA
+[[redirects]]
+  from   = "/socket.io/*"
+  to     = "https://essencia-backend.onrender.com/socket.io/:splat"
+  status = 200
+  force  = true
+
+# --------------------------------------------------------------------------
+# 2) SPA FALLBACK — sempre por último
+# --------------------------------------------------------------------------
 [[redirects]]
   from   = "/*"
   to     = "/index.html"
   status = 200
-  force  = false
 
-# Cache de assets com hash (vite gera nomes com hash)
+# --------------------------------------------------------------------------
+# 3) CACHE
+# --------------------------------------------------------------------------
+# Assets com hash no nome: imutáveis, cache de 1 ano
 [[headers]]
-  for   = "/assets/*"
+  for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Cache do service worker com no-cache (sempre busca versão nova)
+# Service worker e manifest: nunca cacheados (precisam buscar versão nova)
 [[headers]]
-  for   = "/sw.js"
+  for = "/sw.js"
   [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
     Cache-Control = "no-cache"
 
-# Se quiser proxy transparente para um backend hospedado em outro lugar,
-# descomente e ajuste a URL:
-# [[redirects]]
-#   from   = "/api/*"
-#   to     = "https://essencia-backend.onrender.com/api/:splat"
-#   status = 200
-#   force  = true
-#
-# [[redirects]]
-#   from   = "/uploads/*"
-#   to     = "https://essencia-backend.onrender.com/uploads/:splat"
-#   status = 200
-#   force  = true
-#
-# [[redirects]]
-#   from   = "/socket.io/*"
-#   to     = "https://essencia-backend.onrender.com/socket.io/:splat"
-#   status = 200
-#   force  = true
+# Imagens da marca: cache médio (podem ser trocadas)
+[[headers]]
+  for = "/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# Segurança
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# --------------------------------------------------------------------------
+# 4) VARIÁVEL DE AMBIENTE NECESSÁRIA
+# --------------------------------------------------------------------------
+# Se você NÃO usar os redirects de proxy acima, defina no painel:
+#   Site settings → Environment variables → VITE_API_URL
+#   valor: https://essencia-backend.onrender.com/api
+# (a variável precisa existir no build, então é build-time, não runtime)

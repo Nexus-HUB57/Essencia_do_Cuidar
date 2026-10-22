@@ -78,6 +78,8 @@ app.use('/api/push', pushRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/i18n', i18nRouter);
 app.use('/api/avaliacoes', avaliacoesRouter);
+app.use('/api/favoritos', favoritosRouter);
+app.use('/api/notificacoes', notificacoesRouter);
 
 // SPA fallback
 const distPath = path.resolve(__dirname, '../../frontend/dist');

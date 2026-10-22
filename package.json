@@ -5,16 +5,14 @@
   "description": "Marketplace de profissionais de saúde para cuidado domiciliar",
   "scripts": {
     "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "ci:all": "npm --prefix backend ci && npm --prefix frontend ci",
     "seed": "npm --prefix backend run seed",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "build:frontend": "npm --prefix frontend run build",
-    "start:backend": "npm --prefix backend start"
+    "start:backend": "npm --prefix backend start",
+    "smoke": "BASE=http://localhost:4000 ./scripts/smoke-test.sh"
   },
-  "workspaces": [
-    "backend",
-    "frontend"
-  ],
   "engines": {
     "node": ">=20"
   }
