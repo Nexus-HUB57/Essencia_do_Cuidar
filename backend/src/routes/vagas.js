@@ -5,6 +5,7 @@ import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyNetlify } from '../services/netlify.js';
 import { recomendarParaVaga } from '../services/matching.js';
+import { notificarVagaStatus } from '../services/event-bus.js';
 
 const router = express.Router();
 
@@ -190,8 +191,20 @@ router.patch('/:id/status', authRequired, requireTipo('contratante'),
     if (vaga.id_contratante !== req.user.id) {
       return res.status(403).json({ error: 'Você não é dono desta vaga' });
     }
+    const statusAnterior = vaga.status;
     await db.run('UPDATE vagas SET status = ? WHERE id = ?', [req.body.status, id]);
     const updated = await db.get('SELECT * FROM vagas WHERE id = ?', [id]);
+
+    // W5 — Notifica interessados (favoritaram + candidatos pendentes) via Socket.IO + Push
+    if (statusAnterior !== req.body.status) {
+      notificarVagaStatus({
+        vaga_id: id,
+        status_anterior: statusAnterior,
+        status_novo: req.body.status,
+        contratante_id: req.user.id
+      }).catch(e => console.warn('[event-bus]', e.message));
+    }
+
     res.json({ vaga: updated });
   }
 );

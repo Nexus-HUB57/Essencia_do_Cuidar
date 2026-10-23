@@ -265,6 +265,20 @@ export function initSchema() {
       FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE SET NULL
     );
 
+    -- M11 — Auditoria de transicoes de status de candidatura
+    -- Cada mudanca (pendente → visualizada → aceita|recusada) eh registrada aqui.
+    CREATE TABLE IF NOT EXISTS candidatura_status_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_candidatura INTEGER NOT NULL,
+      status_anterior TEXT,
+      status_novo TEXT NOT NULL,
+      alterado_por INTEGER NOT NULL,
+      motivo TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_candidatura) REFERENCES candidaturas(id) ON DELETE CASCADE,
+      FOREIGN KEY (alterado_por) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_vagas_contratante ON vagas(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
@@ -277,6 +291,7 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
     CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
     CREATE INDEX IF NOT EXISTS idx_vaga_views ON vaga_visualizacoes(id_vaga);
+    CREATE INDEX IF NOT EXISTS idx_cand_status_log ON candidatura_status_log(id_candidatura);
   `);
 
   // Migrações idempotentes para bancos pré-existentes

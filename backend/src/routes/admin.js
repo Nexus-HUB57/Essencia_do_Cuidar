@@ -14,12 +14,14 @@
  *   GET  /api/admin/verificacoes                   → verificações de registro pendentes
  *   PATCH /api/admin/verificacoes/:id              → aprovar / rejeitar verificação
  *   GET  /api/admin/webhooks                       → últimos webhooks
+ *   POST /api/admin/webhooks/retry                 → N1: dispara retry manual dos webhooks com falha
  *   GET  /api/admin/pagamentos                     → todos os pagamentos
  */
 import express from 'express';
 import db from '../db/driver.js';
 import { authRequired, requireAdmin } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
+import { retryFailedWebhooks } from '../services/webhook-retry.js';
 
 const router = express.Router();
 
@@ -214,6 +216,33 @@ router.get('/webhooks', async (req, res) => {
     'SELECT * FROM webhook_logs ORDER BY criado_em DESC LIMIT 100'
   );
   res.json({ webhooks: rows });
+});
+
+/**
+ * POST /api/admin/webhooks/retry
+ * N1 — Dispara manualmente o retry de webhooks com falha.
+ * Busca webhook_logs com erro != null ou status >= 500 nas últimas 24h e reenvia.
+ *
+ * Em produção, recomenda-se chamar via cron job a cada 30min:
+ *   curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
+ *     $BACKEND_URL/api/admin/webhooks/retry
+ *
+ * Query params (opcionais):
+ *   maxAgeHours  — janela de busca em horas (default 24)
+ */
+router.post('/webhooks/retry', async (req, res) => {
+  try {
+    const result = await retryFailedWebhooks();
+    res.json({
+      ok: true,
+      tentados: result.tentados,
+      sucesso: result.sucesso,
+      falha: result.falha
+    });
+  } catch (err) {
+    console.error('[admin/webhook-retry]', err);
+    res.status(500).json({ error: 'Falha ao executar retry', detalhe: err.message });
+  }
 });
 
 router.get('/pagamentos', async (req, res) => {
