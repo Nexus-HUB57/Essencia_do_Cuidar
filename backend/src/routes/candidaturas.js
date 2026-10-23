@@ -21,6 +21,22 @@ router.post('/', authRequired, requireTipo('profissional'),
     const { id_vaga, mensagem } = req.body;
     const vaga = await db.get("SELECT * FROM vagas WHERE id = ? AND status = 'ativa'", [id_vaga]);
     if (!vaga) return res.status(404).json({ error: 'Vaga não disponível' });
+
+    // M8 — Limite de candidaturas por vaga (env MAX_CANDIDATURAS_PER_VAGA, default 50)
+    const MAX_CANDIDATURAS = Number(process.env.MAX_CANDIDATURAS_PER_VAGA || 50);
+    const contagem = await db.get(
+      'SELECT COUNT(*) AS n FROM candidaturas WHERE id_vaga = ?',
+      [id_vaga]
+    );
+    if (contagem && contagem.n >= MAX_CANDIDATURAS) {
+      return res.status(429).json({
+        error: 'Vaga atingiu o limite máximo de candidaturas',
+        limite: MAX_CANDIDATURAS,
+        atual: contagem.n,
+        motivo: 'Aguarde o contratante processar as candidaturas existentes.'
+      });
+    }
+
     try {
       const info = await db.run(
         `INSERT INTO candidaturas (id_vaga, id_profissional, mensagem)

@@ -77,4 +77,53 @@ router.get('/me', authRequired, async (req, res) => {
   res.json({ user: req.user });
 });
 
+/**
+ * A1 — POST /api/auth/refresh
+ * Gera novo access token a partir de um refresh token válido.
+ * Body: { refreshToken: string }
+ */
+router.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body || {};
+  if (!refreshToken) return res.status(400).json({ error: 'refreshToken é obrigatório' });
+  try {
+    const { renovarAccessToken } = await import('../services/auth-advanced.js');
+    const result = await renovarAccessToken(refreshToken);
+    res.json({
+      accessToken: result.accessToken,
+      expiresIn: result.expiresIn
+    });
+  } catch (err) {
+    return res.status(401).json({ error: 'Refresh token inválido', motivo: err.message });
+  }
+});
+
+/**
+ * A2 — POST /api/auth/logout
+ * Revoga o access token atual (adiciona jti à blacklist).
+ * Body: opcional { refreshToken: string } — se fornecido, também revoga.
+ */
+router.post('/logout', authRequired, async (req, res) => {
+  try {
+    const { revogarToken } = await import('../services/auth-advanced.js');
+    if (req.tokenJti && req.tokenExp) {
+      await revogarToken(req.tokenJti, req.user.id, req.tokenExp, 'logout');
+    }
+    // Se for fornecido refresh token no body, revoga também
+    const { refreshToken } = req.body || {};
+    if (refreshToken) {
+      const jwt = (await import('jsonwebtoken')).default;
+      try {
+        const payload = jwt.verify(refreshToken, process.env.JWT_SECRET || 'dev-secret-trocar');
+        if (payload.jti) {
+          await revogarToken(payload.jti, req.user.id, payload.exp, 'logout');
+        }
+      } catch {}
+    }
+    res.json({ ok: true, mensagem: 'Logout efetuado. Token revogado.' });
+  } catch (err) {
+    console.warn('[auth/logout] erro:', err.message);
+    res.json({ ok: true, mensagem: 'Logout efetuado (revogação best-effort).' });
+  }
+});
+
 export default router;

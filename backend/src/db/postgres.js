@@ -286,6 +286,12 @@ export async function initSchema() {
   } catch (e) {
     if (!/already exists/i.test(String(e.message))) throw e;
   }
+  // M3 — Adiciona coluna regiao_uf em vagas
+  try {
+    await pool.query(`ALTER TABLE vagas ADD COLUMN regiao_uf TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
 
   console.log('[db:postgres] schema inicializado');
 }

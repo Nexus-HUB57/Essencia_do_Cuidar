@@ -22,6 +22,7 @@ import db from '../db/driver.js';
 import { authRequired, requireAdmin } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { retryFailedWebhooks } from '../services/webhook-retry.js';
+import { expirarCandidaturasAntigas } from '../services/candidatura-cleanup.js';
 
 const router = express.Router();
 
@@ -242,6 +243,26 @@ router.post('/webhooks/retry', async (req, res) => {
   } catch (err) {
     console.error('[admin/webhook-retry]', err);
     res.status(500).json({ error: 'Falha ao executar retry', detalhe: err.message });
+  }
+});
+
+/**
+ * M9 — POST /api/admin/candidaturas/limpar-expiradas
+ * Dispara a expiração automática de candidaturas pendentes há mais de
+ * CANDIDATURA_EXPIRA_DIAS (default 30). Recomendado cron diário.
+ */
+router.post('/candidaturas/limpar-expiradas', async (req, res) => {
+  try {
+    const result = await expirarCandidaturasAntigas();
+    res.json({
+      ok: true,
+      expiradas: result.expiradas,
+      notificadas: result.notificadas,
+      erro: result.erro
+    });
+  } catch (err) {
+    console.error('[admin/limpar-expiradas]', err);
+    res.status(500).json({ error: 'Falha ao expirar candidaturas', detalhe: err.message });
   }
 });
 

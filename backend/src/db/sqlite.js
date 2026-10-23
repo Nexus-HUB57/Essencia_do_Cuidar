@@ -302,6 +302,8 @@ export function initSchema() {
   safeExec("ALTER TABLE candidaturas ADD COLUMN atualizada_em TEXT");
   // S2 — Idempotência do webhook Stripe: coluna para registrar o último event_id processado
   safeExec("ALTER TABLE pagamentos ADD COLUMN stripe_event_id TEXT");
+  // M3 — Adiciona coluna regiao_uf em vagas (validação geográfica)
+  safeExec("ALTER TABLE vagas ADD COLUMN regiao_uf TEXT");
   console.log('[db:sqlite] schema inicializado em', dbPath);
 }
 

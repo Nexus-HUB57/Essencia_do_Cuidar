@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import db from '../db/driver.js';
+import { isJtiRevogado } from '../services/auth-advanced.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-trocar';
 
@@ -12,7 +13,7 @@ export function authRequired(req, res, next) {
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     // resolveUser é async agora; precisa do wrapper
-    resolveUser(payload.id).then((user) => {
+    resolveUser(payload.id).then(async (user) => {
       if (!user) return res.status(401).json({ error: 'Usuário não encontrado' });
       // P4 — Verifica suspended_at em TODA request autenticada, não só no login.
       // Se admin suspendeu o user, tokens JWT emitidos anteriormente ficam imediatamente inválidos.
@@ -22,7 +23,16 @@ export function authRequired(req, res, next) {
           motivo: user.suspended_reason || 'Violação dos termos de uso'
         });
       }
+      // A2 — Verifica se o jti foi revogado (blacklist)
+      if (payload.jti) {
+        const revogado = await isJtiRevogado(payload.jti);
+        if (revogado) {
+          return res.status(401).json({ error: 'Token revogado', motivo: 'Faça login novamente' });
+        }
+      }
       req.user = user;
+      req.tokenJti = payload.jti;
+      req.tokenExp = payload.exp;
       next();
     }).catch(next);
   } catch (err) {
@@ -54,8 +64,13 @@ export function requireAdmin(req, res, next) {
 }
 
 export function signToken(user) {
+  // A2 — Inclui jti (JWT ID) para permitir revogação via blacklist.
+  // Sem jti, não há como revogar um token individualmente.
+  const jti = Array.from({ length: 16 }, () =>
+    Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
+  ).join('') + Date.now().toString(16);
   return jwt.sign(
-    { id: user.id, tipo: user.tipo_usuario, email: user.email },
+    { id: user.id, tipo: user.tipo_usuario, email: user.email, jti, kind: 'access' },
     JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );

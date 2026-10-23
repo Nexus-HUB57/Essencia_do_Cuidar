@@ -22,6 +22,8 @@ import avaliacoesRouter from './routes/avaliacoes.js';
 import favoritosRouter from './routes/favoritos.js';
 import notificacoesRouter from './routes/notificacoes.js';
 import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
+import { listarProfissoes, UFS_VALIDAS } from './services/profissoes.js';
+import { getOpenApiSpec, getSwaggerUIHtml } from './services/openapi.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,12 +43,86 @@ if (NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SEC
 // Inicializa o schema do driver escolhido
 await db.initSchema();
 
+// A1/A2 — Inicializa o módulo de auth avançada (cria tabela token_blacklist se não existir)
+try {
+  const { initAuthAdvanced } = await import('./services/auth-advanced.js');
+  await initAuthAdvanced();
+} catch (err) {
+  console.warn('[startup] auth-advanced indisponível:', err.message);
+}
+
 const app = express();
 app.use(securityHeaders);
 app.use(cors({ origin: FRONTEND_URL.split(','), credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 
-app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+// U3 — Uploads com auth (era público antes — qualquer um podia baixar diplomas se soubesse o filename)
+// Agora só usuários autenticados podem acessar /uploads/. O admin pode ver qualquer um,
+// o profissional pode ver apenas o próprio diploma, o contratante pode ver diplomas
+// de candidatos das suas vagas.
+//
+// Se AUTH_UPLOADS=false no env, mantém o comportamento antigo (público) para retrocompat.
+const AUTH_UPLOADS = process.env.AUTH_UPLOADS !== 'false';
+if (!AUTH_UPLOADS) {
+  app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+} else {
+  // Versão autenticada: serve o arquivo só se o user tem permissão
+  const uploadsDir = path.resolve(__dirname, '../uploads');
+  app.use('/uploads', async (req, res, next) => {
+    // Verifica auth
+    const { authRequired } = await import('./middleware/auth.js');
+    // Wrap para capturar resposta
+    let authed = false;
+    let user = null;
+    await new Promise((resolve) => {
+      const fakeRes = {
+        status: (code) => ({ json: (data) => { resolve({ code, data }); } }),
+        json: (data) => { resolve({ code: 200, data }); }
+      };
+      authRequired(req, fakeRes, () => { authed = true; user = req.user; resolve({ code: 200 }); });
+    });
+    if (!authed) {
+      return res.status(401).json({ error: 'Autenticação necessária para acessar uploads' });
+    }
+    // Extrai path do arquivo e verifica existência ANTES de checar permissão
+    // (evita vazar info sobre quais arquivos existem)
+    const requestedPath = decodeURIComponent(req.path);
+    const filePath = path.join(uploadsDir, requestedPath);
+    // Anti path traversal: garante que o caminho fica dentro de uploadsDir
+    if (!filePath.startsWith(uploadsDir)) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+      return res.status(404).json({ error: 'Arquivo não encontrado' });
+    }
+    // Arquivo existe — agora verifica permissão
+    // Admin pode ver qualquer arquivo
+    if (user.is_admin) return next();
+    // Profissional só vê próprio diploma (filename começa com `prof<id>_`)
+    if (user.tipo_usuario === 'profissional') {
+      const fn = requestedPath.split('/').pop() || '';
+      if (fn.startsWith(`prof${user.id}_`)) return next();
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    // Contratante: pode ver diplomas de candidatos das suas vagas
+    if (user.tipo_usuario === 'contratante') {
+      const fn = requestedPath.split('/').pop() || '';
+      const match = fn.match(/^prof(\d+)_/);
+      if (match) {
+        const profId = Number(match[1]);
+        const candidatura = await db.get(
+          `SELECT 1 FROM candidaturas c
+            JOIN vagas v ON v.id = c.id_vaga
+           WHERE c.id_profissional = ? AND v.id_contratante = ? LIMIT 1`,
+          [profId, user.id]
+        );
+        if (candidatura) return next();
+      }
+      return res.status(403).json({ error: 'Acesso negado — você só pode ver diplomas de profissionais que se candidataram às suas vagas' });
+    }
+    return res.status(403).json({ error: 'Acesso negado' });
+  }, express.static(uploadsDir));
+}
 
 app.get('/api/health', async (req, res) => {
   const ts = new Date().toISOString();
@@ -73,6 +149,29 @@ app.get('/api/health', async (req, res) => {
       error: dbError
     }
   });
+});
+
+/**
+ * M2/M3 — Endpoint público que lista profissões suportadas e UFs válidas.
+ * Usado pelo frontend para autocomplete no wizard de cadastro e form de vaga.
+ */
+app.get('/api/profissoes', (req, res) => {
+  res.json({
+    profissoes: listarProfissoes(),
+    ufs: UFS_VALIDAS
+  });
+});
+
+/**
+ * P10 — OpenAPI/Swagger docs
+ * GET /api/openapi.json — JSON OpenAPI 3.0 spec (para importar em ferramentas)
+ * GET /api/docs         — Swagger UI interativo (HTML carrega UI via CDN)
+ */
+app.get('/api/openapi.json', (req, res) => {
+  res.json(getOpenApiSpec());
+});
+app.get('/api/docs', (req, res) => {
+  res.type('html').send(getSwaggerUIHtml(getOpenApiSpec()));
 });
 
 // Rate limit mais agressivo em /api/auth/* (anti brute-force em login/cadastro)

@@ -6,6 +6,7 @@ import { validateBody } from '../middleware/validate.js';
 import { notifyNetlify } from '../services/netlify.js';
 import { recomendarParaVaga } from '../services/matching.js';
 import { notificarVagaStatus } from '../services/event-bus.js';
+import { validarUF, listarProfissoes, normalizarProfissao, UFS_VALIDAS } from '../services/profissoes.js';
 
 const router = express.Router();
 
@@ -21,16 +22,18 @@ const vagaSchema = {
   tipo_contrato:        { type: 'enum', values: ['PJ', 'CLT'] },
   remuneracao_tipo:     { type: 'enum', values: ['plantao', 'hora'] },
   remuneracao_valor:    { type: 'number', min: 0 },
-  regiao:               { type: 'string', max: 80 }
+  regiao:               { type: 'string', max: 80 },
+  regiao_uf:            { type: 'string', min: 2, max: 2 }  // M3 — UF (opcional, validado abaixo)
 };
 
 router.get('/', async (req, res) => {
-  // M4 — filtros de matching expandidos (8 filtros no total):
+  // M4 — filtros de matching expandidos (10 filtros no total):
   //   profissional, complexidade, regiao, remuneracaoMin (originais)
-  //   + tipoContrato, remuneracaoTipo, jornadaEscala, ordenar, limite, offset
+  //   + tipoContrato, remuneracaoTipo, jornadaEscala, regiaoUf (M3)
+  //   + ordenar, limite, offset
   const {
     profissional, complexidade, regiao, remuneracaoMin,
-    tipoContrato, remuneracaoTipo, jornadaEscala,
+    tipoContrato, remuneracaoTipo, jornadaEscala, regiaoUf,
     ordenar, limite, offset
   } = req.query;
   const filters = ["v.status = 'ativa'"];
@@ -43,6 +46,11 @@ router.get('/', async (req, res) => {
   if (tipoContrato)     { filters.push('v.tipo_contrato = ?'); params.push(tipoContrato); }
   if (remuneracaoTipo)  { filters.push('v.remuneracao_tipo = ?'); params.push(remuneracaoTipo); }
   if (jornadaEscala)    { filters.push('v.jornada_escala LIKE ?'); params.push(`%${jornadaEscala}%`); }
+  // M3 — Filtro por UF exato (mais rápido que LIKE em regiao)
+  if (regiaoUf) {
+    const uf = validarUF(regiaoUf);
+    if (uf) { filters.push('v.regiao_uf = ?'); params.push(uf); }
+  }
 
   const where = 'WHERE ' + filters.join(' AND ');
 
@@ -148,24 +156,50 @@ router.get('/:id', async (req, res) => {
 router.post('/', authRequired, requireTipo('contratante'),
   validateBody(vagaSchema), async (req, res) => {
     const f = req.body;
+
+    // M3 — Valida regiao_uf se fornecida
+    let regiaoUf = null;
+    if (f.regiao_uf) {
+      regiaoUf = validarUF(f.regiao_uf);
+      if (!regiaoUf) {
+        return res.status(400).json({
+          error: 'UF inválida',
+          motivo: `Deve ser uma das 27 UFs brasileiras: ${UFS_VALIDAS.join(', ')}`
+        });
+      }
+    }
+
+    // M2 — Aviso (não bloqueia) se profissional_desejado não está na lista canônica
+    const profNorm = normalizarProfissao(f.profissional_desejado);
+    if (!profNorm.matched) {
+      console.warn(`[vagas] profissional_desejado "${f.profissional_desejado}" não está na lista canônica — aceito, mas pode ter baixo matching`);
+    }
+
     const info = await db.run(
       `INSERT INTO vagas
         (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
          complexidade, servico_descricao, profissional_desejado,
          jornada_horario, jornada_escala, tipo_contrato, remuneracao_tipo,
-         remuneracao_valor, regiao, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ativa')`,
+         remuneracao_valor, regiao, regiao_uf, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ativa')`,
       [
         req.user.id, f.paciente_sexo ?? null, f.paciente_idade ?? null, f.paciente_diagnostico ?? null,
         f.complexidade, f.servico_descricao, f.profissional_desejado,
         f.jornada_horario ?? null, f.jornada_escala ?? null,
         f.tipo_contrato ?? null, f.remuneracao_tipo ?? null,
-        f.remuneracao_valor ?? null, f.regiao ?? null
+        f.remuneracao_valor ?? null, f.regiao ?? null, regiaoUf
       ]
     );
     const vaga = await db.get('SELECT * FROM vagas WHERE id = ?', [info.lastInsertRowid]);
     notifyNetlify('vaga_criada', { vaga_id: vaga.id, contratante_id: req.user.id }).catch(e => console.warn('[webhook]', e.message));
-    res.status(201).json({ vaga });
+    res.status(201).json({
+      vaga,
+      // M2 — Inclui warning se profissional_desejado não bateu com lista canônica
+      warning: !profNorm.matched ? {
+        field: 'profissional_desejado',
+        mensagem: `"${f.profissional_desejado}" não está na lista canônica. Recomendado: ${profNorm.label}. Veja lista em /api/profissoes.`
+      } : undefined
+    });
   }
 );
 
