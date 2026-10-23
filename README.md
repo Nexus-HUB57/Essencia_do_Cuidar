@@ -2,9 +2,120 @@
 
 > Marketplace de profissionais de saúde para atendimento domiciliar de idosos e pacientes
 > de **baixa e média complexidade**. Aplicação **full-stack** com frontend React PWA, backend
-> Node.js + SQLite e integração de webhook.
+> Node.js + SQLite/PostgreSQL e integração de webhook.
 
-![Status](https://img.shields.io/badge/status-MVP-blue) ![Stack](https://img.shields.io/badge/stack-React%20%2B%20Node%20%2B%20SQLite-emerald)
+![Status](https://img.shields.io/badge/status-MVP-blue) ![Stack](https://img.shields.io/badge/stack-React%20%2B%20Node%20%2B%20SQLite-emerald) ![Commits](https://img.shields.io/badge/commits-42-brightgreen)
+
+---
+
+## 🆕 Recursos novos (PR #17, #18, #19)
+
+Esta versão foi construída sobre o trabalho recuperado de branches perdidas e
+expandida com 4 Sprints de melhorias + 12 itens de robustez pós-merge.
+
+### Sistema de Matching Automático (Sprint 1)
+- **Algoritmo de score 0-1** (services/matching.js) com 5 componentes:
+  tipo de profissional (0.40), disponibilidade vs jornada (0.20),
+  boost por `registro_verificado` (0.15), boost por avaliação média (0.15),
+  boost por região definida (0.05)
+- `GET /api/vagas/:id/recomendar` — top N profissionais recomendados para uma vaga
+- `GET /api/profissionais/me/recomendar` — top N vagas recomendadas para o profissional logado
+- Exclui recursos já relacionados (não recomenda duplicar)
+
+### Eventos Socket.IO em tempo real (Sprint 2)
+- 7 eventos: `candidatura:visualizada/aceita/recusada`, `vaga:fechada/pausada/reativada`, `mensagem:nova`
+- Hook React `useMatchingEvents` (frontend/src/hooks/) persiste eventos em localStorage
+- Notifica favoritadores + candidatos pendentes automaticamente
+- Web Push (VAPID) como fallback para usuários offline
+
+### Auditoria de transições (Sprint 2 — M11)
+- Tabela `candidatura_status_log` registra todas as mudanças de status
+  (null → pendente → visualizada → aceita|recusada)
+- `GET /api/candidaturas/:id/historico-status` — histórico completo com nome do alterador
+- Restrito ao profissional dono OU contratante da vaga OU admin
+
+### Robustez operacional (Sprint 3)
+- **M2/M3** — 8 profissões canônicas + 27 UFs (services/profissoes.js)
+  + `GET /api/profissoes` para o frontend + warning retrocompatível
+- **M3** — coluna `vagas.regiao_uf` + validação + filtro `?regiaoUf=SP`
+- **M8** — limite de candidaturas por vaga (env `MAX_CANDIDATURAS_PER_VAGA`, default 50)
+- **M9** — expiração automática de candidaturas pendentes há +30 dias
+  via `POST /api/admin/candidaturas/limpar-expiradas`
+
+### Auth avançada (Sprint 3 — A1/A2)
+- **A1** — Refresh token (env `ENABLE_REFRESH_TOKENS=true` opt-in)
+  Access token curto (15min) + refresh token longo (7d)
+  `POST /api/auth/refresh` para renovar access
+- **A2** — Revogação de token JWT via `jti` blacklist
+  Tabela `token_blacklist` criada automaticamente no boot
+  `POST /api/auth/logout` revoga token atual
+- Todos os tokens agora têm `jti` único para permitir revogação
+
+### Uploads com auth (Sprint 3 — U3)
+- `/uploads/` agora requer autenticacao (`AUTH_UPLOADS=true` default)
+- Profissional só vê próprios diplomas (filename `prof<id>_*`)
+- Contratante só vê diplomas de candidatos das suas vagas
+- Admin pode ver qualquer arquivo
+- Anti path traversal + 404 para arquivo inexistente (não vaza info)
+
+### OpenAPI/Swagger (Sprint 3 — P10)
+- `GET /api/openapi.json` — JSON OpenAPI 3.0 spec (14+ endpoints)
+- `GET /api/docs` — Swagger UI interativo (HTML via CDN, sem deps extras)
+- Importe em Postman/Insomnia/Swagger Editor
+
+### Deploy configs (12 itens pós-merge)
+- **render.yaml** — Render Blueprint (1 Web Service + 2 Cron Jobs automáticos)
+- **k8s/manifests.yaml** (300+ linhas) — Deployment, HPA, 2 PVCs, 2 CronJobs, Ingress TLS
+- **Dockerfile multi-stage** — Stage 1 compila better-sqlite3, Stage 2 runtime menor
+- **scripts/cron-*.sh** — Para host crontab (webhook retry + cleanup)
+- **services/cron-internal.js** — Cron interno via `setInterval` (ENABLE_INTERNAL_CRON opt-in)
+
+### Alerting + Monitoring (12 itens pós-merge)
+- `services/alerting.js` — emite alertas JSON estruturado (Loki/Datadog compat)
+- Integração no `/api/health` — 503 dispara alerta `db_down`
+- Persiste em `data/alerts.log` + envia para Slack se `SLACK_WEBHOOK_URL` setada
+- Throttle 5min por tipo (não spamma)
+- `GET /api/admin/alerts` — lista alertas recentes (default 50, max 200)
+- `POST /api/admin/alerts/test` — dispara alerta de teste
+- `GET /api/admin/webhooks/health` — stats de webhooks últimas 24h
+  (status healthy/warning/critical + por_status + por_tipo + taxa_falha)
+
+### Busca textual FTS (12 itens pós-merge — M10)
+- `services/search-fts.js` — FTS5 SQLite (tabela virtual + triggers)
+  + tsvector PostgreSQL (índice GIN)
+- `GET /api/vagas/buscar?q=<texto>&limite=20&offset=0`
+- Tokenizer `unicode61 remove_diacritics 2` (acentos ignorados)
+- Fallback para LIKE se FTS indisponível (banco antigo sem migration)
+
+### Variáveis de ambiente novas (Sprint 1-3 + 12 itens)
+```bash
+# Segurança crítica (P2)
+NODE_ENV=production
+JWT_SECRET=<openssl rand -hex 32>  # OBRIGATÓRIO em produção
+# Stripe live (P1)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+# Refresh tokens opt-in (A1)
+ENABLE_REFRESH_TOKENS=false
+JWT_ACCESS_EXPIRES=15m
+JWT_REFRESH_EXPIRES=7d
+# Rate limit por user (P9)
+RATE_LIMIT_MAX=300
+RATE_AUTH_MAX=30
+# Uploads com auth (U3)
+AUTH_UPLOADS=true
+# Cron interno (single-instance)
+ENABLE_INTERNAL_CRON=false
+# Alerting
+SLACK_WEBHOOK_URL=
+# Matching (M7)
+AUTO_CLOSE_ON_ACCEPT=true
+# Robustez (M8/M9)
+MAX_CANDIDATURAS_PER_VAGA=50
+CANDIDATURA_EXPIRA_DIAS=30
+# OpenAPI spec
+BACKEND_URL=https://seu-backend.com
+```
 
 ---
 
@@ -23,17 +134,24 @@ médicos) para cuidado domiciliar com confiança, empatia e segurança.
 ### Funcionalidades principais
 - ✅ **Landing page** com identidade visual, "Como funciona" e CTAs
 - ✅ **Cadastro em wizard multi-step** para Profissional e +Saúde
-- ✅ **Login com JWT** (Bearer token, 7 dias de validade)
+- ✅ **Login com JWT** (Bearer token, 7 dias de validade default, refresh opt-in)
 - ✅ **Dashboard do Profissional**: buscar vagas, filtros, candidatar-se, perfil, chat
 - ✅ **Dashboard do +Saúde**: publicar vaga, gerenciar candidatos, aceitar/recusar, chat
-- ✅ **Listagem pública de vagas** com filtros (profissional, complexidade, região, remuneração)
-- ✅ **Chat interno** tempo real (Socket.IO) com fallback HTTP
-- ✅ **Upload de diploma** (PDF/JPG/PNG, 5 MB) com selo de verificação
+- ✅ **Listagem pública de vagas** com filtros (10 filtros + paginação + ordenação)
+- ✅ **Chat interno** tempo real (Socket.IO) com fallback HTTP — sem echo ao remetente (W1)
+- ✅ **Upload de diploma** (PDF/JPG/PNG, 5 MB) com selo de verificação + auth U3
 - ✅ **Validação estrutural de registros** (CRM, COREN, CREFITO, CRP, CRN) com 3 estados
-- ✅ **Webhook de notificação** para `https://netlify.ai` em cada vaga criada e candidatura
+- ✅ **Matching automático** — score 0-1 com 5 componentes (M1) + 2 endpoints de recomendação
+- ✅ **Eventos Socket.IO em tempo real** (7 eventos) + Web Push + hook React (W4, W5)
+- ✅ **Auditoria de transições** de status em `candidatura_status_log` (M11)
+- ✅ **Limite de candidaturas por vaga** (M8) + **expiração automática** (M9)
+- ✅ **Webhook de notificação** para `https://netlify.ai` em cada vaga criada e candidatura + retry (N1)
 - ✅ **PWA** instalável (manifest, service worker via vite-plugin-pwa)
 - ✅ **Mobile-first** (testado em viewport pequeno)
 - ✅ **Internacionalização** (pt-BR, es, en) com switcher
+- ✅ **OpenAPI/Swagger docs** em `/api/docs` (P10)
+- ✅ **Alertas 503 + Slack** + monitoramento de webhooks (Item 10)
+- ✅ **Busca textual FTS5/tsvector** (M10)
 - ⚠️ **Não aceita** vagas de alta complexidade/UTI (regra de negócio)
 
 ---
@@ -76,26 +194,45 @@ A validação roda no endpoint `POST /api/profissionais/me/verificar-registro`
 Essencia_do_Cuidar/
 ├── backend/                    # API Node.js + Express + SQLite/Postgres + Socket.IO
 │   ├── src/
-│   │   ├── index.js            # Bootstrap do servidor + Socket.IO
-│   │   ├── db/                 # driver.js (sqlite+pg) + migrator.js + index.js (facade)
-│   │   ├── routes/             # auth, profissionais, vagas, candidaturas, mensagens, avaliacoes
-│   │   ├── middleware/         # auth (JWT), validate (schema)
+│   │   ├── index.js            # Bootstrap do servidor + Socket.IO + inicialização de módulos
+│   │   ├── db/                 # driver.js (sqlite+pg) + sqlite.js + postgres.js + index.js (facade)
+│   │   ├── routes/             # auth, profissionais, vagas, candidaturas, mensagens, avaliacoes,
+│   │   │                       # favoritos, notificacoes, pagamentos, push, admin, i18n
+│   │   ├── middleware/         # auth (JWT+jti+blacklist), validate (schema), security (helmet+rate-limit)
 │   │   └── services/
 │   │       ├── netlify.js          # Cliente do webhook netlify.ai
-│   │       └── registroValidator.js # Verificação estrutural de registros (regex)
-│   ├── migrations/             # 0001_init.sql, 0002_registro_verificacao.sql
+│   │       ├── registroValidator.js # Verificação estrutural de registros (regex)
+│   │       ├── matching.js         # M1 — algoritmo de score de matching (322 linhas)
+│   │       ├── event-bus.js        # W4/W5 — eventos Socket.IO centralizados
+│   │       ├── auth-advanced.js    # A1/A2 — refresh tokens + jti blacklist (210 linhas)
+│   │       ├── profissoes.js       # M2/M3 — 8 profissões canônicas + 27 UFs
+│   │       ├── candidatura-cleanup.js # M9 — expiração automática de candidaturas
+│   │       ├── webhook-retry.js    # N1 — retry de webhooks com falha
+│   │       ├── search-fts.js       # M10 — FTS5 SQLite + tsvector PG
+│   │       ├── alerting.js         # Item 10 — alertas 503 + Slack
+│   │       ├── cron-internal.js   # Item 3 — cron jobs internos (opt-in)
+│   │       ├── openapi.js          # P10 — spec OpenAPI 3.0 + Swagger UI
+│   │       ├── stripe.js           # Feature 3 — Stripe Connect + Pix + idempotência (S2)
+│   │       ├── push.js             # Feature 4 — Web Push (VAPID)
+│   │       ├── registros.js       # Verificação de registros (aux)
+│   │       └── ...
+│   ├── migrations/             # 0001_init.sql, 0002_*.sql
 │   ├── data/                   # SQLite (essencia.db) — ignorado pelo git
-│   ├── uploads/                # Diplomas — ignorado pelo git
+│   ├── uploads/                # Diplomas (auth U3) — ignorado pelo git
+│   ├── Dockerfile              # Multi-stage build
+│   ├── .dockerignore
 │   └── package.json
 │
 ├── frontend/                   # React 18 + Vite + TS + Tailwind + PWA + i18n
 │   ├── src/
 │   │   ├── main.tsx
 │   │   ├── App.tsx
-│   │   ├── components/         # Navbar, Footer, Wizard, Chat, ProtectedRoute, LanguageSwitcher
-│   │   ├── pages/              # Landing, Login, Cadastro, Vagas*, Dashboards*, ProfissionalPerfil
+│   │   ├── components/         # Navbar, Footer, Wizard, Chat, ProtectedRoute, LanguageSwitcher,
+│   │   │                       # SinoNotificacoes (com useMatchingEvents), BotaoWhatsappFlutuante, etc.
+│   │   ├── pages/              # Landing, Login, Cadastro (autocomplete profissões), Vagas*, Dashboards*,
+│   │   │                       # ProfissionalPerfil, Admin, ComoFunciona
 │   │   ├── context/            # AuthContext (JWT + localStorage)
-│   │   ├── hooks/              # useUnreadCount, etc.
+│   │   ├── hooks/              # useTema, useMatchingEvents (Socket.IO + localStorage)
 │   │   ├── i18n/               # i18next + locales (pt-BR, es, en)
 │   │   ├── types/              # TypeScript types
 │   │   ├── utils/              # api.ts (axios + interceptors), formatDate.ts
@@ -105,10 +242,20 @@ Essencia_do_Cuidar/
 │   ├── tailwind.config.js      # Paleta serenity/emerald
 │   └── package.json
 │
+├── k8s/
+│   └── manifests.yaml          # Deployment + HPA + 2 PVCs + 2 CronJobs + Ingress TLS
 ├── scripts/
-│   └── smoke-test.sh           # 21+ testes E2E (saúde, auth, vagas, candidatura, avaliação, verificação de registro)
+│   ├── smoke-test.sh           # 21+ testes E2E (saúde, auth, vagas, candidatura, etc.)
+│   ├── smoke-test-v2.sh        # 28+ testes E2E com 6 features
+│   ├── cron-webhook-retry.sh   # Cron job: POST /api/admin/webhooks/retry
+│   └── cron-candidatura-cleanup.sh # Cron job: POST /api/admin/candidaturas/limpar-expiradas
+├── render.yaml                 # Render Blueprint (1 Web + 2 Cron Jobs)
+├── docker-compose.yml          # Orquestração local com Docker
 ├── .github/workflows/ci.yml    # CI: roda smoke test em push/PR
-├── DEPLOY.md                   # Guia de deploy (Netlify + Render + Docker)
+├── .github/workflows/deploy-netlify.yml # Deploy automático do frontend
+├── DEPLOY.md                   # Guia de deploy (Netlify + Render + Docker + k8s)
+├── CONTRIBUTING.md             # Workflow para múltiplos contribuidores
+├── CHANGELOG.md                # Histórico das PRs #17, #18, #19
 └── README.md
 ```
 
@@ -201,38 +348,133 @@ Senha de todas: **`demo1234`**
 
 ## 🔌 Endpoints da API
 
-| Método | Rota                          | Auth | Tipo            | Descrição                              |
-|--------|-------------------------------|------|-----------------|----------------------------------------|
-| GET    | `/api/health`                 | —    | —               | Healthcheck                            |
-| POST   | `/api/auth/cadastro`          | —    | qualquer        | Cadastro (profissional ou contratante) |
-| POST   | `/api/auth/login`             | —    | —               | Login → JWT                            |
-| GET    | `/api/auth/me`                | JWT  | qualquer        | Usuário logado + detalhes              |
-| GET    | `/api/profissionais/:id`      | —    | —               | Perfil público de profissional         |
-| PUT    | `/api/profissionais/me`       | JWT  | profissional     | Atualiza perfil (normaliza registro)   |
-| POST   | `/api/profissionais/me/diploma` | JWT | profissional   | Upload de diploma (multipart)          |
-| POST   | `/api/profissionais/me/verificar-registro` | JWT | profissional | Valida formato do registro (regex) → selo |
-| GET    | `/api/vagas`                  | —    | —               | Lista pública com filtros              |
-| GET    | `/api/vagas/:id`              | —    | —               | Detalhe de uma vaga                    |
-| POST   | `/api/vagas`                  | JWT  | contratante     | Publica nova vaga + webhook            |
-| GET    | `/api/vagas/contratante/minhas` | JWT | contratante   | Vagas do contratante logado            |
-| PATCH  | `/api/vagas/:id/status`       | JWT  | contratante     | Pausar / reativar / fechar             |
-| POST   | `/api/candidaturas`           | JWT  | profissional     | Candidatar-se + webhook                |
-| GET    | `/api/candidaturas/profissional/minhas` | JWT | profissional | Minhas candidaturas            |
-| GET    | `/api/candidaturas/vaga/:id`  | JWT  | contratante     | Candidatos de uma vaga                 |
-| PATCH  | `/api/candidaturas/:id`       | JWT  | contratante     | Aceitar / recusar + webhook            |
-| GET    | `/api/mensagens`              | JWT  | qualquer        | Lista de conversas                     |
-| GET    | `/api/mensagens/:outroId`     | JWT  | qualquer        | Histórico de conversa                  |
-| POST   | `/api/mensagens`              | JWT  | qualquer        | Enviar mensagem (HTTP fallback)        |
-| POST   | `/api/avaliacoes`             | JWT  | contratante/profissional | Criar avaliação (candidatura aceita + vaga fechada) |
-| GET    | `/api/avaliacoes/pendentes`   | JWT  | qualquer        | Lista de avaliações pendentes do usuário logado |
-| GET    | `/api/avaliacoes/profissional/:id` | — | —          | Reviews públicas + stats do profissional |
-| GET    | `/api/avaliacoes/candidatura/:id` | — | —            | Status de avaliação de uma candidatura |
+### Sistema (3)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| GET    | `/api/health`                 | —    | Healthcheck (200/503 + DB status)      |
+| GET    | `/api/openapi.json`           | —    | JSON OpenAPI 3.0 spec                   |
+| GET    | `/api/docs`                   | —    | Swagger UI interativo (HTML via CDN)    |
+
+### Helpers (1)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| GET    | `/api/profissoes`             | —    | 8 profissões canônicas + 27 UFs        |
+
+### Auth (6)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| POST   | `/api/auth/cadastro`          | —    | Cadastro (profissional ou contratante) |
+| POST   | `/api/auth/login`             | —    | Login → JWT (+refreshToken opt-in A1)  |
+| POST   | `/api/auth/refresh`           | —    | A1 — Renova access token via refresh   |
+| POST   | `/api/auth/logout`             | JWT  | A2 — Revoga token atual (jti blacklist) |
+| GET    | `/api/auth/me`                | JWT  | Usuário logado + detalhes              |
+| GET    | `/api/profissionais/me/recomendar` | JWT prof | M1 — Top N vagas recomendadas para o profissional |
+
+### Vagas (8)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| GET    | `/api/vagas`                  | —    | Lista pública (10 filtros + paginação) |
+| GET    | `/api/vagas/buscar?q=`        | —    | M10 — Busca textual FTS5/tsvector      |
+| GET    | `/api/vagas/:id`              | —    | Detalhe + registra view                 |
+| GET    | `/api/vagas/:id/recomendar`   | JWT contratante | M1 — Top N profissionais recomendados |
+| POST   | `/api/vagas`                  | JWT  | Publica nova vaga + webhook + M2/M3 warning/UF |
+| GET    | `/api/vagas/contratante/minhas` | JWT | contratante — Vagas do contratante logado |
+| PATCH  | `/api/vagas/:id/status`       | JWT contratante | Pausar/reativar/fechar + W5 evento |
+
+### Candidaturas (5)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| POST   | `/api/candidaturas`           | JWT prof | Candidatar-se (M8 — limite 50 default) |
+| GET    | `/api/candidaturas/profissional/minhas` | JWT prof | Minhas candidaturas |
+| GET    | `/api/candidaturas/vaga/:id`  | JWT contratante | Candidatos + W4 visualizada |
+| PATCH  | `/api/candidaturas/:id`      | JWT contratante | Aceitar/recusar + W4+W5+M7 auto-close |
+| GET    | `/api/candidaturas/:id/historico-status` | JWT | M11 — Histórico de transições auditadas |
+
+### Profissionais (5)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| GET    | `/api/profissionais/:id`      | —    | Perfil público de profissional + stats |
+| PUT    | `/api/profissionais/me`       | JWT prof | Atualiza perfil (normaliza registro)   |
+| POST   | `/api/profissionais/me/diploma` | JWT prof | Upload de diploma (multipart)          |
+| POST   | `/api/profissionais/me/verificar-registro` | JWT prof | Valida formato do registro → selo |
+| GET    | `/api/profissionais/:id/verificacoes` | JWT | Histórico de verificações |
+
+### Chat & Notificações (6)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| GET    | `/api/mensagens`              | JWT  | Lista de conversas                     |
+| GET    | `/api/mensagens/:outroId`     | JWT  | Histórico de conversa                  |
+| POST   | `/api/mensagens`              | JWT  | Enviar (W1 — sem echo ao remetente)    |
+| GET    | `/api/notificacoes`           | JWT  | Notificações agregadas                  |
+| POST   | `/api/notificacoes/marcar-lidas` | JWT | Marca todas como lidas                |
+| GET    | `/api/notificacoes/contador`  | JWT  | Badge count para polling               |
+
+### Favoritos (4)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| POST   | `/api/favoritos`              | JWT  | Toggle vaga/profissional               |
+| GET    | `/api/favoritos`              | JWT  | Lista IDs favoritados                  |
+| GET    | `/api/favoritos/vagas`        | JWT  | Vagas favoritadas + dados               |
+| GET    | `/api/favoritos/profissionais` | JWT | Profissionais favoritados + dados      |
+
+### Pagamentos (6)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| GET    | `/api/pagamentos/config`      | —    | Mock + platform_fee_pct                 |
+| GET    | `/api/pagamentos/connect/status` | JWT prof | Stripe Connect status               |
+| POST   | `/api/pagamentos/connect/onboarding` | JWT prof | Onboarding link |
+| POST   | `/api/pagamentos`             | JWT contratante | Cria pagamento (Pix/cartao)       |
+| GET    | `/api/pagamentos/vaga/:id`    | JWT  | Pagamentos de uma vaga                 |
+| POST   | `/api/pagamentos/:id/confirmar` | JWT | Mock confirmação                       |
+| POST   | `/api/pagamentos/webhook`     | —    | P1 — Stripe webhook (valida assinatura em live; S2 — idempotente) |
+
+### Admin (16)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| GET    | `/api/admin/stats`            | admin | Métricas gerais                        |
+| GET    | `/api/admin/users`            | admin | Lista usuários (filtro tipo)           |
+| PATCH  | `/api/admin/users/:id`        | admin | Suspender / ativar                     |
+| POST   | `/api/admin/users/:id/admin`  | admin | Promover a admin                       |
+| GET    | `/api/admin/vagas`            | admin | Todas as vagas (filtro status)         |
+| PATCH  | `/api/admin/vagas/:id`        | admin | Fechar / reativar (moderação)          |
+| DELETE | `/api/admin/vagas/:id`        | admin | Remover vaga                           |
+| GET    | `/api/admin/reports`          | admin | Denúncias                              |
+| PATCH  | `/api/admin/reports/:id`      | admin | Analisar / resolver                    |
+| GET    | `/api/admin/verificacoes`     | admin | Verificações de registro pendentes     |
+| PATCH  | `/api/admin/verificacoes/:id` | admin | Aprovar / rejeitar verificação         |
+| GET    | `/api/admin/webhooks`         | admin | Últimos webhooks                       |
+| GET    | `/api/admin/webhooks/health`  | admin | Item 9 — Stats 24h (status + taxa_falha) |
+| POST   | `/api/admin/webhooks/retry`  | admin | N1 — Dispara retry de webhooks falhos  |
+| POST   | `/api/admin/candidaturas/limpar-expiradas` | admin | M9 — Expira candidaturas +30 dias |
+| GET    | `/api/admin/alerts`           | admin | Item 10 — Lista alertas recentes       |
+| POST   | `/api/admin/alerts/test`      | admin | Item 10 — Dispara alerta de teste     |
+| GET    | `/api/admin/pagamentos`       | admin | Todos os pagamentos                    |
+
+### Outros (8)
+| Método | Rota                          | Auth | Descrição                              |
+|--------|-------------------------------|------|----------------------------------------|
+| GET    | `/api/i18n`                   | —    | Locales suportados                     |
+| GET    | `/api/i18n/:locale`           | —    | Dicionário de strings                  |
+| GET    | `/api/push/key`               | —    | VAPID public key + enabled             |
+| POST   | `/api/push/subscribe`         | JWT  | Registra subscription                  |
+| POST   | `/api/push/unsubscribe`       | JWT  | Remove subscription                    |
+| POST   | `/api/avaliacoes`             | JWT  | Criar avaliação                        |
+| GET    | `/api/avaliacoes/profissional/:id` | — | Stats públicas + reviews                |
+| GET    | `/api/avaliacoes/minhas`      | JWT contratante | Avaliações que fiz               |
+
+**Total: 38+ endpoints** — explore todos em `/api/docs` (Swagger UI interativo)
 
 ### WebSocket
 Conexão: `ws://localhost:4000` com auth `{ token: <jwt> }`.
-Eventos:
-- `mensagem:nova` (servidor → cliente) — payload `Mensagem`
+Eventos (8 no total):
+- `mensagem:nova` (server → cliente) — payload `Mensagem` (W1: só destinatário)
 - `mensagem:typing` (cliente ↔ cliente) — payload `{ de, para }`
+- `candidatura:visualizada` (W4) — notifica profissional
+- `candidatura:aceita` (W4) — notifica profissional
+- `candidatura:recusada` (W4) — notifica profissional
+- `vaga:fechada` (W5) — notifica favoritadores + candidatos pendentes
+- `vaga:pausada` (W5) — notifica favoritadores
+- `vaga:reativada` (W5) — notifica favoritadores
 
 ---
 
