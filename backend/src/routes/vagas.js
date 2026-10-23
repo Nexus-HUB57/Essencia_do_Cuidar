@@ -7,6 +7,7 @@ import { notifyNetlify } from '../services/netlify.js';
 import { recomendarParaVaga } from '../services/matching.js';
 import { notificarVagaStatus } from '../services/event-bus.js';
 import { validarUF, listarProfissoes, normalizarProfissao, UFS_VALIDAS } from '../services/profissoes.js';
+import { buscarVagas, isFtsEnabled } from '../services/search-fts.js';
 
 const router = express.Router();
 
@@ -90,6 +91,28 @@ router.get('/', async (req, res) => {
     total: total?.n || 0,
     limite: limit,
     offset: off
+  });
+});
+
+/**
+ * GET /api/vagas/buscar?q=<texto>&limite=20&offset=0
+ * M10 — Busca textual usando FTS5 (SQLite) ou tsvector (PostgreSQL).
+ * Fallback para LIKE se FTS indisponível.
+ *
+ * Exemplos:
+ *   /api/vagas/buscar?q=cuidador+alzheimer
+ *   /api/vagas/buscar?q=fisioterapia+pós-operatório&limite=10
+ */
+router.get('/buscar', async (req, res) => {
+  const { q, limite, offset } = req.query;
+  const rows = await buscarVagas(q || '', { limite, offset });
+  res.json({
+    vagas: rows,
+    total: rows.length,
+    fts_ativo: isFtsEnabled(),
+    query: q || '',
+    limite: Number(limite) || 20,
+    offset: Number(offset) || 0
   });
 });
 

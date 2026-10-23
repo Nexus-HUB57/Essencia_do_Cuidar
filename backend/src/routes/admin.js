@@ -23,6 +23,7 @@ import { authRequired, requireAdmin } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { retryFailedWebhooks } from '../services/webhook-retry.js';
 import { expirarCandidaturasAntigas } from '../services/candidatura-cleanup.js';
+import { listarAlertas, emitirAlerta } from '../services/alerting.js';
 
 const router = express.Router();
 
@@ -220,6 +221,80 @@ router.get('/webhooks', async (req, res) => {
 });
 
 /**
+ * GET /api/admin/webhooks/health
+ * Monitoramento de webhooks: stats de sucesso/falha por tipo + últimas 24h.
+ */
+router.get('/webhooks/health', async (req, res) => {
+  // Total por status (200, 4xx, 5xx, erro/null)
+  const porStatus = await db.all(
+    `SELECT
+       CASE
+         WHEN status_code IS NULL THEN 'erro_rede'
+         WHEN status_code >= 200 AND status_code < 300 THEN 'sucesso'
+         WHEN status_code >= 400 AND status_code < 500 THEN 'cliente_erro'
+         WHEN status_code >= 500 THEN 'servidor_erro'
+         ELSE 'outro'
+       END AS categoria,
+       COUNT(*) AS total
+     FROM webhook_logs
+     WHERE criado_em > datetime('now', '-24 hours')
+     GROUP BY categoria`
+  );
+
+  // Por tipo de evento
+  const porTipo = await db.all(
+    `SELECT tipo,
+            COUNT(*) AS total,
+            SUM(CASE WHEN erro IS NOT NULL OR status_code >= 500 THEN 1 ELSE 0 END) AS falhas,
+            SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END) AS sucesso
+       FROM webhook_logs
+       WHERE criado_em > datetime('now', '-24 hours')
+       GROUP BY tipo`
+  );
+
+  // Total geral
+  const totalRow = await db.get(
+    `SELECT
+       COUNT(*) AS total,
+       SUM(CASE WHEN erro IS NOT NULL OR status_code >= 500 OR status_code IS NULL THEN 1 ELSE 0 END) AS falhas_total,
+       SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END) AS sucesso_total
+     FROM webhook_logs
+     WHERE criado_em > datetime('now', '-24 hours')`
+  );
+
+  // Últimos 5 erros
+  const ultimosErros = await db.all(
+    `SELECT id, tipo, status_code, erro, criado_em
+       FROM webhook_logs
+      WHERE erro IS NOT NULL OR status_code >= 500 OR status_code IS NULL
+      ORDER BY criado_em DESC
+      LIMIT 5`
+  );
+
+  // Avalia saúde: falha_total > 10% de total = warning, > 50% = critical
+  const total = Number(totalRow?.total || 0);
+  const falhasTotal = Number(totalRow?.falhas_total || 0);
+  const sucessoTotal = Number(totalRow?.sucesso_total || 0);
+  const taxaFalha = total > 0 ? (falhasTotal / total) : 0;
+  const status = total === 0 ? 'sem_dados'
+    : taxaFalha > 0.5 ? 'critical'
+    : taxaFalha > 0.1 ? 'warning'
+    : 'healthy';
+
+  res.json({
+    status,
+    janela_horas: 24,
+    total,
+    sucesso_total: sucessoTotal,
+    falhas_total: falhasTotal,
+    taxa_falha: Number((taxaFalha * 100).toFixed(1)),
+    por_status: porStatus,
+    por_tipo: porTipo,
+    ultimos_erros: ultimosErros
+  });
+});
+
+/**
  * POST /api/admin/webhooks/retry
  * N1 — Dispara manualmente o retry de webhooks com falha.
  * Busca webhook_logs com erro != null ou status >= 500 nas últimas 24h e reenvia.
@@ -263,6 +338,34 @@ router.post('/candidaturas/limpar-expiradas', async (req, res) => {
   } catch (err) {
     console.error('[admin/limpar-expiradas]', err);
     res.status(500).json({ error: 'Falha ao expirar candidaturas', detalhe: err.message });
+  }
+});
+
+/**
+ * Item 10 — GET /api/admin/alerts
+ * Lista alertas recentes (503 do DB, webhook critical, etc).
+ * Query: limite (default 50, max 200)
+ */
+router.get('/alerts', async (req, res) => {
+  const limite = Math.min(Number(req.query.limite) || 50, 200);
+  const alertas = await listarAlertas(limite);
+  res.json({ alertas, total: alertas.length });
+});
+
+/**
+ * Item 10 — POST /api/admin/alerts/test
+ * Dispara um alerta de teste (para validar integração com Slack/Email).
+ */
+router.post('/alerts/test', async (req, res) => {
+  try {
+    const alerta = await emitirAlerta('test_alert', {
+      mensagem: 'Teste de alerta disparado manualmente pelo admin',
+      admin_id: req.user.id,
+      admin_email: req.user.email
+    });
+    res.json({ ok: true, alerta });
+  } catch (err) {
+    res.status(500).json({ error: 'Falha ao emitir alerta de teste', detalhe: err.message });
   }
 });
 

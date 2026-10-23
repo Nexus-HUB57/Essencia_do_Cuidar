@@ -49,6 +49,12 @@ router.post('/cadastro', validateBody(cadastroSchema), async (req, res) => {
 
 /**
  * POST /api/auth/login
+ *
+ * A1 completo — Se ENABLE_REFRESH_TOKENS=true, retorna access token (curto, 15min)
+ * + refresh token (longo, 7d). Cliente deve usar access para API e refresh para
+ * renovar via POST /api/auth/refresh quando access expirar.
+ *
+ * Default: ENABLE_REFRESH_TOKENS=false — retorna só access token (compat legado).
  */
 router.post('/login', validateBody(loginSchema), async (req, res) => {
   const { email, senha } = req.body;
@@ -63,6 +69,26 @@ router.post('/login', validateBody(loginSchema), async (req, res) => {
     email: user.email, telefone: user.telefone, is_admin: user.is_admin
   };
   const token = signToken(safe);
+
+  // A1 completo — opt-in para refresh tokens via env
+  if (process.env.ENABLE_REFRESH_TOKENS === 'true') {
+    try {
+      const { gerarTokenPacote } = await import('../services/auth-advanced.js');
+      const pacote = gerarTokenPacote(safe);
+      return res.json({
+        user: safe,
+        // Token de acesso (curto) — usar no header Authorization: Bearer
+        token: pacote.accessToken,
+        // Refresh token (longo) — usar em POST /api/auth/refresh
+        refreshToken: pacote.refreshToken,
+        expiresIn: pacote.expiresIn
+      });
+    } catch (err) {
+      console.warn('[auth/login] refresh tokens indisponível, caindo para legado:', err.message);
+    }
+  }
+
+  // Comportamento legado: só access token (7d)
   res.json({ user: safe, token });
 });
 

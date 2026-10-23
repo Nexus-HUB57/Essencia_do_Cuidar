@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
 import Wizard from '../components/Wizard';
@@ -26,6 +26,19 @@ const TIPO_REGISTRO_OPCOES = [
 ];
 const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
+// M2/M3 — Profissões canônicas e UFs carregados do backend (Sprint 3).
+// Fallback local se o endpoint /api/profissoes não responder (ex.: dev sem backend).
+const PROFISSOES_FALLBACK = [
+  { id: 'cuidador_idosos', label: 'Cuidador de Idosos', conselho: null, sinonimos: ['cuidador', 'cuidadora', 'acompanhante'] },
+  { id: 'enfermeiro', label: 'Enfermeiro(a)', conselho: 'COREN', sinonimos: ['enfermeiro', 'enfermeira'] },
+  { id: 'tecnico_enfermagem', label: 'Técnico de Enfermagem', conselho: 'COREN', sinonimos: ['tecnico_enfermagem'] },
+  { id: 'fisioterapeuta', label: 'Fisioterapeuta', conselho: 'CREFITO', sinonimos: ['fisioterapeuta', 'fisio'] },
+  { id: 'psicologo', label: 'Psicólogo(a)', conselho: 'CRP', sinonimos: ['psicologo', 'psicologa'] },
+  { id: 'terapeuta_ocupacional', label: 'Terapeuta Ocupacional', conselho: 'CREFITO', sinonimos: ['terapeuta ocupacional'] },
+  { id: 'nutricionista', label: 'Nutricionista', conselho: 'CRN', sinonimos: ['nutricionista'] },
+  { id: 'medico', label: 'Médico(a)', conselho: 'CRM', sinonimos: ['medico', 'medica'] }
+];
+
 export default function Cadastro() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -42,6 +55,16 @@ export default function Cadastro() {
   });
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // M2/M3 — Carrega lista canônica de profissões do backend (com fallback local)
+  const [profissoes, setProfissoes] = useState(PROFISSOES_FALLBACK);
+  const [ufs, setUfs] = useState(UFS);
+  useEffect(() => {
+    api.get('/profissoes').then(({ data }) => {
+      if (data.profissoes?.length) setProfissoes(data.profissoes);
+      if (data.ufs?.length) setUfs(data.ufs);
+    }).catch(() => {/* fallback mantém */});
+  }, []);
 
   const steps = tipo === 'profissional'
     ? [
