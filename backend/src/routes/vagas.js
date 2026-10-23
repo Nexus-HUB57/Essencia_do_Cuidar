@@ -4,6 +4,7 @@ import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyNetlify } from '../services/netlify.js';
+import { recomendarParaVaga } from '../services/matching.js';
 
 const router = express.Router();
 
@@ -23,26 +24,83 @@ const vagaSchema = {
 };
 
 router.get('/', async (req, res) => {
-  const { profissional, complexidade, regiao, remuneracaoMin } = req.query;
+  // M4 — filtros de matching expandidos (8 filtros no total):
+  //   profissional, complexidade, regiao, remuneracaoMin (originais)
+  //   + tipoContrato, remuneracaoTipo, jornadaEscala, ordenar, limite, offset
+  const {
+    profissional, complexidade, regiao, remuneracaoMin,
+    tipoContrato, remuneracaoTipo, jornadaEscala,
+    ordenar, limite, offset
+  } = req.query;
   const filters = ["v.status = 'ativa'"];
   const params = [];
 
-  if (profissional) { filters.push('v.profissional_desejado LIKE ?'); params.push(`%${profissional}%`); }
-  if (complexidade) { filters.push('v.complexidade = ?'); params.push(complexidade); }
-  if (regiao)       { filters.push('v.regiao LIKE ?');       params.push(`%${regiao}%`); }
-  if (remuneracaoMin) { filters.push('v.remuneracao_valor >= ?'); params.push(Number(remuneracaoMin)); }
+  if (profissional)     { filters.push('v.profissional_desejado LIKE ?'); params.push(`%${profissional}%`); }
+  if (complexidade)     { filters.push('v.complexidade = ?'); params.push(complexidade); }
+  if (regiao)           { filters.push('v.regiao LIKE ?'); params.push(`%${regiao}%`); }
+  if (remuneracaoMin)   { filters.push('v.remuneracao_valor >= ?'); params.push(Number(remuneracaoMin)); }
+  if (tipoContrato)     { filters.push('v.tipo_contrato = ?'); params.push(tipoContrato); }
+  if (remuneracaoTipo)  { filters.push('v.remuneracao_tipo = ?'); params.push(remuneracaoTipo); }
+  if (jornadaEscala)    { filters.push('v.jornada_escala LIKE ?'); params.push(`%${jornadaEscala}%`); }
 
   const where = 'WHERE ' + filters.join(' AND ');
+
+  // M4 — ordenação configurável (default: criado_em DESC)
+  const ordenarCol = {
+    remuneracao: 'v.remuneracao_valor',
+    recentes: 'v.criado_em',
+    antigos: 'v.criado_em'
+  }[ordenar] || 'v.criado_em';
+  const ordenarDir = ordenar === 'antigos' ? 'ASC' : 'DESC';
+  // valida coluna — não permite injeção SQL
+  const colunasPermitidas = ['v.remuneracao_valor', 'v.criado_em'];
+  const colFinal = colunasPermitidas.includes(ordenarCol) ? ordenarCol : 'v.criado_em';
+
+  // Paginação: default 100, max 200, min 1
+  const limit = Math.max(1, Math.min(Number(limite) || 100, 200));
+  const off = Math.max(0, Number(offset) || 0);
+
   const rows = await db.all(
     `SELECT v.*, u.nome AS contratante_nome
        FROM vagas v
        JOIN users u ON u.id = v.id_contratante
        ${where}
-      ORDER BY v.criado_em DESC
-      LIMIT 100`,
+      ORDER BY ${colFinal} ${ordenarDir}
+      LIMIT ? OFFSET ?`,
+    [...params, limit, off]
+  );
+
+  // Total (para cliente poder paginar)
+  const total = await db.get(
+    `SELECT COUNT(*) AS n FROM vagas v ${where}`,
     params
   );
-  res.json({ vagas: rows });
+
+  res.json({
+    vagas: rows,
+    total: total?.n || 0,
+    limite: limit,
+    offset: off
+  });
+});
+
+/**
+ * GET /api/vagas/:id/recomendar
+ * M1 — Matching automático: top N profissionais recomendados para uma vaga.
+ * Public (qualquer contratante logado pode ver recomendações para suas vagas).
+ * Query: limite (default 10, max 50), minScore (default 0.3)
+ */
+router.get('/:id/recomendar', authRequired, requireTipo('contratante'), async (req, res) => {
+  const id = Number(req.params.id);
+  const vaga = await db.get('SELECT id, id_contratante, status FROM vagas WHERE id = ?', [id]);
+  if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
+  if (vaga.id_contratante !== req.user.id) {
+    return res.status(403).json({ error: 'Você não é dono desta vaga' });
+  }
+  const limite = Math.min(Number(req.query.limite) || 10, 50);
+  const minScore = Number(req.query.minScore) || 0.3;
+  const result = await recomendarParaVaga(id, { limite, minScore });
+  res.json(result);
 });
 
 router.get('/:id', async (req, res) => {
@@ -105,7 +163,7 @@ router.post('/', authRequired, requireTipo('contratante'),
       ]
     );
     const vaga = await db.get('SELECT * FROM vagas WHERE id = ?', [info.lastInsertRowid]);
-    notifyNetlify('vaga_criada', { vaga_id: vaga.id, contratante_id: req.user.id });
+    notifyNetlify('vaga_criada', { vaga_id: vaga.id, contratante_id: req.user.id }).catch(e => console.warn('[webhook]', e.message));
     res.status(201).json({ vaga });
   }
 );

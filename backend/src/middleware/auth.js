@@ -14,6 +14,14 @@ export function authRequired(req, res, next) {
     // resolveUser é async agora; precisa do wrapper
     resolveUser(payload.id).then((user) => {
       if (!user) return res.status(401).json({ error: 'Usuário não encontrado' });
+      // P4 — Verifica suspended_at em TODA request autenticada, não só no login.
+      // Se admin suspendeu o user, tokens JWT emitidos anteriormente ficam imediatamente inválidos.
+      if (user.suspended_at) {
+        return res.status(403).json({
+          error: 'Conta suspensa',
+          motivo: user.suspended_reason || 'Violação dos termos de uso'
+        });
+      }
       req.user = user;
       next();
     }).catch(next);
