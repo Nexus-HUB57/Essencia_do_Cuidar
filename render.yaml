@@ -56,8 +56,9 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install --omit=dev
-    schedule: '*/30 * * * *'  # a cada 30 min
-    command: node -e "import('./src/services/webhook-retry.js').then(m => m.runWebhookRetryOnce()).then(r => { console.log('resultado:', r); process.exit(r.erro ? 1 : 0); }).catch(e => { console.error(e); process.exit(1); });"
+    schedule: '*/30 * * * *'
+    command: >-
+      node -e "import('./src/services/webhook-retry.js').then(m => m.runWebhookRetryOnce()).then(r => { console.log('resultado:', r); process.exit(r.erro ? 1 : 0); }).catch(e => { console.error(e); process.exit(1); });"
     envVars:
       - key: NODE_ENV
         value: production
@@ -74,8 +75,9 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install --omit=dev
-    schedule: '0 3 * * *'  # todo dia às 3h
-    command: node -e "import('./src/services/candidatura-cleanup.js').then(m => m.expirarCandidaturasAntigas()).then(r => { console.log('expiradas:', r); process.exit(r.erro ? 1 : 0); }).catch(e => { console.error(e); process.exit(1); });"
+    schedule: '0 3 * * *'
+    command: >-
+      node -e "import('./src/services/candidatura-cleanup.js').then(m => m.expirarCandidaturasAntigas()).then(r => { console.log('expiradas:', r); process.exit(r.erro ? 1 : 0); }).catch(e => { console.error(e); process.exit(1); });"
     envVars:
       - key: NODE_ENV
         value: production
