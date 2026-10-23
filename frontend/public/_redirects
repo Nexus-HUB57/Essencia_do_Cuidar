@@ -1,0 +1,17 @@
+# frontend/public/_redirects — Fallback caso o netlify.toml não seja lido
+# (Netlify lê este arquivo se existir em publish dir. netlify.toml tem prioridade,
+# mas _redirects funciona em ambientes sem netlify.toml ou se houver override.)
+#
+# Ordem importa: regras de cima pra baixo, primeira match vence.
+
+# Proxy da API REST (todos /api/* → backend)
+/api/*  https://essencia-backend.onrender.com/api/:splat  200!
+
+# Proxy de uploads (diplomas com auth U3)
+/uploads/*  https://essencia-backend.onrender.com/uploads/:splat  200!
+
+# Proxy do Socket.IO (WebSocket)
+/socket.io/*  https://essencia-backend.onrender.com/socket.io/:splat  200!
+
+# SPA fallback — qualquer rota React → index.html
+/*  /index.html  200
