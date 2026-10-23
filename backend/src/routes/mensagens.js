@@ -71,8 +71,10 @@ router.post('/', authRequired, validateBody({
   );
   const msg = await db.get('SELECT * FROM mensagens WHERE id = ?', [info.lastInsertRowid]);
   if (globalThis.__io) {
+    // W1 — Emite só para o DESTINATÁRIO (não mais para o remetente).
+    // O remetente já vê a mensagem pela resposta HTTP 201 (UI otimista não precisa de echo).
+    // Antes: emitia para user:destinatario E user:remetente → causava duplicação no chat.
     globalThis.__io.to(`user:${id_destinatario}`).emit('mensagem:nova', msg);
-    globalThis.__io.to(`user:${req.user.id}`).emit('mensagem:nova', msg);
   }
   // Web push (best-effort)
   notifyUser(id_destinatario, {

@@ -252,6 +252,17 @@ export async function initSchema() {
       criado_em TEXT NOT NULL DEFAULT (now()::text)
     );
 
+    -- M11 — Auditoria de transicoes de status de candidatura
+    CREATE TABLE IF NOT EXISTS candidatura_status_log (
+      id SERIAL PRIMARY KEY,
+      id_candidatura INTEGER NOT NULL REFERENCES candidaturas(id) ON DELETE CASCADE,
+      status_anterior TEXT,
+      status_novo TEXT NOT NULL,
+      alterado_por INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      motivo TEXT,
+      criado_em TEXT NOT NULL DEFAULT (now()::text)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_vagas_contratante ON vagas(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
@@ -264,7 +275,24 @@ export async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
     CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
     CREATE INDEX IF NOT EXISTS idx_vaga_views ON vaga_visualizacoes(id_vaga);
+    CREATE INDEX IF NOT EXISTS idx_cand_status_log ON candidatura_status_log(id_candidatura);
   `);
+
+  // S2 — Idempotência do webhook Stripe (idempotente — IF NOT EXISTS via DO block)
+  // Note: PG não suporta "ALTER TABLE ... ADD COLUMN IF NOT EXISTS" em todas as versões;
+  // usamos um bloco DO anônimo para capturar o erro.
+  try {
+    await pool.query(`ALTER TABLE pagamentos ADD COLUMN stripe_event_id TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+  // M3 — Adiciona coluna regiao_uf em vagas
+  try {
+    await pool.query(`ALTER TABLE vagas ADD COLUMN regiao_uf TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+
   console.log('[db:postgres] schema inicializado');
 }
 

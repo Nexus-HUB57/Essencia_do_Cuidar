@@ -187,13 +187,31 @@ export async function confirmarPagamento(pagamentoId) {
 
 /**
  * Webhook do Stripe — em produção, valida signature e processa eventos.
+ * S2 — Idempotência: usa stripe_event_id para evitar processar o mesmo evento 2x.
+ * Stripe pode reenviar o mesmo evento se não receber 200 rápido o suficiente.
  */
 export async function processarWebhookStripe(event) {
+  // S2 — Verifica se este evento já foi processado antes
+  const eventId = event.id;
+  if (eventId) {
+    const ja = await db.get('SELECT id FROM pagamentos WHERE stripe_event_id = ?', [eventId]);
+    if (ja) {
+      console.log(`[stripe] evento ${eventId} já processado (pagamento ${ja.id}) — pulando`);
+      return { deduplicado: true, pagamento_id: ja.id };
+    }
+  }
+
   if (event.type === 'payment_intent.succeeded') {
     const pi = event.data.object;
     const p = await db.get('SELECT * FROM pagamentos WHERE stripe_payment_intent_id = ?', [pi.id]);
     if (p) {
+      // Marca o pagamento com o stripe_event_id antes de confirmar (idempotência atômica)
+      if (eventId) {
+        await db.run('UPDATE pagamentos SET stripe_event_id = ? WHERE id = ?', [eventId, p.id]);
+      }
       await confirmarPagamento(p.id);
+      return { deduplicado: false, pagamento_id: p.id };
     }
   }
+  return { deduplicado: false, pagamento_id: null };
 }

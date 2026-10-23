@@ -3,6 +3,11 @@ import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyNetlify } from '../services/netlify.js';
+import {
+  logarTransicaoCandidatura,
+  notificarCandidaturaVisualizada,
+  notificarCandidaturaStatus
+} from '../services/event-bus.js';
 
 const router = express.Router();
 
@@ -16,6 +21,22 @@ router.post('/', authRequired, requireTipo('profissional'),
     const { id_vaga, mensagem } = req.body;
     const vaga = await db.get("SELECT * FROM vagas WHERE id = ? AND status = 'ativa'", [id_vaga]);
     if (!vaga) return res.status(404).json({ error: 'Vaga não disponível' });
+
+    // M8 — Limite de candidaturas por vaga (env MAX_CANDIDATURAS_PER_VAGA, default 50)
+    const MAX_CANDIDATURAS = Number(process.env.MAX_CANDIDATURAS_PER_VAGA || 50);
+    const contagem = await db.get(
+      'SELECT COUNT(*) AS n FROM candidaturas WHERE id_vaga = ?',
+      [id_vaga]
+    );
+    if (contagem && contagem.n >= MAX_CANDIDATURAS) {
+      return res.status(429).json({
+        error: 'Vaga atingiu o limite máximo de candidaturas',
+        limite: MAX_CANDIDATURAS,
+        atual: contagem.n,
+        motivo: 'Aguarde o contratante processar as candidaturas existentes.'
+      });
+    }
+
     try {
       const info = await db.run(
         `INSERT INTO candidaturas (id_vaga, id_profissional, mensagem)
@@ -23,9 +44,13 @@ router.post('/', authRequired, requireTipo('profissional'),
         [id_vaga, req.user.id, mensagem || null]
       );
       const cand = await db.get('SELECT * FROM candidaturas WHERE id = ?', [info.lastInsertRowid]);
+
+      // M11 — Registra criação da candidatura (de null → pendente)
+      await logarTransicaoCandidatura(cand.id, null, 'pendente', req.user.id, 'candidatura criada');
+
       notifyNetlify('candidatura_enviada', {
         candidatura_id: cand.id, vaga_id: id_vaga, profissional_id: req.user.id
-      });
+      }).catch(e => console.warn('[webhook]', e.message));
       res.status(201).json({ candidatura: cand });
     } catch (err) {
       if (String(err.message).includes('UNIQUE') || String(err.code).includes('SQLITE_CONSTRAINT')) {
@@ -61,11 +86,33 @@ router.get('/vaga/:id', authRequired, requireTipo('contratante'), async (req, re
   if (vaga.id_contratante !== req.user.id) {
     return res.status(403).json({ error: 'Você não é dono desta vaga' });
   }
+
+  // W4 — Antes de marcar como visualizada, busca quais candidaturas estão pendentes
+  // para que possamos notificar esses profissionais em tempo real.
+  const pendentes = await db.all(
+    `SELECT c.id AS candidatura_id, c.id_profissional AS profissional_id
+       FROM candidaturas c
+      WHERE c.id_vaga = ? AND c.status_candidatura = 'pendente'`,
+    [id]
+  );
+
   await db.run(
     `UPDATE candidaturas SET status_candidatura = 'visualizada'
       WHERE id_vaga = ? AND status_candidatura = 'pendente'`,
     [id]
   );
+
+  // M11 + W4 — Registra auditoria + notifica cada profissional
+  for (const p of pendentes) {
+    await logarTransicaoCandidatura(p.candidatura_id, 'pendente', 'visualizada', req.user.id, 'visualizada pelo contratante');
+    notificarCandidaturaVisualizada({
+      candidatura_id: p.candidatura_id,
+      vaga_id: id,
+      profissional_id: p.profissional_id,
+      contratante_id: req.user.id
+    }).catch(e => console.warn('[event-bus]', e.message));
+  }
+
   const rows = await db.all(
     `SELECT c.id, c.mensagem, c.status_candidatura, c.criado_em,
             u.id AS profissional_id, u.nome AS profissional_nome, u.email AS profissional_email,
@@ -102,14 +149,76 @@ router.patch('/:id', authRequired, requireTipo('contratante'),
     if (cand.id_contratante !== req.user.id) {
       return res.status(403).json({ error: 'Você não é dono desta vaga' });
     }
+
+    const statusAnterior = cand.status_candidatura;
     await db.run('UPDATE candidaturas SET status_candidatura = ? WHERE id = ?', [req.body.status_candidatura, id]);
+
+    // M11 — Registra auditoria da transição
+    await logarTransicaoCandidatura(id, statusAnterior, req.body.status_candidatura, req.user.id);
+
+    // W4 — Notifica o profissional em tempo real via Socket.IO + Web Push
+    notificarCandidaturaStatus({
+      candidatura_id: id,
+      vaga_id: cand.id_vaga,
+      profissional_id: cand.id_profissional,
+      contratante_id: req.user.id,
+      status: req.body.status_candidatura,
+      motivo: null
+    }).catch(e => console.warn('[event-bus]', e.message));
+
+    // M7 + W5 — Auto-close vaga após primeiro aceite + notifica interessados
+    if (req.body.status_candidatura === 'aceita' && process.env.AUTO_CLOSE_ON_ACCEPT !== 'false') {
+      const vagaAtual = await db.get('SELECT id, status, id_contratante FROM vagas WHERE id = ?', [cand.id_vaga]);
+      const statusAnteriorVaga = vagaAtual?.status;
+      await db.run("UPDATE vagas SET status = 'fechada' WHERE id = ? AND status = 'ativa'", [cand.id_vaga]);
+      // Só emite W5 se a vaga estava realmente ativa (foi fechada agora)
+      if (statusAnteriorVaga === 'ativa') {
+        const { notificarVagaStatus } = await import('../services/event-bus.js');
+        notificarVagaStatus({
+          vaga_id: cand.id_vaga,
+          status_anterior: 'ativa',
+          status_novo: 'fechada',
+          contratante_id: req.user.id
+        }).catch(e => console.warn('[event-bus]', e.message));
+      }
+    }
+
     const updated = await db.get('SELECT * FROM candidaturas WHERE id = ?', [id]);
     notifyNetlify(`candidatura_${req.body.status_candidatura}`, {
       candidatura_id: id, vaga_id: cand.id_vaga, profissional_id: cand.id_profissional
-    });
+    }).catch(e => console.warn('[webhook]', e.message));
     res.json({ candidatura: updated });
   }
 );
+
+/**
+ * GET /api/candidaturas/:id/historico-status
+ * M11 — Retorna o histórico de transições de status de uma candidatura.
+ */
+router.get('/:id/historico-status', authRequired, async (req, res) => {
+  const id = Number(req.params.id);
+  // Verifica que o user tem acesso à candidatura (é o profissional OU é o contratante da vaga)
+  const cand = await db.get(
+    `SELECT c.id_profissional, v.id_contratante
+       FROM candidaturas c
+       JOIN vagas v ON v.id = c.id_vaga
+      WHERE c.id = ?`,
+    [id]
+  );
+  if (!cand) return res.status(404).json({ error: 'Candidatura não encontrada' });
+  if (cand.id_profissional !== req.user.id && cand.id_contratante !== req.user.id && !req.user.is_admin) {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+  const rows = await db.all(
+    `SELECT l.*, u.nome AS alterado_por_nome
+       FROM candidatura_status_log l
+       JOIN users u ON u.id = l.alterado_por
+      WHERE l.id_candidatura = ?
+      ORDER BY l.criado_em ASC`,
+    [id]
+  );
+  res.json({ historico: rows });
+});
 
 /**
  * GET /api/candidaturas/contratante/historico
