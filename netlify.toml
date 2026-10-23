@@ -5,8 +5,8 @@
 # Nexus-HUB57/Essencia_do_Cuidar. A cada push em `main` a Netlify rebuilda
 # e republica o site automaticamente.
 #
-# Backend (Node + SQLite, stateful) NÃO roda em Netlify — precisa de host
-# persistente. Ver DEPLOY.md para Render/Railway/fly.io.
+# Backend (Node + SQLite/Postgres, stateful) NÃO roda em Netlify — precisa de
+# host persistente (Render / Railway / fly.io / k8s). Ver DEPLOY.md.
 # ==========================================================================
 
 [build]
@@ -16,30 +16,40 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  # URL do backend. Ajuste no painel da Netlify (Site settings → Environment)
-  # para apontar pro seu deploy do Render/Railway.
+  # URL do backend. Default "/api" usa os redirects de proxy abaixo.
+  # Se o seu backend estiver em outro domínio sem proxy Netlify, ajuste:
+  #   VITE_API_URL = "https://essencia-backend.onrender.com/api"
   VITE_API_URL = "/api"
+  # NPM_CONFIG_FLAGS = "--no-audit --no-fund"  # build mais rápido
 
 # --------------------------------------------------------------------------
-# 1) PROXY DO BACKEND (tem que vir ANTES do catch-all — a Netlify avalia
-#    as regras de cima pra baixo e o /* engoliria tudo se vier primeiro)
+# 1) PROXY DO BACKEND (DEVE vir ANTES do catch-all — Netlify avalia de
+#    cima pra baixo e o /* engoliria tudo se viesse primeiro)
 # --------------------------------------------------------------------------
-# Troque o host abaixo pelo seu. Exemplos:
+# ⚠️ TROQUE o host abaixo pelo seu backend real (Render/Railway/fly.io/k8s).
+# Exemplos:
 #   https://essencia-backend.onrender.com
 #   https://essencia-backend.up.railway.app
+#   https://api.essencia-do-cuidar.app  (Ingress k8s com TLS)
+
+# Proxy da API REST (todos os endpoints /api/*)
 [[redirects]]
   from   = "/api/*"
   to     = "https://essencia-backend.onrender.com/api/:splat"
   status = 200
   force  = true
+  [redirects.headers]
+    X-Proxy = "netlify"
 
+# Proxy de uploads (diplomas — agora com auth U3 no backend)
 [[redirects]]
   from   = "/uploads/*"
   to     = "https://essencia-backend.onrender.com/uploads/:splat"
   status = 200
   force  = true
 
-# WebSocket do Socket.IO — precisa deRewrite + force pra não cair no SPA
+# Proxy do Socket.IO (WebSocket — precisa force=true + status=200
+# para não cair no SPA fallback)
 [[redirects]]
   from   = "/socket.io/*"
   to     = "https://essencia-backend.onrender.com/socket.io/:splat"
@@ -47,7 +57,7 @@
   force  = true
 
 # --------------------------------------------------------------------------
-# 2) SPA FALLBACK — sempre por último
+# 2) SPA FALLBACK — sempre por último (qualquer rota React → index.html)
 # --------------------------------------------------------------------------
 [[redirects]]
   from   = "/*"
@@ -55,44 +65,92 @@
   status = 200
 
 # --------------------------------------------------------------------------
-# 3) CACHE
+# 3) HEADERS DE CACHE (performance)
 # --------------------------------------------------------------------------
-# Assets com hash no nome: imutáveis, cache de 1 ano
+# Assets com hash no nome (gerados por Vite): imutáveis, cache 1 ano
 [[headers]]
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Service worker e manifest: nunca cacheados (precisam buscar versão nova)
+# Service worker: nunca cacheado (precisa buscar versão nova)
 [[headers]]
   for = "/sw.js"
   [headers.values]
     Cache-Control = "no-cache, must-revalidate"
+    Service-Worker-Allowed = "/"
 
+# Manifest PWA
 [[headers]]
   for = "/manifest.webmanifest"
   [headers.values]
     Content-Type = "application/manifest+json"
     Cache-Control = "no-cache"
 
-# Imagens da marca: cache médio (podem ser trocadas)
+# Imagens da marca: cache médio (7 dias — podem ser trocadas)
 [[headers]]
   for = "/img/*"
   [headers.values]
     Cache-Control = "public, max-age=604800"
 
-# Segurança
+# Favicon e assets estáticos raiz: cache médio
+[[headers]]
+  for = "/favicon.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# Logo e ícones PWA na raiz
+[[headers]]
+  for = "/logo.jpg"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# OpenAPI spec (se backend exposto via proxy)
+[[headers]]
+  for = "/api/openapi.json"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/api/docs"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# --------------------------------------------------------------------------
+# 4) HEADERS DE SEGURANÇA (aplicados a todas as rotas)
+# --------------------------------------------------------------------------
 [[headers]]
   for = "/*"
   [headers.values]
     X-Frame-Options = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    X-XSS-Protection = "1; mode=block"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+    # HSTS — só ativa em produção (HTTPS). 1 ano + subdomínios + preload.
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    # CSP — permite self + CDN do Swagger UI (para /api/docs proxy) +
+    # unpkg (PWA + Swagger UI CDN). Ajuste conforme suas fontes.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https:; font-src 'self' https://unpkg.com data:; connect-src 'self' wss: https: http://localhost:*; frame-ancestors 'self'"
 
 # --------------------------------------------------------------------------
-# 4) VARIÁVEL DE AMBIENTE NECESSÁRIA
+# 5) PLUGINS (opcional — descomente para ativar)
 # --------------------------------------------------------------------------
-# Se você NÃO usar os redirects de proxy acima, defina no painel:
+# Lighthouse CI — roda auditoria de performance/SEO/accessibility no deploy
+# [[plugins]]
+#   package = "@netlify/plugin-lighthouse"
+#   [plugins.inputs]
+#     output_path = "reports/lighthouse.html"
+
+# Sitemap generator — gera sitemap.xml automaticamente
+# [[plugins]]
+#   package = "@netlify/plugin-sitemap"
+
+# --------------------------------------------------------------------------
+# 6) VARIÁVEL DE AMBIENTE NECESSÁRIA
+# --------------------------------------------------------------------------
+# Se você NÃO usar os redirects de proxy acima (backend em outro domínio sem
+# proxy Netlify), defina no painel da Netlify:
 #   Site settings → Environment variables → VITE_API_URL
 #   valor: https://essencia-backend.onrender.com/api
-# (a variável precisa existir no build, então é build-time, não runtime)
+# (VITE_* é build-time, embutida no bundle — não adianta mudar sem rebuild)
