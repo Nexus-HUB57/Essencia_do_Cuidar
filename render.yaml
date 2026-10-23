@@ -1,0 +1,87 @@
+# render.yaml — Render Blueprint para Essência do Cuidar
+# https://render.com/docs/blueprint-spec
+#
+# Como usar:
+#   1. Conecte o repo Nexus-HUB57/Essencia_do_Cuidar no Render
+#   2. New → Blueprint (Render lê este arquivo automaticamente)
+#   3. Configure as env vars sensíveis (JWT_SECRET, STRIPE_SECRET_KEY) no painel
+#
+# Recursos criados:
+#   - 1 Web Service (backend Node.js)
+#   - 2 Cron Jobs (webhook retry + expiração de candidaturas)
+#
+# Frontend deve ser deployado na Netlify (ver netlify.toml).
+
+services:
+  # ─── Backend (Web Service) ──────────────────────────────────────
+  - type: web
+    name: essencia-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install --omit=dev
+    startCommand: node src/index.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Obrigatórias (configurar no painel — valores secretos)
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false  # configurar no painel: openssl rand -hex 32
+      - key: FRONTEND_URL
+        value: https://essencia-do-cuidar.netlify.app  # ajustar
+      # Opcionais (defaults funcionam para dev)
+      - key: STRIPE_MOCK
+        value: 'true'  # setar false + STRIPE_SECRET_KEY em produção real
+      - key: AUTH_UPLOADS
+        value: 'true'
+      - key: AUTO_CLOSE_ON_ACCEPT
+        value: 'true'
+      - key: MAX_CANDIDATURAS_PER_VAGA
+        value: '50'
+      - key: CANDIDATURA_EXPIRA_DIAS
+        value: '30'
+      - key: ENABLE_REFRESH_TOKENS
+        value: 'false'  # setar true para habilitar refresh token no login
+      # Database (opcional — sem DATABASE_URL usa SQLite)
+      # - key: DATABASE_URL
+      #   sync: false  # configurar no painel: postgres://...
+
+  # ─── Cron Job 1: Retry de webhooks com falha ───────────────────
+  # Roda a cada 30 min, reenvia webhook_logs com erro nas últimas 24h
+  - type: cron
+    name: essencia-webhook-retry
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install --omit=dev
+    schedule: '*/30 * * * *'  # a cada 30 min
+    command: node -e "import('./src/services/webhook-retry.js').then(m => m.runWebhookRetryOnce()).then(r => { console.log('resultado:', r); process.exit(r.erro ? 1 : 0); }).catch(e => { console.error(e); process.exit(1); });"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false  # mesmo valor do web service
+      - key: DATABASE_URL
+        sync: false  # mesmo valor do web service (se PostgreSQL)
+
+  # ─── Cron Job 2: Expiração de candidaturas ──────────────────────
+  # Roda todo dia às 3h, expira candidaturas pendentes há mais de 30 dias
+  - type: cron
+    name: essencia-candidatura-cleanup
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install --omit=dev
+    schedule: '0 3 * * *'  # todo dia às 3h
+    command: node -e "import('./src/services/candidatura-cleanup.js').then(m => m.expirarCandidaturasAntigas()).then(r => { console.log('expiradas:', r); process.exit(r.erro ? 1 : 0); }).catch(e => { console.error(e); process.exit(1); });"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: CANDIDATURA_EXPIRA_DIAS
+        value: '30'
+      - key: DATABASE_URL
+        sync: false

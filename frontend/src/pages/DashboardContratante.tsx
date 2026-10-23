@@ -77,10 +77,21 @@ export default function DashboardContratante() {
     tipo_contrato: '' as '' | 'PJ' | 'CLT',
     remuneracao_tipo: '' as '' | 'plantao' | 'hora',
     remuneracao_valor: '',
-    regiao: ''
+    regiao: '',
+    regiao_uf: ''
   });
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+
+  // M2/M3 — Carrega UFs e profissões do backend
+  const [ufs, setUfs] = useState<string[]>([]);
+  const [profissoes, setProfissoes] = useState<{ id: string; label: string }[]>([]);
+  useEffect(() => {
+    api.get('/profissoes').then(({ data }) => {
+      if (data.ufs?.length) setUfs(data.ufs);
+      if (data.profissoes?.length) setProfissoes(data.profissoes);
+    }).catch(() => {/* fallback abaixo */});
+  }, []);
 
   useEffect(() => { carregarVagas(); }, []);
   useEffect(() => { if (vagaSel) carregarCandidatos(vagaSel.id); }, [vagaSel]);
@@ -143,7 +154,8 @@ export default function DashboardContratante() {
         tipo_contrato: form.tipo_contrato || undefined,
         remuneracao_tipo: form.remuneracao_tipo || undefined,
         remuneracao_valor: form.remuneracao_valor ? Number(form.remuneracao_valor) : undefined,
-        regiao: form.regiao || undefined
+        regiao: form.regiao || undefined,
+        regiao_uf: form.regiao_uf || undefined
       };
       await api.post('/vagas', payload);
       setSucesso('Vaga publicada com sucesso!');
@@ -151,7 +163,7 @@ export default function DashboardContratante() {
         paciente_sexo: '', paciente_idade: '', paciente_diagnostico: '',
         complexidade: 'baixa', servico_descricao: '', profissional_desejado: '',
         jornada_horario: '', jornada_escala: '', tipo_contrato: '',
-        remuneracao_tipo: '', remuneracao_valor: '', regiao: ''
+        remuneracao_tipo: '', remuneracao_valor: '', regiao: '', regiao_uf: ''
       });
       await carregarVagas();
       setTab('vagas');
@@ -474,11 +486,21 @@ export default function DashboardContratante() {
               </div>
             </div>
 
-            <div>
-              <label className="label">Região</label>
-              <input className="input" value={form.regiao}
-                onChange={(e) => setForm({ ...form, regiao: e.target.value })}
-                placeholder="Ex: Zona Sul - SP" />
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div>
+                <label className="label">Região (texto)</label>
+                <input className="input" value={form.regiao}
+                  onChange={(e) => setForm({ ...form, regiao: e.target.value })}
+                  placeholder="Ex: Zona Sul - SP" />
+              </div>
+              <div>
+                <label className="label">UF</label>
+                <select className="input" value={form.regiao_uf}
+                  onChange={(e) => setForm({ ...form, regiao_uf: e.target.value })}>
+                  <option value="">—</option>
+                  {ufs.map((uf: string) => <option key={uf} value={uf}>{uf}</option>)}
+                </select>
+              </div>
             </div>
 
             {erro && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-sm">{erro}</div>}

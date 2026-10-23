@@ -51,6 +51,23 @@ try {
   console.warn('[startup] auth-advanced indisponível:', err.message);
 }
 
+// Cron jobs internos (opcional via ENABLE_INTERNAL_CRON=true).
+// Em multi-instância, prefira usar cron jobs externos (k8s CronJob, Render Cron).
+try {
+  const { startInternalCron } = await import('./services/cron-internal.js');
+  startInternalCron();
+} catch (err) {
+  console.warn('[startup] cron-internal indisponível:', err.message);
+}
+
+// M10 — Inicializa FTS (busca textual) — best-effort
+try {
+  const { initFTS } = await import('./services/search-fts.js');
+  await initFTS();
+} catch (err) {
+  console.warn('[startup] FTS indisponível, usando LIKE:', err.message);
+}
+
 const app = express();
 app.use(securityHeaders);
 app.use(cors({ origin: FRONTEND_URL.split(','), credentials: true }));
@@ -139,6 +156,13 @@ app.get('/api/health', async (req, res) => {
     dbError = e.message;
   }
   const status = dbOk ? 200 : 503;
+  // Item 10 — Emite alerta se DB cair (503)
+  if (!dbOk) {
+    try {
+      const { emitirAlerta } = await import('./services/alerting.js');
+      emitirAlerta('db_down', { erro: dbError, driver: db.driver });
+    } catch {/* best-effort */}
+  }
   res.status(status).json({
     ok: dbOk,
     service: 'essencia-do-cuidar',
