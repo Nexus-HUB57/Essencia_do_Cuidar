@@ -279,6 +279,103 @@ export function initSchema() {
       FOREIGN KEY (alterado_por) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    -- ════════════════════════════════════════════════════════════════════
+    --  SISTEMA DE PROTOCOLOS DE PAGAMENTO (Feature: Protocolos)
+    --
+    --  Fluxo:
+    --    1. PCP (Protocolo de Custodia de Plantao) — criado quando contratante
+    --       aceita uma candidatura (matching). Vaga sai do quadro ativo.
+    --    2. PCM (Protocolo de Confirmacao de Matching) — enviado ao profissional
+    --       para ele confirmar o matching. Pode aceitar ou recusar.
+    --    3. PDC (Protocolo de Debito de Custodia) — gerado quando profissional
+    --       aceita PCM. Contratante paga valor integral (plantao + taxa).
+    --    4. Checkout bidirecional — ambos confirmam execução + avaliação.
+    --    5. Liberação de pagamento ao profissional (até 72h após checkout).
+    -- ════════════════════════════════════════════════════════════════════
+
+    -- Tabela central: registra cada protocolo com seu estado e valores
+    CREATE TABLE IF NOT EXISTS protocolos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL CHECK(tipo IN ('PCP', 'PCM', 'PDC', 'CHECKOUT')),
+      id_vaga INTEGER NOT NULL,
+      id_candidatura INTEGER NOT NULL,
+      id_contratante INTEGER NOT NULL,
+      id_profissional INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pendente'
+        CHECK(status IN ('pendente', 'enviado', 'aceito', 'recusado',
+                         'pago', 'em_custodia', 'checkout_pendente',
+                         'checkout_profissional', 'checkout_contratante',
+                         'checkout_completo', 'liberado', 'cancelado',
+                         'expirado', 'reembolsado')),
+      valor_plantao_centavos INTEGER NOT NULL,
+      valor_taxa_centavos INTEGER NOT NULL DEFAULT 0,
+      valor_total_centavos INTEGER NOT NULL,
+      moeda TEXT NOT NULL DEFAULT 'brl',
+      -- Timeline
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      enviado_em TEXT,
+      respondido_em TEXT,
+      pago_em TEXT,
+      checkout_profissional_em TEXT,
+      checkout_contratante_em TEXT,
+      liberado_em TEXT,
+      expira_em TEXT,  -- prazo para profissional aceitar PCM ou para contratante pagar PDC
+      -- M3: prazo de 72h para liberação após checkout completo
+      prazo_liberacao_horas INTEGER NOT NULL DEFAULT 72,
+      -- M6: avaliação opcional do profissional pelo contratante (já existe tabela avaliacoes)
+      -- M7: motivos e observações
+      observacoes TEXT,
+      motivo_rejeicao TEXT,
+      FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_candidatura) REFERENCES candidaturas(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_contratante) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_profissional) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Pagamentos em custódia (escrow) — Stripe Connect via Connect Express
+    CREATE TABLE IF NOT EXISTS pagamentos_custodia (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_protocolo INTEGER NOT NULL,
+      stripe_payment_intent_id TEXT,
+      stripe_transfer_id TEXT,
+      valor_centavos INTEGER NOT NULL,
+      moeda TEXT NOT NULL DEFAULT 'brl',
+      status TEXT NOT NULL DEFAULT 'pendente'
+        CHECK(status IN ('pendente', 'em_custodia', 'liberado_profissional',
+                         'reembolsado_contratante', 'falhou')),
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      pago_em TEXT,
+      liberado_em TEXT,
+      erro TEXT,
+      FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE
+    );
+
+    -- Checkouts bidirecionais (profissional + contratante confirmam execução)
+    CREATE TABLE IF NOT EXISTS protocolo_checkouts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_protocolo INTEGER NOT NULL,
+      id_user INTEGER NOT NULL,
+      tipo_user TEXT NOT NULL CHECK(tipo_user IN ('profissional', 'contratante')),
+      confirmado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      nota INTEGER CHECK(nota BETWEEN 1 AND 5),
+      comentario TEXT,
+      UNIQUE(id_protocolo, tipo_user),
+      FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Log de transições de estado dos protocolos (auditoria, M11-style)
+    CREATE TABLE IF NOT EXISTS protocolo_status_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_protocolo INTEGER NOT NULL,
+      status_anterior TEXT,
+      status_novo TEXT NOT NULL,
+      alterado_por INTEGER,
+      motivo TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_vagas_contratante ON vagas(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
@@ -292,6 +389,16 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
     CREATE INDEX IF NOT EXISTS idx_vaga_views ON vaga_visualizacoes(id_vaga);
     CREATE INDEX IF NOT EXISTS idx_cand_status_log ON candidatura_status_log(id_candidatura);
+    -- Protocolos
+    CREATE INDEX IF NOT EXISTS idx_protocolos_vaga ON protocolos(id_vaga);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_contratante ON protocolos(id_contratante);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_profissional ON protocolos(id_profissional);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_status ON protocolos(status);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_tipo ON protocolos(tipo);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_expira ON protocolos(expira_em);
+    CREATE INDEX IF NOT EXISTS idx_custodia_protocolo ON pagamentos_custodia(id_protocolo);
+    CREATE INDEX IF NOT EXISTS idx_checkouts_protocolo ON protocolo_checkouts(id_protocolo);
+    CREATE INDEX IF NOT EXISTS idx_proto_log_protocolo ON protocolo_status_log(id_protocolo);
   `);
 
   // Migrações idempotentes para bancos pré-existentes
