@@ -69,6 +69,30 @@ export async function logarTransicaoCandidatura(idCandidatura, statusAnterior, s
 }
 
 /**
+ * M11/Protocolos — Registra transição de status de um protocolo na auditoria.
+ * Idempotente: se status_anterior == status_novo, não registra.
+ *
+ * @param {number} idProtocolo
+ * @param {string|null} statusAnterior (pode ser null para criação)
+ * @param {string} statusNovo
+ * @param {number|null} alteradoPor (id_user, ou null para sistema)
+ * @param {string|null} motivo
+ */
+export async function logarTransicaoProtocolo(idProtocolo, statusAnterior, statusNovo, alteradoPor, motivo = null) {
+  if (statusAnterior === statusNovo) return;  // no-op
+  try {
+    await db.run(
+      `INSERT INTO protocolo_status_log
+        (id_protocolo, status_anterior, status_novo, alterado_por, motivo)
+       VALUES (?, ?, ?, ?, ?)`,
+      [idProtocolo, statusAnterior, statusNovo, alteradoPor, motivo]
+    );
+  } catch (err) {
+    console.warn('[event-bus] falha ao registrar transição de protocolo:', err.message);
+  }
+}
+
+/**
  * W4 — Evento: candidatura foi VISUALIZADA pelo contratante.
  * Notifica o profissional de que sua candidatura foi vista.
  *

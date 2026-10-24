@@ -24,6 +24,8 @@ import { validateBody } from '../middleware/validate.js';
 import { retryFailedWebhooks } from '../services/webhook-retry.js';
 import { expirarCandidaturasAntigas } from '../services/candidatura-cleanup.js';
 import { listarAlertas, emitirAlerta } from '../services/alerting.js';
+import { statsProtocolos } from '../services/protocolos.js';
+import { rodarProtocolosCleanup } from '../services/protocolos-cleanup.js';
 
 const router = express.Router();
 
@@ -379,6 +381,118 @@ router.get('/pagamentos', async (req, res) => {
        ORDER BY p.criado_em DESC LIMIT 100`
   );
   res.json({ pagamentos: rows });
+});
+
+// ───────────────────────────────────────────────────────────────────
+// Sistema de Protocolos de Pagamento (admin)
+// ───────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/admin/protocolos/stats
+ * Stats de protocolos (por status + valor em custódia + liberado).
+ */
+router.get('/protocolos/stats', async (req, res) => {
+  const stats = await statsProtocolos();
+  res.json(stats);
+});
+
+/**
+ * GET /api/admin/protocolos
+ * Lista todos os protocolos (com filtros).
+ */
+router.get('/protocolos', async (req, res) => {
+  const { tipo, status, limite = 100, offset = 0 } = req.query;
+  const filters = [];
+  const params = [];
+  if (tipo) { filters.push('p.tipo = ?'); params.push(tipo); }
+  if (status) { filters.push('p.status = ?'); params.push(status); }
+  const where = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
+  const rows = await db.all(
+    `SELECT p.*,
+            v.profissional_desejado AS vaga_titulo,
+            c.nome AS contratante_nome,
+            pr.nome AS profissional_nome
+       FROM protocolos p
+       JOIN vagas v ON v.id = p.id_vaga
+       JOIN users c ON c.id = p.id_contratante
+       JOIN users pr ON pr.id = p.id_profissional
+       ${where}
+      ORDER BY p.criado_em DESC
+      LIMIT ? OFFSET ?`,
+    [...params, Number(limite), Number(offset)]
+  );
+  res.json({ protocolos: rows, total: rows.length });
+});
+
+/**
+ * POST /api/admin/protocolos/liberar-pagamentos
+ * Dispara liberação manual de pagamentos (em checkout_completo há +72h).
+ * Recomendado: cron job diário.
+ */
+router.post('/protocolos/liberar-pagamentos', async (req, res) => {
+  try {
+    const { liberarPagamentosApos72h } = await import('../services/protocolos-cleanup.js');
+    const result = await liberarPagamentosApos72h();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[admin/protocolos/liberar-pagamentos]', err);
+    res.status(500).json({ error: 'Falha ao liberar pagamentos', detalhe: err.message });
+  }
+});
+
+/**
+ * POST /api/admin/protocolos/limpar-expirados
+ * Dispara expiração manual de protocolos PCM/PDC não respondidos.
+ * Recomendado: cron job diário.
+ */
+router.post('/protocolos/limpar-expirados', async (req, res) => {
+  try {
+    const { expirarProtocolosNaoRespondidos } = await import('../services/protocolos-cleanup.js');
+    const result = await expirarProtocolosNaoRespondidos();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[admin/protocolos/limpar-expirados]', err);
+    res.status(500).json({ error: 'Falha ao expirar protocolos', detalhe: err.message });
+  }
+});
+
+/**
+ * POST /api/admin/protocolos/cleanup
+ * Job completo: expira + libera (recomendado para cron diário).
+ */
+router.post('/protocolos/cleanup', async (req, res) => {
+  try {
+    const result = await rodarProtocolosCleanup();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[admin/protocolos/cleanup]', err);
+    res.status(500).json({ error: 'Falha no cleanup', detalhe: err.message });
+  }
+});
+
+/**
+ * GET /api/admin/protocolos/em-custodia
+ * Lista protocolos com dinheiro em custódia (escrow ativo).
+ */
+router.get('/protocolos/em-custodia', async (req, res) => {
+  const rows = await db.all(
+    `SELECT p.*, v.profissional_desejado AS vaga_titulo,
+            c.nome AS contratante_nome, pr.nome AS profissional_nome
+       FROM protocolos p
+       JOIN vagas v ON v.id = p.id_vaga
+       JOIN users c ON c.id = p.id_contratante
+       JOIN users pr ON pr.id = p.id_profissional
+      WHERE p.status IN ('em_custodia', 'checkout_pendente',
+                         'checkout_profissional', 'checkout_contratante',
+                         'checkout_completo')
+      ORDER BY p.pago_em DESC`
+  );
+  const total = rows.reduce((acc, p) => acc + (p.valor_total_centavos || 0), 0);
+  res.json({
+    protocolos: rows,
+    total_em_custodia_centavos: total,
+    total_em_custodia_reais: (total / 100).toFixed(2)
+  });
 });
 
 export default router;

@@ -168,7 +168,7 @@ router.patch('/:id', authRequired, requireTipo('contratante'),
 
     // M7 + W5 — Auto-close vaga após primeiro aceite + notifica interessados
     if (req.body.status_candidatura === 'aceita' && process.env.AUTO_CLOSE_ON_ACCEPT !== 'false') {
-      const vagaAtual = await db.get('SELECT id, status, id_contratante FROM vagas WHERE id = ?', [cand.id_vaga]);
+      const vagaAtual = await db.get('SELECT id, status, id_contratante, remuneracao_valor, remuneracao_tipo FROM vagas WHERE id = ?', [cand.id_vaga]);
       const statusAnteriorVaga = vagaAtual?.status;
       await db.run("UPDATE vagas SET status = 'fechada' WHERE id = ? AND status = 'ativa'", [cand.id_vaga]);
       // Só emite W5 se a vaga estava realmente ativa (foi fechada agora)
@@ -180,6 +180,27 @@ router.patch('/:id', authRequired, requireTipo('contratante'),
           status_novo: 'fechada',
           contratante_id: req.user.id
         }).catch(e => console.warn('[event-bus]', e.message));
+      }
+
+      // ─── Sistema de Protocolos de Pagamento (Feature: Protocolos) ───
+      // Cria PCP (Protocolo de Custódia de Plantão) + envia PCM ao profissional.
+      // PCP → PCM → PDC (pagamento) → checkout → liberação (72h).
+      if (process.env.PROTOCOLOS_ENABLED !== 'false' && vagaAtual?.remuneracao_valor) {
+        try {
+          const { criarPCP } = await import('../services/protocolos.js');
+          const { pcp, pcm } = await criarPCP({
+            candidatura_id: id,
+            vaga_id: cand.id_vaga,
+            contratante_id: req.user.id,
+            profissional_id: cand.id_profissional,
+            remuneracao_valor_reais: vagaAtual.remuneracao_valor,
+            remuneracao_tipo: vagaAtual.remuneracao_tipo
+          });
+          console.log(`[protocolos] PCP #${pcp.id} + PCM #${pcm.id} criados para vaga ${cand.id_vaga}`);
+        } catch (err) {
+          console.warn('[protocolos] falha ao criar PCP/PCM:', err.message);
+          // Não bloqueia o aceite da candidatura se protocolos falhar
+        }
       }
     }
 

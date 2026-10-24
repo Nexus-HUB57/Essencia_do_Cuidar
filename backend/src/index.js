@@ -21,6 +21,7 @@ import i18nRouter from './routes/i18n.js';
 import avaliacoesRouter from './routes/avaliacoes.js';
 import favoritosRouter from './routes/favoritos.js';
 import notificacoesRouter from './routes/notificacoes.js';
+import protocolosRouter from './routes/protocolos.js';
 import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
 import { listarProfissoes, UFS_VALIDAS } from './services/profissoes.js';
 import { getOpenApiSpec, getSwaggerUIHtml } from './services/openapi.js';
@@ -213,6 +214,7 @@ app.use('/api/i18n', i18nRouter);
 app.use('/api/avaliacoes', avaliacoesRouter);
 app.use('/api/favoritos', favoritosRouter);
 app.use('/api/notificacoes', notificacoesRouter);
+app.use('/api/protocolos', protocolosRouter);
 
 // SPA fallback
 const distPath = path.resolve(__dirname, '../../frontend/dist');

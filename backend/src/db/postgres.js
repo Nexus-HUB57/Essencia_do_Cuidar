@@ -263,6 +263,77 @@ export async function initSchema() {
       criado_em TEXT NOT NULL DEFAULT (now()::text)
     );
 
+    -- ════════════════════════════════════════════════════════════════════
+    --  SISTEMA DE PROTOCOLOS DE PAGAMENTO (Feature: Protocolos)
+    -- ════════════════════════════════════════════════════════════════════
+
+    CREATE TABLE IF NOT EXISTS protocolos (
+      id SERIAL PRIMARY KEY,
+      tipo TEXT NOT NULL CHECK(tipo IN ('PCP', 'PCM', 'PDC', 'CHECKOUT')),
+      id_vaga INTEGER NOT NULL REFERENCES vagas(id) ON DELETE CASCADE,
+      id_candidatura INTEGER NOT NULL REFERENCES candidaturas(id) ON DELETE CASCADE,
+      id_contratante INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id_profissional INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pendente'
+        CHECK(status IN ('pendente', 'enviado', 'aceito', 'recusado',
+                         'pago', 'em_custodia', 'checkout_pendente',
+                         'checkout_profissional', 'checkout_contratante',
+                         'checkout_completo', 'liberado', 'cancelado',
+                         'expirado', 'reembolsado')),
+      valor_plantao_centavos INTEGER NOT NULL,
+      valor_taxa_centavos INTEGER NOT NULL DEFAULT 0,
+      valor_total_centavos INTEGER NOT NULL,
+      moeda TEXT NOT NULL DEFAULT 'brl',
+      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      enviado_em TEXT,
+      respondido_em TEXT,
+      pago_em TEXT,
+      checkout_profissional_em TEXT,
+      checkout_contratante_em TEXT,
+      liberado_em TEXT,
+      expira_em TEXT,
+      prazo_liberacao_horas INTEGER NOT NULL DEFAULT 72,
+      observacoes TEXT,
+      motivo_rejeicao TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS pagamentos_custodia (
+      id SERIAL PRIMARY KEY,
+      id_protocolo INTEGER NOT NULL REFERENCES protocolos(id) ON DELETE CASCADE,
+      stripe_payment_intent_id TEXT,
+      stripe_transfer_id TEXT,
+      valor_centavos INTEGER NOT NULL,
+      moeda TEXT NOT NULL DEFAULT 'brl',
+      status TEXT NOT NULL DEFAULT 'pendente'
+        CHECK(status IN ('pendente', 'em_custodia', 'liberado_profissional',
+                         'reembolsado_contratante', 'falhou')),
+      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      pago_em TEXT,
+      liberado_em TEXT,
+      erro TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS protocolo_checkouts (
+      id SERIAL PRIMARY KEY,
+      id_protocolo INTEGER NOT NULL REFERENCES protocolos(id) ON DELETE CASCADE,
+      id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      tipo_user TEXT NOT NULL CHECK(tipo_user IN ('profissional', 'contratante')),
+      confirmado_em TEXT NOT NULL DEFAULT (now()::text),
+      nota INTEGER CHECK(nota BETWEEN 1 AND 5),
+      comentario TEXT,
+      UNIQUE(id_protocolo, tipo_user)
+    );
+
+    CREATE TABLE IF NOT EXISTS protocolo_status_log (
+      id SERIAL PRIMARY KEY,
+      id_protocolo INTEGER NOT NULL REFERENCES protocolos(id) ON DELETE CASCADE,
+      status_anterior TEXT,
+      status_novo TEXT NOT NULL,
+      alterado_por INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      motivo TEXT,
+      criado_em TEXT NOT NULL DEFAULT (now()::text)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_vagas_contratante ON vagas(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
@@ -276,6 +347,16 @@ export async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
     CREATE INDEX IF NOT EXISTS idx_vaga_views ON vaga_visualizacoes(id_vaga);
     CREATE INDEX IF NOT EXISTS idx_cand_status_log ON candidatura_status_log(id_candidatura);
+    -- Protocolos
+    CREATE INDEX IF NOT EXISTS idx_protocolos_vaga ON protocolos(id_vaga);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_contratante ON protocolos(id_contratante);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_profissional ON protocolos(id_profissional);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_status ON protocolos(status);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_tipo ON protocolos(tipo);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_expira ON protocolos(expira_em);
+    CREATE INDEX IF NOT EXISTS idx_custodia_protocolo ON pagamentos_custodia(id_protocolo);
+    CREATE INDEX IF NOT EXISTS idx_checkouts_protocolo ON protocolo_checkouts(id_protocolo);
+    CREATE INDEX IF NOT EXISTS idx_proto_log_protocolo ON protocolo_status_log(id_protocolo);
   `);
 
   // S2 — Idempotência do webhook Stripe (idempotente — IF NOT EXISTS via DO block)
