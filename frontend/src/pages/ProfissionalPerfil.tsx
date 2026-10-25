@@ -146,25 +146,9 @@ export default function ProfissionalPerfil() {
           </div>
           <div className="flex items-center gap-2">
             <FavoritarBotao tipo="profissional" id={Number(id)} size="md" />
-            {user.telefone && (
-              <a
-                href={`https://wa.me/55${user.telefone.replace(/\D/g, '')}`}
-                target="_blank" rel="noopener"
-                className="btn-secondary text-sm"
-              >
-                📱 WhatsApp
-              </a>
-            )}
           </div>
-          {user.telefone && (
-            <a
-              href={`https://wa.me/55${user.telefone.replace(/\D/g, "")}`}
-              target="_blank" rel="noopener"
-              className="btn-secondary text-sm"
-            >
-              {t("profissionais.whatsapp")}
-            </a>
-          )}
+          {/* INTERMEDIAÇÃO: telefone e WhatsApp NUNCA são exibidos.
+              Toda comunicação é intermediada pelo sistema (chat interno + notificações). */}
         </div>
       </div>
 

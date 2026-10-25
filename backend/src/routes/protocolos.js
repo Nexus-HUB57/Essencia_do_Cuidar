@@ -77,8 +77,8 @@ router.get('/:id', authRequired, async (req, res) => {
             v.jornada_escala AS vaga_escala,
             v.complexidade AS vaga_complexidade,
             v.remuneracao_tipo AS vaga_remuneracao_tipo,
-            c.nome AS contratante_nome, c.email AS contratante_email, c.telefone AS contratante_telefone,
-            pr.nome AS profissional_nome, pr.email AS profissional_email, pr.telefone AS profissional_telefone
+            c.nome AS contratante_nome,
+            pr.nome AS profissional_nome
        FROM protocolos p
        JOIN vagas v ON v.id = p.id_vaga
        JOIN users c ON c.id = p.id_contratante

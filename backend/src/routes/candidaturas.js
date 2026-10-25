@@ -115,8 +115,7 @@ router.get('/vaga/:id', authRequired, requireTipo('contratante'), async (req, re
 
   const rows = await db.all(
     `SELECT c.id, c.mensagem, c.status_candidatura, c.criado_em,
-            u.id AS profissional_id, u.nome AS profissional_nome, u.email AS profissional_email,
-            u.telefone AS profissional_telefone,
+            u.id AS profissional_id, u.nome AS profissional_nome,
             d.registro_conselho, d.tipo_registro, d.diploma_verificado,
             d.registro_verificado, d.especialidades, d.disponibilidade, d.bio
        FROM candidaturas c
@@ -249,7 +248,7 @@ router.get('/contratante/historico', authRequired, requireTipo('contratante'), a
   const rows = await db.all(
     `SELECT v.id AS vaga_id, v.profissional_desejado, v.complexidade, v.regiao,
             v.remuneracao_valor, v.remuneracao_tipo, v.criado_em, v.status,
-            u.id AS profissional_id, u.nome AS profissional_nome, u.telefone AS profissional_telefone,
+            u.id AS profissional_id, u.nome AS profissional_nome,
             c.id AS candidatura_id, c.criado_em AS candidatura_em
        FROM vagas v
        JOIN candidaturas c ON c.id_vaga = v.id AND c.status_candidatura = 'aceita'
