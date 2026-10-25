@@ -1,7 +1,7 @@
 name: Deploy Netlify
 
 # Sincronização automática: todo push em main dispara build + deploy na Netlify.
-# Usa o secret CREDENCIAIS_NETFLY (JSON com NETLIFY_AUTH_TOKEN + NETLIFY_SITE_ID).
+# Usa o secret CREDENCIAIS_NETFLY como NETLIFY_AUTH_TOKEN diretamente.
 
 on:
   push:
@@ -38,76 +38,18 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL || '/api' }}
         run: npm run build
 
-      - name: Valida o build (index.html + manifesto PWA + imagens)
+      - name: Valida o build
         working-directory: frontend
         run: |
           set -e
-          test -f dist/index.html          || { echo "❌ dist/index.html ausente"; exit 1; }
-          test -f dist/manifest.webmanifest|| { echo "❌ manifest ausente"; exit 1; }
-          test -f dist/sw.js              || { echo "❌ service worker ausente"; exit 1; }
-          test -f dist/img/logo.jpg       || { echo "❌ logo da marca ausente"; exit 1; }
-          echo "✅ build íntegro:"
+          test -f dist/index.html || { echo "❌ index.html ausente"; exit 1; }
+          test -f dist/manifest.webmanifest || { echo "❌ manifest ausente"; exit 1; }
+          test -f dist/sw.js || { echo "❌ sw.js ausente"; exit 1; }
+          test -f dist/img/logo.jpg || { echo "❌ logo ausente"; exit 1; }
+          echo "✅ build íntegro"
           du -sh dist
-          ls dist/img/
 
-      # Extrai NETLIFY_AUTH_TOKEN e NETLIFY_SITE_ID do secret CREDENCIAIS_NETFLY
-      # Suporta 3 formatos:
-      #   1. JSON: {"NETLIFY_AUTH_TOKEN":"xxx","NETLIFY_SITE_ID":"yyy"}
-      #   2. Duas linhas: "token\nsite_id"
-      #   3. Apenas token (NETLIFY_AUTH_TOKEN)
-      - name: Extrair credenciais Netlify
-        id: creds
-        env:
-          CREDENCIAIS_NETFLY: ${{ secrets.CREDENCIAIS_NETFLY }}
-        run: |
-          # Tenta formato JSON
-          AUTH_TOKEN=$(echo "$CREDENCIAIS_NETFLY" | python3 -c "
-          import json, sys
-          try:
-            d = json.load(sys.stdin)
-            print(d.get('NETLIFY_AUTH_TOKEN', d.get('auth_token', d.get('token', ''))))
-          except:
-            pass
-          " 2>/dev/null || echo "")
-
-          SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | python3 -c "
-          import json, sys
-          try:
-            d = json.load(sys.stdin)
-            print(d.get('NETLIFY_SITE_ID', d.get('site_id', d.get('siteId', ''))))
-          except:
-            pass
-          " 2>/dev/null || echo "")
-
-          # Se não veio do JSON, tenta formato multi-linha
-          if [ -z "$AUTH_TOKEN" ]; then
-            AUTH_TOKEN=$(echo "$CREDENCIAIS_NETFLY" | head -1 | tr -d '[:space:]')
-          fi
-          if [ -z "$SITE_ID" ]; then
-            SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | sed -n '2p' | tr -d '[:space:]')
-          fi
-
-          # Se ainda não tem SITE_ID, pode ser que seja só o token
-          if [ -z "$SITE_ID" ]; then
-            SITE_ID=""
-          fi
-
-          echo "AUTH_TOKEN_LENGTH=${#AUTH_TOKEN}" >> $GITHUB_ENV
-          echo "SITE_ID_LENGTH=${#SITE_ID}" >> $GITHUB_ENV
-          echo "NETLIFY_AUTH_TOKEN=$AUTH_TOKEN" >> $GITHUB_ENV
-          echo "NETLIFY_SITE_ID=$SITE_ID" >> $GITHUB_ENV
-
-          if [ -n "$AUTH_TOKEN" ]; then
-            echo "✅ NETLIFY_AUTH_TOKEN extraído (${#AUTH_TOKEN} chars)"
-          else
-            echo "⚠ NETLIFY_AUTH_TOKEN vazio — deploy anônimo"
-          fi
-          if [ -n "$SITE_ID" ]; then
-            echo "✅ NETLIFY_SITE_ID extraído (${#SITE_ID} chars)"
-          else
-            echo "⚠ NETLIFY_SITE_ID vazio — sem site ID"
-          fi
-
+      # Usa CREDENCIAIS_NETFLY diretamente como token de auth da Netlify
       - uses: nwtgck/actions-netlify@v3
         id: netlify
         with:
@@ -116,8 +58,8 @@ jobs:
           enable-pull-request-comment: false
           alias: deploy-preview-${{ github.run_number }}
         env:
-          NETLIFY_AUTH_TOKEN: ${{ env.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ env.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.CREDENCIAIS_NETFLY }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
 
       - name: Resumo
         if: always()
@@ -128,8 +70,6 @@ jobs:
             echo "- **Commit:** \`${{ github.sha }}\`"
             echo "- **Branch:** \`${{ github.ref_name }}\`"
             echo "- **Deploy URL:** ${{ steps.netlify.outputs.deploy-url }}"
-            echo "- **Auth token:** ${{ env.AUTH_TOKEN_LENGTH }} chars"
-            echo "- **Site ID:** ${{ env.SITE_ID_LENGTH }} chars"
             echo ""
             echo "### 📸 Artefatos"
             echo '```'
