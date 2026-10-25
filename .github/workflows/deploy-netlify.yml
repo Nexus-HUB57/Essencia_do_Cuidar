@@ -1,9 +1,7 @@
 name: Deploy Netlify
 
 # Sincronização automática: todo push em main dispara build + deploy na Netlify.
-# Só roda se o repositório já estiver conectado na Netlify (o deploy
-# automático da Netlify é o caminho principal; este workflow é o
-# caminho explícito/observável, com logs no GitHub).
+# Usa o secret CREDENCIAIS_NETFLY (JSON com NETLIFY_AUTH_TOKEN + NETLIFY_SITE_ID).
 
 on:
   push:
@@ -37,8 +35,6 @@ jobs:
       - name: Build
         working-directory: frontend
         env:
-          # VITE_* é build-time. Default usa /api porque o netlify.toml
-          # faz proxy pro backend. Override com secret se necessário.
           VITE_API_URL: ${{ vars.VITE_API_URL || '/api' }}
         run: npm run build
 
@@ -54,17 +50,74 @@ jobs:
           du -sh dist
           ls dist/img/
 
+      # Extrai NETLIFY_AUTH_TOKEN e NETLIFY_SITE_ID do secret CREDENCIAIS_NETFLY
+      # Suporta 3 formatos:
+      #   1. JSON: {"NETLIFY_AUTH_TOKEN":"xxx","NETLIFY_SITE_ID":"yyy"}
+      #   2. Duas linhas: "token\nsite_id"
+      #   3. Apenas token (NETLIFY_AUTH_TOKEN)
+      - name: Extrair credenciais Netlify
+        id: creds
+        env:
+          CREDENCIAIS_NETFLY: ${{ secrets.CREDENCIAIS_NETFLY }}
+        run: |
+          # Tenta formato JSON
+          AUTH_TOKEN=$(echo "$CREDENCIAIS_NETFLY" | python3 -c "
+          import json, sys
+          try:
+            d = json.load(sys.stdin)
+            print(d.get('NETLIFY_AUTH_TOKEN', d.get('auth_token', d.get('token', ''))))
+          except:
+            pass
+          " 2>/dev/null || echo "")
+
+          SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | python3 -c "
+          import json, sys
+          try:
+            d = json.load(sys.stdin)
+            print(d.get('NETLIFY_SITE_ID', d.get('site_id', d.get('siteId', ''))))
+          except:
+            pass
+          " 2>/dev/null || echo "")
+
+          # Se não veio do JSON, tenta formato multi-linha
+          if [ -z "$AUTH_TOKEN" ]; then
+            AUTH_TOKEN=$(echo "$CREDENCIAIS_NETFLY" | head -1 | tr -d '[:space:]')
+          fi
+          if [ -z "$SITE_ID" ]; then
+            SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | sed -n '2p' | tr -d '[:space:]')
+          fi
+
+          # Se ainda não tem SITE_ID, pode ser que seja só o token
+          if [ -z "$SITE_ID" ]; then
+            SITE_ID=""
+          fi
+
+          echo "AUTH_TOKEN_LENGTH=${#AUTH_TOKEN}" >> $GITHUB_ENV
+          echo "SITE_ID_LENGTH=${#SITE_ID}" >> $GITHUB_ENV
+          echo "NETLIFY_AUTH_TOKEN=$AUTH_TOKEN" >> $GITHUB_ENV
+          echo "NETLIFY_SITE_ID=$SITE_ID" >> $GITHUB_ENV
+
+          if [ -n "$AUTH_TOKEN" ]; then
+            echo "✅ NETLIFY_AUTH_TOKEN extraído (${#AUTH_TOKEN} chars)"
+          else
+            echo "⚠ NETLIFY_AUTH_TOKEN vazio — deploy anônimo"
+          fi
+          if [ -n "$SITE_ID" ]; then
+            echo "✅ NETLIFY_SITE_ID extraído (${#SITE_ID} chars)"
+          else
+            echo "⚠ NETLIFY_SITE_ID vazio — sem site ID"
+          fi
+
       - uses: nwtgck/actions-netlify@v3
         id: netlify
         with:
           publish-dir: ./frontend/dist
           deploy-message: "Deploy ${{ github.sha }} — ${{ github.actor }}"
-          site-url: ${{ secrets.NETLIFY_SITE_URL }}
           enable-pull-request-comment: false
           alias: deploy-preview-${{ github.run_number }}
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ env.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ env.NETLIFY_SITE_ID }}
 
       - name: Resumo
         if: always()
@@ -75,6 +128,8 @@ jobs:
             echo "- **Commit:** \`${{ github.sha }}\`"
             echo "- **Branch:** \`${{ github.ref_name }}\`"
             echo "- **Deploy URL:** ${{ steps.netlify.outputs.deploy-url }}"
+            echo "- **Auth token:** ${{ env.AUTH_TOKEN_LENGTH }} chars"
+            echo "- **Site ID:** ${{ env.SITE_ID_LENGTH }} chars"
             echo ""
             echo "### 📸 Artefatos"
             echo '```'
