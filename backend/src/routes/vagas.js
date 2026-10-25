@@ -138,7 +138,7 @@ router.get('/:id/recomendar', authRequired, requireTipo('contratante'), async (r
 router.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const vaga = await db.get(
-    `SELECT v.*, u.nome AS contratante_nome, u.telefone AS contratante_telefone
+    `SELECT v.*, u.nome AS contratante_nome
        FROM vagas v JOIN users u ON u.id = v.id_contratante
       WHERE v.id = ?`,
     [id]

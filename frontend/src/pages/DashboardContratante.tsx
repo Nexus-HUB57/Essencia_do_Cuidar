@@ -314,10 +314,8 @@ export default function DashboardContratante() {
                         className="btn-primary text-xs">💰 Pagar profissional</button>
                     </>
                   )}
-                  <a href={`https://wa.me/55${c.profissional_telefone?.replace(/\D/g, '')}`}
-                    target="_blank" rel="noopener" className="btn-ghost text-xs">
-                    📱 WhatsApp
-                  </a>
+                  {/* INTERMEDIAÇÃO: contato direto (WhatsApp/telefone) removido.
+                      Toda comunicação é intermediada pelo sistema. */}
                 </div>
               </div>
             ))}
@@ -557,13 +555,7 @@ export default function DashboardContratante() {
                     ) : (
                       <span className="badge-slate text-xs">Sem avaliação</span>
                     )}
-                    {h.profissional_telefone && (
-                      <a href={`https://wa.me/55${h.profissional_telefone.replace(/\D/g, '')}`}
-                        target="_blank" rel="noopener"
-                        className="text-xs text-serenity-600 dark:text-serenity-300 hover:underline">
-                        📱 {h.profissional_telefone}
-                      </a>
-                    )}
+                    {/* INTERMEDIAÇÃO: telefone removido. Sistema é o único intermediário. */}
                   </div>
                 </div>
                 {h.avaliacao?.comentario && (

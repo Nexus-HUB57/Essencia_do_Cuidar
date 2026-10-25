@@ -89,7 +89,7 @@ router.get('/vagas', authRequired, async (req, res) => {
  */
 router.get('/profissionais', authRequired, async (req, res) => {
   const rows = await db.all(
-    `SELECT u.id, u.nome, u.telefone,
+    `SELECT u.id, u.nome,
            d.registro_conselho, d.tipo_registro, d.registro_verificado,
            d.diploma_verificado, d.especialidades, d.disponibilidade,
            (SELECT COALESCE(ROUND(AVG(nota), 1), 0) FROM avaliacoes WHERE id_profissional = u.id) AS media,

@@ -248,8 +248,10 @@ router.post('/me/verificar-registro', authRequired, requireTipo('profissional'),
  */
 router.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
+  // INTERMEDIAÇÃO: telefone NUNCA é exposto em perfil público.
+  // Toda comunicação é feita pelo sistema (chat interno + notificações).
   const user = await db.get(
-    `SELECT id, nome, telefone, criado_em FROM users WHERE id = ? AND tipo_usuario = 'profissional'`,
+    `SELECT id, nome, criado_em FROM users WHERE id = ? AND tipo_usuario = 'profissional'`,
     [id]
   );
   if (!user) return res.status(404).json({ error: 'Profissional não encontrado' });
