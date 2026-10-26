@@ -145,7 +145,6 @@ jobs:
           deploy-message: "Deploy ${{ github.sha }} — ${{ github.actor }}"
           enable-pull-request-comment: false
           alias: deploy-preview-${{ github.run_number }}
-          fails-without-credentials: true
         env:
           NETLIFY_AUTH_TOKEN: ${{ steps.creds.outputs.auth_token }}
           NETLIFY_SITE_ID: ${{ steps.creds.outputs.site_id }}
