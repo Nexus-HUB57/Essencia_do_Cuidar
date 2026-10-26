@@ -103,8 +103,36 @@ jobs:
           echo "✅ build íntegro"
           du -sh dist
 
-      # Usa CREDENCIAIS_NETFLY diretamente como token de auth da Netlify
-      # Só no push para main — em PR o job só valida, não publica.
+      # Extrai credenciais do secret CREDENCIAIS_NETFLY (suporta JSON, multi-linha, token único)
+      - name: Extrair credenciais Netlify
+        if: github.event_name == 'push'
+        env:
+          CREDENCIAIS_NETFLY: ${{ secrets.CREDENCIAIS_NETFLY }}
+        run: |
+          # Tenta JSON
+          AUTH_TOKEN=$(echo "$CREDENCIAIS_NETFLY" | python3 -c "
+          import json,sys
+          try:
+            d=json.load(sys.stdin)
+            print(d.get('NETLIFY_AUTH_TOKEN',d.get('auth_token',d.get('token',d.get('NETLIFY_TOKEN','')))))
+          except: pass
+          " 2>/dev/null)
+          SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | python3 -c "
+          import json,sys
+          try:
+            d=json.load(sys.stdin)
+            print(d.get('NETLIFY_SITE_ID',d.get('site_id',d.get('siteId',d.get('NETLIFY_SITE','')))))
+          except: pass
+          " 2>/dev/null)
+          # Fallback multi-linha
+          [ -z "$AUTH_TOKEN" ] && AUTH_TOKEN=$(echo "$CREDENCIAIS_NETFLY" | head -1 | tr -d '\n\r ')
+          [ -z "$SITE_ID" ] && SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | sed -n '2p' | tr -d '\n\r ')
+          # Fallback: secret inteiro como token
+          [ -z "$AUTH_TOKEN" ] && [ -n "$CREDENCIAIS_NETFLY" ] && AUTH_TOKEN="$CREDENCIAIS_NETFLY"
+          echo "NETLIFY_AUTH_TOKEN=$AUTH_TOKEN" >> $GITHUB_ENV
+          echo "NETLIFY_SITE_ID=$SITE_ID" >> $GITHUB_ENV
+          echo "Token: ${#AUTH_TOKEN} chars | Site ID: ${#SITE_ID} chars"
+
       - uses: nwtgck/actions-netlify@v3
         id: netlify
         if: github.event_name == 'push'
@@ -114,8 +142,8 @@ jobs:
           enable-pull-request-comment: false
           alias: deploy-preview-${{ github.run_number }}
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.CREDENCIAIS_NETFLY }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ env.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ env.NETLIFY_SITE_ID }}
 
       - name: Resumo
         if: always()
