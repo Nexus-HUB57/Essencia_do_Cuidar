@@ -126,6 +126,13 @@ jobs:
           " 2>/dev/null)
           fi
 
+          # Se site_id for muito curto (não é UUID), não usar — deixa vazio
+          # para o nwtgck criar um novo site automaticamente
+          if [ -n "$SITE_ID" ] && [ ${#SITE_ID} -lt 20 ]; then
+            echo "Site ID muito curto (${#SITE_ID} chars) — ignorando (não é UUID válido)"
+            SITE_ID=""
+          fi
+
           echo "auth_token=$AUTH_TOKEN" >> "$GITHUB_OUTPUT"
           echo "site_id=$SITE_ID" >> "$GITHUB_OUTPUT"
           echo "Token: ${#AUTH_TOKEN} chars | Site ID: ${#SITE_ID} chars"
@@ -138,6 +145,7 @@ jobs:
           deploy-message: "Deploy ${{ github.sha }} — ${{ github.actor }}"
           enable-pull-request-comment: false
           alias: deploy-preview-${{ github.run_number }}
+          fails-without-credentials: true
         env:
           NETLIFY_AUTH_TOKEN: ${{ steps.creds.outputs.auth_token }}
           NETLIFY_SITE_ID: ${{ steps.creds.outputs.site_id }}
