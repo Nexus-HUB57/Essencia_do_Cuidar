@@ -103,51 +103,25 @@ jobs:
           echo "✅ build íntegro"
           du -sh dist
 
-      # Extrai credenciais: TOKEN_NETFLY (auth token) + CREDENCIAIS_NETFLY (site_id)
-      - name: Extrair credenciais Netlify
+      # Deploy via Netlify CLI (substitui nwtgck que requeria site_id)
+      - name: Deploy na Netlify
         if: github.event_name == 'push'
-        id: creds
-        env:
-          TOKEN_NETFLY: ${{ secrets.TOKEN_NETFLY }}
-          CREDENCIAIS_NETFLY: ${{ secrets.CREDENCIAIS_NETFLY }}
-        run: |
-          # TOKEN_NETFLY = auth token (Personal Access Token da Netlify)
-          AUTH_TOKEN=$(echo "$TOKEN_NETFLY" | tr -d '\n\r ')
-
-          # Site ID: tenta extrair de CREDENCIAIS_NETFLY (linha 2 ou JSON)
-          SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | sed -n '2p' | tr -d '\n\r ')
-          if [ -z "$SITE_ID" ]; then
-            SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | python3 -c "
-          import json,sys
-          try:
-            d=json.load(sys.stdin)
-            print(d.get('NETLIFY_SITE_ID',d.get('site_id',d.get('siteId',''))))
-          except: pass
-          " 2>/dev/null)
-          fi
-
-          # Se site_id for muito curto (não é UUID), não usar — deixa vazio
-          # para o nwtgck criar um novo site automaticamente
-          if [ -n "$SITE_ID" ] && [ ${#SITE_ID} -lt 20 ]; then
-            echo "Site ID muito curto (${#SITE_ID} chars) — ignorando (não é UUID válido)"
-            SITE_ID=""
-          fi
-
-          echo "auth_token=$AUTH_TOKEN" >> "$GITHUB_OUTPUT"
-          echo "site_id=$SITE_ID" >> "$GITHUB_OUTPUT"
-          echo "Token: ${#AUTH_TOKEN} chars | Site ID: ${#SITE_ID} chars"
-
-      - uses: nwtgck/actions-netlify@v3
         id: netlify
-        if: github.event_name == 'push'
-        with:
-          publish-dir: ./frontend/dist
-          deploy-message: "Deploy ${{ github.sha }} — ${{ github.actor }}"
-          enable-pull-request-comment: false
-          alias: deploy-preview-${{ github.run_number }}
         env:
-          NETLIFY_AUTH_TOKEN: ${{ steps.creds.outputs.auth_token }}
-          NETLIFY_SITE_ID: ${{ steps.creds.outputs.site_id }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.TOKEN_NETFLY }}
+        run: |
+          npm install -g netlify-cli
+          
+          # Deploy com --auth (token direto)
+          # Sem --dir, usa o diretório atual
+          DEPLOY_OUTPUT=$(cd frontend && npx netlify deploy --prod --dir dist --auth "$NETLIFY_AUTH_TOKEN" --message "Deploy ${{ github.sha }} — ${{ github.actor }}" 2>&1) || true
+          
+          echo "$DEPLOY_OUTPUT"
+          
+          # Extrair URL do deploy
+          DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -oP 'Website URL:\s*\K\S+' || echo "$DEPLOY_OUTPUT" | grep -oP 'https://[a-z0-9-]+\.netlify\.app' | head -1)
+          echo "deploy-url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+          echo "Deploy URL: $DEPLOY_URL"
 
       - name: Resumo
         if: always()
