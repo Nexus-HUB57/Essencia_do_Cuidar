@@ -103,28 +103,20 @@ jobs:
           echo "✅ build íntegro"
           du -sh dist
 
-      # Extrai credenciais do secret CREDENCIAIS_NETFLY
-      # O secret tem 142 chars (token) + 4 chars (site_id) — formato multi-linha
-      # Usamos GITHUB_OUTPUT (não GITHUB_ENV) para evitar erro com caracteres especiais
+      # Extrai credenciais: TOKEN_NETFLY (auth token) + CREDENCIAIS_NETFLY (site_id)
       - name: Extrair credenciais Netlify
         if: github.event_name == 'push'
         id: creds
         env:
+          TOKEN_NETFLY: ${{ secrets.TOKEN_NETFLY }}
           CREDENCIAIS_NETFLY: ${{ secrets.CREDENCIAIS_NETFLY }}
         run: |
-          # O secret é multi-linha: linha 1 = token, linha 2 = site_id
-          AUTH_TOKEN=$(echo "$CREDENCIAIS_NETFLY" | head -1 | tr -d '\n\r ')
-          SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | sed -n '2p' | tr -d '\n\r ')
+          # TOKEN_NETFLY = auth token (Personal Access Token da Netlify)
+          AUTH_TOKEN=$(echo "$TOKEN_NETFLY" | tr -d '\n\r ')
 
-          # Se não tem site_id na linha 2, tenta JSON
+          # Site ID: tenta extrair de CREDENCIAIS_NETFLY (linha 2 ou JSON)
+          SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | sed -n '2p' | tr -d '\n\r ')
           if [ -z "$SITE_ID" ]; then
-            AUTH_TOKEN=$(echo "$CREDENCIAIS_NETFLY" | python3 -c "
-          import json,sys
-          try:
-            d=json.load(sys.stdin)
-            print(d.get('NETLIFY_AUTH_TOKEN',d.get('auth_token',d.get('token',''))))
-          except: pass
-          " 2>/dev/null)
             SITE_ID=$(echo "$CREDENCIAIS_NETFLY" | python3 -c "
           import json,sys
           try:
@@ -134,13 +126,6 @@ jobs:
           " 2>/dev/null)
           fi
 
-          # Fallback: secret inteiro como token
-          [ -z "$AUTH_TOKEN" ] && [ -n "$CREDENCIAIS_NETFLY" ] && AUTH_TOKEN=$(echo "$CREDENCIAIS_NETFLY" | tr -d '\n\r ')
-
-          echo "token_len=${#AUTH_TOKEN}" >> "$GITHUB_OUTPUT"
-          echo "site_id_len=${#SITE_ID}" >> "$GITHUB_OUTPUT"
-          echo "::add-mask::$AUTH_TOKEN"
-          echo "::add-mask::$SITE_ID"
           echo "auth_token=$AUTH_TOKEN" >> "$GITHUB_OUTPUT"
           echo "site_id=$SITE_ID" >> "$GITHUB_OUTPUT"
           echo "Token: ${#AUTH_TOKEN} chars | Site ID: ${#SITE_ID} chars"
