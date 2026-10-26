@@ -25,6 +25,8 @@
  * reuso em diferentes rotas.
  */
 
+import { verificarRegistro } from "./conselhos/index.js";
+
 /**
  * Regex por conselho. Cada entrada produz um objeto RegExp que
  * valida o NUMERO (sem o prefixo do conselho). Aceitamos variacoes
@@ -103,8 +105,27 @@ function validate(tipo_registro, registro_conselho) {
  * @returns {Promise<{ok: boolean, motivo: string, detalle?: any}>}
  */
 async function verifyWithCouncil(tipo_registro, registro_conselho) {
-  // Por enquanto, delega a validacao estrutural. Substituir quando houver API.
-  return validate(tipo_registro, registro_conselho);
+  // A validacao ESTRUTURAL decide o selo do perfil. A consulta ao conselho
+  // so ENRIQUECE o resultado — ela nunca rebaixa um registro de "Verificado"
+  // para "Em analise". Sem isso, configurar CRM_VERIFICATION_URL derrubaria
+  // o selo de todo mundo que hoje tem cadastro valido.
+  const estrutural = validate(tipo_registro, registro_conselho);
+  if (!estrutural.ok) return estrutural;
+
+  // Os adapters sao best-effort: devolvem { encontrado, motivo } em vez de
+  // lancar. O try/catch aqui e so uma rede extra de seguranca.
+  let conselho;
+  try {
+    conselho = await verificarRegistro(tipo_registro, registro_conselho);
+  } catch (err) {
+    conselho = { encontrado: false, motivo: `erro: ${err?.message || "desconhecido"}` };
+  }
+
+  return {
+    ok: true,
+    motivo: conselho.encontrado ? "conselho_confirmado" : "regex_ok",
+    detalhe: conselho
+  };
 }
 
 export {
