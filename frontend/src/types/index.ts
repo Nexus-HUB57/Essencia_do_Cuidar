@@ -12,6 +12,11 @@ export interface User {
   nome: string;
   email: string;
   telefone?: string | null;
+  /**
+   * Enviado pelo backend em POST /auth/login e GET /auth/me.
+   * SQLite devolve 0|1; Postgres pode devolver boolean — ambos aceitos.
+   */
+  is_admin?: 0 | 1 | boolean | null;
 }
 
 export interface ProfissionalDetalhes {
