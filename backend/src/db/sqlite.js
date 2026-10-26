@@ -83,6 +83,7 @@ export function initSchema() {
       especialidades TEXT NOT NULL DEFAULT '[]',
       disponibilidade TEXT NOT NULL DEFAULT '[]',
       bio TEXT,
+      cidade TEXT,
       atualizado_em TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE
     );
@@ -102,6 +103,8 @@ export function initSchema() {
       remuneracao_tipo TEXT CHECK(remuneracao_tipo IN ('plantao','hora')),
       remuneracao_valor REAL,
       regiao TEXT,
+      cidade TEXT,
+      carga_horaria TEXT,
       status TEXT NOT NULL DEFAULT 'ativa' CHECK(status IN ('ativa','pausada','fechada')),
       criado_em TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (id_contratante) REFERENCES users(id) ON DELETE CASCADE
@@ -418,6 +421,10 @@ export function initSchema() {
   safeExec("ALTER TABLE pagamentos ADD COLUMN stripe_event_id TEXT");
   // M3 — Adiciona coluna regiao_uf em vagas (validação geográfica)
   safeExec("ALTER TABLE vagas ADD COLUMN regiao_uf TEXT");
+  // Matching simplificado — 2 filtros: cidade + carga_horaria
+  safeExec("ALTER TABLE vagas ADD COLUMN cidade TEXT");
+  safeExec("ALTER TABLE vagas ADD COLUMN carga_horaria TEXT");
+  safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN cidade TEXT");
   console.log('[db:sqlite] schema inicializado em', dbPath);
 }
 

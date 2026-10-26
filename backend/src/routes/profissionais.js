@@ -46,12 +46,13 @@ const detalhesSchema = {
   especialidades:    { type: 'array' },
   disponibilidade:   { type: 'array' },
   bio:               { type: 'string', max: 1000 },
-  uf:                { type: 'string', min: 2, max: 2 }
+  uf:                { type: 'string', min: 2, max: 2 },
+  cidade:            { type: 'string', max: 100 }
 };
 
 router.put('/me', authRequired, requireTipo('profissional'),
   validateBody(detalhesSchema), async (req, res) => {
-    const { registro_conselho, tipo_registro, especialidades, disponibilidade, bio, uf } = req.body;
+    const { registro_conselho, tipo_registro, especialidades, disponibilidade, bio, uf, cidade } = req.body;
 
     // Normaliza o número de registro (se fornecido) para o formato canônico
     const normalized = (registro_conselho && tipo_registro)
@@ -86,6 +87,7 @@ router.put('/me', authRequired, requireTipo('profissional'),
               especialidades    = COALESCE(?, especialidades),
               disponibilidade   = COALESCE(?, disponibilidade),
               bio               = COALESCE(?, bio),
+              cidade            = COALESCE(?, cidade),
               registro_verificado = ?,
               atualizado_em     = datetime('now')
         WHERE id_user = ?`,
@@ -95,6 +97,7 @@ router.put('/me', authRequired, requireTipo('profissional'),
         especialidades ? JSON.stringify(especialidades) : null,
         disponibilidade ? JSON.stringify(disponibilidade) : null,
         bio ?? null,
+        cidade ?? null,
         registroVerificadoAuto,
         req.user.id
       ]
