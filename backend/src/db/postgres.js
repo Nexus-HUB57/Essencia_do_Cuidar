@@ -92,6 +92,7 @@ export async function initSchema() {
       especialidades TEXT NOT NULL DEFAULT '[]',
       disponibilidade TEXT NOT NULL DEFAULT '[]',
       bio TEXT,
+      cidade TEXT,
       atualizado_em TEXT NOT NULL DEFAULT (now()::text)
     );
 
@@ -110,6 +111,8 @@ export async function initSchema() {
       remuneracao_tipo TEXT CHECK(remuneracao_tipo IN ('plantao','hora')),
       remuneracao_valor REAL,
       regiao TEXT,
+      cidade TEXT,
+      carga_horaria TEXT,
       status TEXT NOT NULL DEFAULT 'ativa' CHECK(status IN ('ativa','pausada','fechada')),
       criado_em TEXT NOT NULL DEFAULT (now()::text)
     );
@@ -370,6 +373,22 @@ export async function initSchema() {
   // M3 — Adiciona coluna regiao_uf em vagas
   try {
     await pool.query(`ALTER TABLE vagas ADD COLUMN regiao_uf TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+  // Matching simplificado — 2 filtros: cidade + carga_horaria
+  try {
+    await pool.query(`ALTER TABLE vagas ADD COLUMN cidade TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+  try {
+    await pool.query(`ALTER TABLE vagas ADD COLUMN carga_horaria TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+  try {
+    await pool.query(`ALTER TABLE profissionais_detalhes ADD COLUMN cidade TEXT`);
   } catch (e) {
     if (!/already exists/i.test(String(e.message))) throw e;
   }
