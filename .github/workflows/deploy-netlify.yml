@@ -124,7 +124,8 @@ jobs:
             echo "Token falhou. Removendo NETLIFY_AUTH_TOKEN do env..."
             unset NETLIFY_AUTH_TOKEN
             npx netlify deploy --prod --dir dist --allow-anonymous --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
-            DEPLOY_URL=$(grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
+            # Busca URL no formato "Site URL: http://xxx.netlify.app" ou direto
+            DEPLOY_URL=$(grep -oP 'https?://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
           fi
 
           echo "deploy-url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
