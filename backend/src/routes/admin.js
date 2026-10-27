@@ -458,7 +458,8 @@ router.post('/protocolos/limpar-expirados', async (req, res) => {
 
 /**
  * POST /api/admin/protocolos/cleanup
- * Job completo: expira + libera (recomendado para cron diário).
+ * Job completo: PPP (notificações + auto-confirmação) + expira + libera.
+ * Recomendado: cron a cada 1h.
  */
 router.post('/protocolos/cleanup', async (req, res) => {
   try {
@@ -467,6 +468,20 @@ router.post('/protocolos/cleanup', async (req, res) => {
   } catch (err) {
     console.error('[admin/protocolos/cleanup]', err);
     res.status(500).json({ error: 'Falha no cleanup', detalhe: err.message });
+  }
+});
+
+/**
+ * POST /api/admin/protocolos/processar-ppp
+ * Dispara processamento do Protocolo Pós-Plantão (notificações + auto-confirmação).
+ */
+router.post('/protocolos/processar-ppp', async (req, res) => {
+  try {
+    const { processarPPP } = await import('../services/protocolos-ppp-pnp.js');
+    const result = await processarPPP();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: 'Falha ao processar PPP', detalhe: err.message });
   }
 });
 

@@ -43,6 +43,7 @@ import {
   aceitarPCM, recusarPCM, pagarPDC, fazerCheckout, liberarPagamento,
   cancelarProtocolo, listarMeusProtocolos, listarCheckouts, listarHistoricoStatus
 } from '../services/protocolos.js';
+import { recusarPagamentoPNP, adminResolverPNP } from '../services/protocolos-ppp-pnp.js';
 
 const router = express.Router();
 
@@ -235,6 +236,113 @@ router.get('/:id/historico-status', authRequired, async (req, res) => {
   }
   const historico = await listarHistoricoStatus(id);
   res.json({ historico });
+});
+
+// ───────────────────────────────────────────────────────────────────
+// PNP — Protocolo de Não Pagamento (5 critérios de recusa)
+// ───────────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/protocolos/:id/recusar-pagamento
+ * Contratante recusa o pagamento com um dos 5 critérios do PNP.
+ *
+ * Body: {
+ *   criterio: 'nao_compareceu'|'abandono_plantao'|'irregularidade'|'imprevisto'|'recusa_titular',
+ *   descricao: string,
+ *   horas_trabalhadas: number (apenas para 'imprevisto')
+ * }
+ */
+router.post('/:id/recusar-pagamento', authRequired, requireTipo('contratante'),
+  validateBody({
+    criterio: { required: true, type: 'enum', values: ['nao_compareceu', 'abandono_plantao', 'irregularidade', 'imprevisto', 'recusa_titular'] },
+    descricao: { type: 'string', max: 1000 },
+    horas_trabalhadas: { type: 'number', min: 0 }
+  }),
+  async (req, res) => {
+    try {
+      const result = await recusarPagamentoPNP(
+        Number(req.params.id),
+        req.user.id,
+        req.body
+      );
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
+/**
+ * POST /api/protocolos/:id/resolver-pnp
+ * Admin resolve um PNP em análise.
+ *
+ * Body: {
+ *   decisao: 'reembolso_total'|'reembolso_parcial'|'liberar_profissional',
+ *   valor_parcial_centavos: number (apenas para 'reembolso_parcial'),
+ *   motivo: string
+ * }
+ */
+router.post('/:id/resolver-pnp', authRequired, requireAdmin,
+  validateBody({
+    decisao: { required: true, type: 'enum', values: ['reembolso_total', 'reembolso_parcial', 'liberar_profissional'] },
+    valor_parcial_centavos: { type: 'integer', min: 0 },
+    motivo: { type: 'string', max: 500 }
+  }),
+  async (req, res) => {
+    try {
+      const result = await adminResolverPNP(
+        Number(req.params.id),
+        req.user.id,
+        req.body
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
+/**
+ * GET /api/protocolos/ppp/pendentes
+ * Lista protocolos com PPP em andamento (checkout_profissional = contratante não respondeu).
+ * Admin pode ver para monitorar.
+ */
+router.get('/ppp/pendentes', authRequired, requireAdmin, async (req, res) => {
+  const rows = await db.all(
+    `SELECT p.*, v.profissional_desejado AS vaga_titulo,
+            c.nome AS contratante_nome, pr.nome AS profissional_nome
+       FROM protocolos p
+       JOIN vagas v ON v.id = p.id_vaga
+       JOIN users c ON c.id = p.id_contratante
+       JOIN users pr ON pr.id = p.id_profissional
+      WHERE p.status = 'checkout_profissional'
+      ORDER BY p.checkout_profissional_em ASC`
+  );
+  const agora = new Date();
+  const comHoras = rows.map(r => {
+    const checkout = new Date(r.checkout_profissional_em + 'Z');
+    const horas = ((agora - checkout) / (1000 * 60 * 60)).toFixed(1);
+    return { ...r, horas_desde_checkout: Number(horas), proxima_notificacao: horas < 24 ? '2ª (24h)' : horas < 48 ? '3ª (48h)' : 'auto-confirmação' };
+  });
+  res.json({ ppp_pendentes: comHoras, total: comHoras.length });
+});
+
+/**
+ * GET /api/protocolos/pnp/em-analise
+ * Lista PNPs em análise administrativa.
+ */
+router.get('/pnp/em-analise', authRequired, requireAdmin, async (req, res) => {
+  const rows = await db.all(
+    `SELECT p.*, v.profissional_desejado AS vaga_titulo,
+            c.nome AS contratante_nome, pr.nome AS profissional_nome
+       FROM protocolos p
+       JOIN vagas v ON v.id = p.id_vaga
+       JOIN users c ON c.id = p.id_contratante
+       JOIN users pr ON pr.id = p.id_profissional
+      WHERE p.status = 'em_analise_pnp'
+      ORDER BY p.criado_em DESC`
+  );
+  res.json({ pnp_em_analise: rows, total: rows.length });
 });
 
 export default router;

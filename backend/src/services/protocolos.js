@@ -42,6 +42,7 @@ import db from '../db/driver.js';
 import { emitirParaUsuario, logarTransicaoProtocolo } from './event-bus.js';
 import { notifyUser } from './push.js';
 import { notifyNetlify } from './netlify.js';
+import { iniciarPPP } from './protocolos-ppp-pnp.js';
 
 const PLATFORM_FEE_PCT = Number(process.env.PLATFORM_FEE_PCT || 10);  // 10% taxa
 const PRAZO_PCM_HORAS = Number(process.env.PRAZO_PCM_HORAS || 48);    // 48h para prof aceitar
@@ -337,15 +338,29 @@ export async function pagarPDC(pdc_id, contratante_id) {
   );
   await logarTransicaoProtocolo(pdc_id, 'em_custodia', 'checkout_pendente', contratante_id, 'Aguardando checkout bidirecional');
 
-  // Notifica profissional: pagto garantido + info do plantão
+  // Notifica profissional: pagto garantido + TODAS as informações do plantão
+  // APENAS após confirmação do Pix — antes disso, profissional não tem detalhes
+  const vaga = await db.get('SELECT * FROM vagas WHERE id = ?', [pdc.id_vaga]);
   emitirParaUsuario(pdc.id_profissional, 'protocolo:custodia_confirmada', {
     pdc_id, vaga_id: pdc.id_vaga, valor_plantao_centavos: pdc.valor_plantao_centavos,
     valor_taxa_centavos: pdc.valor_taxa_centavos, valor_total_centavos: pdc.valor_total_centavos,
-    garantido: true
+    garantido: true,
+    // Informações do plantão — liberadas APENAS após Pix confirmado
+    detalhes_plantao: {
+      paciente_sexo: vaga?.paciente_sexo,
+      paciente_idade: vaga?.paciente_idade,
+      paciente_diagnostico: vaga?.paciente_diagnostico,
+      servico_descricao: vaga?.servico_descricao,
+      cidade: vaga?.cidade,
+      carga_horaria: vaga?.carga_horaria,
+      jornada_horario: vaga?.jornada_horario,
+      jornada_escala: vaga?.jornada_escala,
+      regiao: vaga?.regiao
+    }
   });
   notifyUser(pdc.id_profissional, {
     title: '✅ Pagamento garantido! Execute o plantão',
-    body: `R$ ${(pdc.valor_plantao_centavos/100).toFixed(2)} em custódia. Após o plantão, faça o checkout para liberar o pagamento.`,
+    body: `R$ ${(pdc.valor_plantao_centavos/100).toFixed(2)} em custódia. Plantão: ${vaga?.cidade || ''} — ${vaga?.carga_horaria || vaga?.jornada_horario || ''}. Após o plantão, faça o checkout.`,
     data: { url: '/dashboard/profissional', protocolo_id: pdc_id }
   }).catch(() => {});
 
@@ -438,6 +453,12 @@ export async function fazerCheckout(pdc_id, dados) {
       protocolo_id: pdc_id, vaga_id: pdc.id_vaga, valor_centavos: pdc.valor_plantao_centavos
     }).catch(e => console.warn('[webhook]', e.message));
   } else {
+    // Profissional confirmou mas contratante ainda não → inicia PPP
+    if (tipo_user === 'profissional') {
+      // Inicia Protocolo Pós-Plantão: 1ª notificação ao contratante
+      iniciarPPP(pdc_id).catch(e => console.warn('[PPP]', e.message));
+    }
+
     notifyUser(outroUserId, {
       title: `⚠️ ${tipo_user === 'profissional' ? 'Profissional' : 'Contratante'} fez checkout`,
       body: 'Aguardando seu checkout também para liberar o pagamento.',
