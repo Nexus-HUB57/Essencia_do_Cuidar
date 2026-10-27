@@ -103,7 +103,7 @@ jobs:
           echo "✅ build íntegro"
           du -sh dist
 
-      # Deploy via Netlify CLI — tenta com token, fallback para anônimo
+      # Deploy via Netlify CLI — tenta com token, fallback para anônimo (limpa env)
       - name: Deploy na Netlify
         if: github.event_name == 'push'
         id: netlify
@@ -114,14 +114,15 @@ jobs:
 
           cd frontend
 
-          # Tenta deploy com token (se válido)
+          # Tenta deploy com token (NETLIFY_AUTH_TOKEN está no env)
           echo "Tentando deploy com TOKEN_NETFLY..."
           npx netlify deploy --prod --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
           DEPLOY_URL=$(grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
 
-          # Se falhou (Unauthorized), tenta anônimo
+          # Se falhou, REMOVE o token do env e tenta anônimo
           if [ -z "$DEPLOY_URL" ]; then
-            echo "Token falhou. Tentando deploy anônimo..."
+            echo "Token falhou. Removendo NETLIFY_AUTH_TOKEN do env..."
+            unset NETLIFY_AUTH_TOKEN
             npx netlify deploy --prod --dir dist --allow-anonymous --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
             DEPLOY_URL=$(grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
           fi
