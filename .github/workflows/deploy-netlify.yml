@@ -103,7 +103,7 @@ jobs:
           echo "✅ build íntegro"
           du -sh dist
 
-      # Deploy via Netlify CLI (substitui nwtgck que requeria site_id)
+      # Deploy via Netlify CLI — usa TOKEN_NETFLY como auth token
       - name: Deploy na Netlify
         if: github.event_name == 'push'
         id: netlify
@@ -111,15 +111,17 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.TOKEN_NETFLY }}
         run: |
           npm install -g netlify-cli
-          
-          # Deploy com --auth (token direto)
-          # Sem --dir, usa o diretório atual
-          DEPLOY_OUTPUT=$(cd frontend && npx netlify deploy --prod --dir dist --auth "$NETLIFY_AUTH_TOKEN" --message "Deploy ${{ github.sha }} — ${{ github.actor }}" 2>&1) || true
-          
-          echo "$DEPLOY_OUTPUT"
-          
-          # Extrair URL do deploy
-          DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -oP 'Website URL:\s*\K\S+' || echo "$DEPLOY_OUTPUT" | grep -oP 'https://[a-z0-9-]+\.netlify\.app' | head -1)
+
+          # Define o token como variável de ambiente (netlify CLI lê NETLIFY_AUTH_TOKEN)
+          # Isso evita problemas de quoting no --auth
+          export NETLIFY_AUTH_TOKEN
+
+          cd frontend
+          npx netlify deploy --prod --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
+
+          cat /tmp/deploy.log
+
+          DEPLOY_URL=$(grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
           echo "deploy-url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
           echo "Deploy URL: $DEPLOY_URL"
 
