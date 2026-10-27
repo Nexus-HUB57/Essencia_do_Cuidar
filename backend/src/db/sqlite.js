@@ -80,6 +80,8 @@ export function initSchema() {
       registro_conselho TEXT,
       tipo_registro TEXT,
       registro_verificado INTEGER NOT NULL DEFAULT 0,
+      profissao TEXT,
+      regiao TEXT,
       especialidades TEXT NOT NULL DEFAULT '[]',
       disponibilidade TEXT NOT NULL DEFAULT '[]',
       bio TEXT,
@@ -426,6 +428,11 @@ export function initSchema() {
   safeExec("ALTER TABLE vagas ADD COLUMN cidade TEXT");
   safeExec("ALTER TABLE vagas ADD COLUMN carga_horaria TEXT");
   safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN cidade TEXT");
+  // M1-fix — Matching: profissão canônica e região de atuação do profissional.
+  // Sem `profissao` o matcher não tinha contra o que comparar com o
+  // `profissional_desejado` da vaga (o `tipo_registro` é o conselho, não a profissão).
+  safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN profissao TEXT");
+  safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN regiao TEXT");
   console.log('[db:sqlite] schema inicializado em', dbPath);
 }
 
