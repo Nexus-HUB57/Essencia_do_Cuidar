@@ -22,6 +22,7 @@ import avaliacoesRouter from './routes/avaliacoes.js';
 import favoritosRouter from './routes/favoritos.js';
 import notificacoesRouter from './routes/notificacoes.js';
 import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
+import { wrapRouter } from './middleware/async.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +31,17 @@ const PORT = Number(process.env.PORT || 4000);
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-trocar';
+
+// Último recurso: uma rejeição que escapou de qualquer handler vira log,
+// não o fim do processo. Sem isso, uma única requisição malformada derrubava
+// a API inteira e todas as requisições passavam a responder "connection
+// refused" até alguém reiniciar o serviço.
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
 
 // P2 — Em produção, JWT_SECRET é obrigatório. Abortar startup se ausente ou fallback.
 if (NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'dev-secret-trocar')) {
@@ -79,17 +91,21 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/auth', authLimiter, authRouter);
 // Rate limit geral nas demais APIs
 app.use('/api', apiLimiter);
-app.use('/api/profissionais', profissionaisRouter);
-app.use('/api/vagas', vagasRouter);
-app.use('/api/candidaturas', candidaturasRouter);
-app.use('/api/mensagens', mensagensRouter);
-app.use('/api/pagamentos', pagamentosRouter);
-app.use('/api/push', pushRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/i18n', i18nRouter);
-app.use('/api/avaliacoes', avaliacoesRouter);
-app.use('/api/favoritos', favoritosRouter);
-app.use('/api/notificacoes', notificacoesRouter);
+// Os handlers das rotas são `async`. O Express 4 não captura rejeições de
+// Promise — elas viravam unhandledRejection e derrubavam o processo inteiro
+// (Node >= 15 aborta por padrão). wrapRouter converte qualquer erro async em
+// next(err), que o error handler abaixo transforma em 500 sem derrubar a API.
+app.use('/api/profissionais', wrapRouter(profissionaisRouter));
+app.use('/api/vagas', wrapRouter(vagasRouter));
+app.use('/api/candidaturas', wrapRouter(candidaturasRouter));
+app.use('/api/mensagens', wrapRouter(mensagensRouter));
+app.use('/api/pagamentos', wrapRouter(pagamentosRouter));
+app.use('/api/push', wrapRouter(pushRouter));
+app.use('/api/admin', wrapRouter(adminRouter));
+app.use('/api/i18n', wrapRouter(i18nRouter));
+app.use('/api/avaliacoes', wrapRouter(avaliacoesRouter));
+app.use('/api/favoritos', wrapRouter(favoritosRouter));
+app.use('/api/notificacoes', wrapRouter(notificacoesRouter));
 
 // SPA fallback
 const distPath = path.resolve(__dirname, '../../frontend/dist');

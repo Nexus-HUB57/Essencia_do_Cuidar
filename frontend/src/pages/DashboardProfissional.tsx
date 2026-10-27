@@ -1,21 +1,50 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
 import api from '../utils/api';
-import type { Vaga, Candidatura, ProfissionalDetalhes } from '../types';
+import type { Vaga, Candidatura, ProfissionalDetalhes, MatchingVagasResponse } from '../types';
 import Chat from '../components/Chat';
 import OnboardingConnectModal from '../components/OnboardingConnectModal';
+import { useProfissoes } from '../hooks/useProfissoes';
+import {
+  SeloScore,
+  ListaMotivos,
+  CabecalhoRecomendacoes,
+  VazioRecomendacoes
+} from '../components/Recomendacoes';
+
+const DISPONIBILIDADE_OPCOES = [
+  { v: 'manha', l: 'Manhã' },
+  { v: 'tarde', l: 'Tarde' },
+  { v: 'noite', l: 'Noite' },
+  { v: '12h', l: '12h' },
+  { v: '24h', l: '24h' }
+];
 
 export default function DashboardProfissional() {
   const { user, refreshUser } = useAuth();
-  const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'favoritos' | 'perfil'>('buscar');
+  const { t } = useTranslation();
+  const { rotulo: rotuloProfissao, opcoes: opcoesProfissao } = useProfissoes();
+  const [tab, setTab] = useState<'buscar' | 'recomendadas' | 'candidaturas' | 'favoritos' | 'perfil'>('buscar');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [cands, setCands] = useState<Candidatura[]>([]);
   const [favoritas, setFavoritas] = useState<Vaga[]>([]);
   const [detalhes, setDetalhes] = useState<ProfissionalDetalhes | null>(null);
+  const [recomendadas, setRecomendadas] = useState<MatchingVagasResponse['recomendacoes']>([]);
   const [loading, setLoading] = useState(false);
   const [chatCom, setChatCom] = useState<{ id: number; nome: string } | null>(null);
   const [showConnect, setShowConnect] = useState(false);
+
+  // Edição do perfil (dados que alimentam o matching)
+  const [formPerfil, setFormPerfil] = useState({
+    profissao: '',
+    regiao: '',
+    disponibilidade: [] as string[]
+  });
+  const [salvando, setSalvando] = useState(false);
+  const [perfilSalvo, setPerfilSalvo] = useState(false);
+  const [perfilErro, setPerfilErro] = useState('');
 
   // filtros
   const [fProf, setFProf] = useState('');
@@ -26,6 +55,8 @@ export default function DashboardProfissional() {
 
   useEffect(() => { if (tab === 'buscar') carregarVagas(); }, [tab, fProf, fCx, fReg]);
 
+  useEffect(() => { if (tab === 'recomendadas') carregarRecomendadas(); }, [tab]);
+
   useEffect(() => { if (tab === 'candidaturas') carregarCands(); }, [tab]);
 
   useEffect(() => { if (tab === 'favoritos') carregarFavoritas(); }, [tab]);
@@ -34,7 +65,34 @@ export default function DashboardProfissional() {
     try {
       const { data } = await api.get('/auth/me');
       setDetalhes(data.detalhes);
+      setFormPerfil({
+        profissao: data.detalhes?.profissao || '',
+        regiao: data.detalhes?.regiao || '',
+        disponibilidade: data.detalhes?.disponibilidade || []
+      });
     } catch {}
+  }
+
+  /** Salva os dados que alimentam o matching (profissão, região, disponibilidade). */
+  async function salvarPerfil() {
+    setSalvando(true);
+    setPerfilSalvo(false);
+    setPerfilErro('');
+    try {
+      const { data } = await api.put('/profissionais/me', {
+        profissao: formPerfil.profissao || undefined,
+        regiao: formPerfil.regiao || undefined,
+        disponibilidade: formPerfil.disponibilidade
+      });
+      setDetalhes(data.detalhes);
+      setPerfilSalvo(true);
+      // Recarrega as recomendações — o perfil acabou de mudar.
+      if (tab === 'recomendadas') carregarRecomendadas();
+    } catch (err) {
+      setPerfilErro(getErrorMessage(err));
+    } finally {
+      setSalvando(false);
+    }
   }
   async function carregarVagas() {
     setLoading(true);
@@ -47,6 +105,18 @@ export default function DashboardProfissional() {
       setVagas(data.vagas);
     } catch (err) {
       console.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function carregarRecomendadas() {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/profissionais/me/recomendar');
+      setRecomendadas(data.recomendacoes || []);
+    } catch (err) {
+      console.error(getErrorMessage(err));
+      setRecomendadas([]);
     } finally {
       setLoading(false);
     }
@@ -78,6 +148,9 @@ export default function DashboardProfissional() {
     try {
       await api.post('/candidaturas', { id_vaga: vagaId });
       alert('Candidatura enviada! Acompanhe na aba "Minhas candidaturas".');
+      // A vaga sai da lista de recomendações (o backend não recomenda quem
+      // já se candidatou) — recarrega para manter a UI consistente.
+      if (tab === 'recomendadas') carregarRecomendadas();
     } catch (err) {
       alert(getErrorMessage(err));
     }
@@ -104,6 +177,7 @@ export default function DashboardProfissional() {
       <div className="flex gap-1 border-b border-slate-200 mb-6">
         {[
           { k: 'buscar', l: '🔍 Buscar vagas' },
+          { k: 'recomendadas', l: '✨ Recomendadas' },
           { k: 'candidaturas', l: '📋 Minhas candidaturas' },
           { k: 'favoritos', l: '❤️ Favoritas' },
           { k: 'perfil', l: '👤 Meu perfil' }
@@ -172,6 +246,74 @@ export default function DashboardProfissional() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: RECOMENDADAS (matching automático) */}
+      {tab === 'recomendadas' && (
+        <div>
+          <div className="card mb-4">
+            <CabecalhoRecomendacoes
+              titulo={t('matching.recommendedVagas')}
+              subtitulo={t('matching.subtitle')}
+              total={recomendadas.length}
+            />
+            {!detalhes?.profissao && (
+              <p className="text-xs text-amber-700 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                💡 {t('matching.perfil.completeProfile')}
+              </p>
+            )}
+          </div>
+
+          {loading ? (
+            <p className="text-center text-slate-400 py-12">{t('matching.loading')}</p>
+          ) : recomendadas.length === 0 ? (
+            <div className="card">
+              <VazioRecomendacoes
+                mensagem={t('matching.noRecommendations')}
+                dica={t('matching.noRecommendationsHint')}
+              />
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {recomendadas.map((r) => {
+                const v = r.vaga;
+                return (
+                  <div key={v.id} className="card flex flex-col">
+                    <div className="flex items-start gap-3">
+                      <SeloScore score={r.score} nivel={r.nivel} />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold">{v.profissional_desejado}</h3>
+                        <p className="text-sm text-slate-500 mt-1 line-clamp-2">{v.servico_descricao}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 text-xs text-slate-500 mt-3">
+                      {v.regiao && <span>📍 {v.regiao}</span>}
+                      {v.jornada_horario && <span>🕐 {v.jornada_horario}</span>}
+                      {v.remuneracao_valor && (
+                        <span className="font-bold text-emerald-600">
+                          💰 R$ {v.remuneracao_valor}/{v.remuneracao_tipo === 'hora' ? 'h' : 'plantão'}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400 mt-3">{t('matching.why')}</p>
+                    <ListaMotivos motivos={r.motivosDetalhados} />
+
+                    <div className="mt-auto pt-3 flex gap-2">
+                      <Link to={`/vagas/${v.id}`} className="btn-ghost flex-1 text-center text-sm">
+                        {t('matching.viewVaga')}
+                      </Link>
+                      <button onClick={() => candidatar(v.id)} className="btn-primary flex-1 text-sm">
+                        {t('matching.apply')}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -285,8 +427,84 @@ export default function DashboardProfissional() {
               {(detalhes.especialidades as string[]).join(', ') || '—'}
             </div>
             <div>
+              <span className="text-slate-400">{t('matching.perfil.profissao')}:</span>{' '}
+              {detalhes.profissao ? rotuloProfissao(detalhes.profissao) : '—'}
+            </div>
+            <div>
+              <span className="text-slate-400">{t('matching.perfil.regiao')}:</span>{' '}
+              {detalhes.regiao || '—'}
+            </div>
+            <div>
               <span className="text-slate-400">Disponibilidade:</span>{' '}
               {(detalhes.disponibilidade as string[]).join(', ') || '—'}
+            </div>
+          </div>
+
+          {/* Edição dos dados que alimentam o matching */}
+          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-700">
+            <h3 className="font-semibold text-sm mb-1">{t('matching.perfil.completeProfile')}</h3>
+            <p className="text-xs text-slate-400 mb-3">{t('matching.noRecommendationsHint')}</p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="label">{t('matching.perfil.profissao')}</label>
+                <select
+                  className="input"
+                  value={formPerfil.profissao}
+                  onChange={(e) => setFormPerfil({ ...formPerfil, profissao: e.target.value })}
+                >
+                  <option value="">{t('matching.perfil.selectProfissao')}</option>
+                  {opcoesProfissao.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">{t('matching.perfil.regiao')}</label>
+                <input
+                  className="input"
+                  value={formPerfil.regiao}
+                  onChange={(e) => setFormPerfil({ ...formPerfil, regiao: e.target.value })}
+                  placeholder={t('matching.perfil.regiaoPlaceholder')}
+                />
+              </div>
+
+              <div>
+                <label className="label">Disponibilidade</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {DISPONIBILIDADE_OPCOES.map((d) => {
+                    const ativo = formPerfil.disponibilidade.includes(d.v);
+                    return (
+                      <button
+                        key={d.v}
+                        type="button"
+                        onClick={() => setFormPerfil({
+                          ...formPerfil,
+                          disponibilidade: ativo
+                            ? formPerfil.disponibilidade.filter((x) => x !== d.v)
+                            : [...formPerfil.disponibilidade, d.v]
+                        })}
+                        className={`px-3 py-1 rounded-full text-xs border ${
+                          ativo
+                            ? 'bg-emerald-500 text-white border-emerald-500'
+                            : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600'
+                        }`}
+                      >
+                        {d.l}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button onClick={salvarPerfil} disabled={salvando} className="btn-primary text-sm">
+                  {salvando ? t('common.loading') : t('perfil.save')}
+                </button>
+                {perfilSalvo && <span className="text-xs text-emerald-600">✓ Salvo</span>}
+                {perfilErro && <span className="text-xs text-rose-600">{perfilErro}</span>}
+              </div>
             </div>
           </div>
         </div>

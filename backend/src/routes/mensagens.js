@@ -64,6 +64,24 @@ router.post('/', authRequired, validateBody({
   if (id_destinatario === req.user.id) {
     return res.status(400).json({ error: 'Não é possível enviar mensagem para si mesmo' });
   }
+
+  // Valida a existência do destinatário e da vaga ANTES do insert: as FKs
+  // do banco faziam o INSERT estourar e o erro derrubava o processo inteiro
+  // (ver middleware/async.js). Aqui a resposta é um 400 honesto.
+  const destinatario = await db.get(
+    'SELECT id FROM users WHERE id = ?',
+    [id_destinatario]
+  );
+  if (!destinatario) {
+    return res.status(404).json({ error: 'Destinatário não encontrado' });
+  }
+  if (id_vaga) {
+    const vaga = await db.get('SELECT id FROM vagas WHERE id = ?', [id_vaga]);
+    if (!vaga) {
+      return res.status(404).json({ error: 'Vaga não encontrada' });
+    }
+  }
+
   const info = await db.run(
     `INSERT INTO mensagens (id_remetente, id_destinatario, id_vaga, conteudo)
      VALUES (?, ?, ?, ?)`,

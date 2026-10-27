@@ -4,13 +4,20 @@
  */
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DATA_DIR = path.resolve(__dirname, '../../data');
-if (!DATA_DIR) {/* noop, dir is created at driver.js level */}
+// O diretório precisa existir ANTES de abrir o banco.
+// Note: não vale fazer isso em driver.js — o import de './sqlite.js' no topo
+// dele é avaliado antes de qualquer statement de driver.js, então o mkdir
+// de lá sempre roda tarde demais e `npm run seed` quebra em clone novo.
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
 const dbPath = path.join(DATA_DIR, 'essencia.db');
 const db = new Database(dbPath);
@@ -73,6 +80,8 @@ export function initSchema() {
       registro_conselho TEXT,
       tipo_registro TEXT,
       registro_verificado INTEGER NOT NULL DEFAULT 0,
+      profissao TEXT,
+      regiao TEXT,
       especialidades TEXT NOT NULL DEFAULT '[]',
       disponibilidade TEXT NOT NULL DEFAULT '[]',
       bio TEXT,
@@ -287,6 +296,11 @@ export function initSchema() {
   safeExec("ALTER TABLE candidaturas ADD COLUMN atualizada_em TEXT");
   // S2 — Idempotência do webhook Stripe: coluna para registrar o último event_id processado
   safeExec("ALTER TABLE pagamentos ADD COLUMN stripe_event_id TEXT");
+  // M1-fix — Matching: profissão canônica e região de atuação do profissional.
+  // Sem `profissao` o matcher não tinha contra o que comparar com o
+  // `profissional_desejado` da vaga (o `tipo_registro` é o conselho, não a profissão).
+  safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN profissao TEXT");
+  safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN regiao TEXT");
   console.log('[db:sqlite] schema inicializado em', dbPath);
 }
 

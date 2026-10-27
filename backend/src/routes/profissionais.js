@@ -7,8 +7,8 @@ import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { validateRegistro } from '../services/registros.js';
-import { normalize, validate, verifyWithCouncil } from '../services/registroValidator.js';
-import { recomendarParaProfissional } from '../services/matching.js';
+import { normalize, validate, verifyWithCouncil, EXEMPLOS } from '../services/registroValidator.js';
+import { recomendarParaProfissional, PROFISSOES } from '../services/matching.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,6 +43,8 @@ const router = express.Router();
 const detalhesSchema = {
   registro_conselho: { type: 'string', min: 3, max: 30 },
   tipo_registro:     { type: 'enum', values: ['CRM', 'COREN', 'CREFITO', 'CRP', 'CRN', 'OUTRO'] },
+  profissao:         { type: 'enum', values: PROFISSOES.map((p) => p.id) },
+  regiao:            { type: 'string', max: 80 },
   especialidades:    { type: 'array' },
   disponibilidade:   { type: 'array' },
   bio:               { type: 'string', max: 1000 },
@@ -51,7 +53,7 @@ const detalhesSchema = {
 
 router.put('/me', authRequired, requireTipo('profissional'),
   validateBody(detalhesSchema), async (req, res) => {
-    const { registro_conselho, tipo_registro, especialidades, disponibilidade, bio, uf } = req.body;
+    const { registro_conselho, tipo_registro, profissao, regiao, especialidades, disponibilidade, bio, uf } = req.body;
 
     // Normaliza o número de registro (se fornecido) para o formato canônico
     const normalized = (registro_conselho && tipo_registro)
@@ -62,15 +64,24 @@ router.put('/me', authRequired, requireTipo('profissional'),
     let registroVerificadoAuto = 0;
     let mensagemVerificacao = null;
     if (normalized && tipo_registro) {
-      // Preferimos o validador estrutural (registroValidator.js) que usa regex por conselho.
-      // Mantemos o validateRegistro (services/registros.js) como fallback para UF.
+      // O validador estrutural (registroValidator.js) é a fonte da verdade do
+      // formato — é ele que o README documenta. O validateRegistro
+      // (services/registros.js) usa formatos diferentes e serve apenas como
+      // checagem de UF; misturar os dois gerava mensagens de erro
+      // contraditórias ("Exemplo: 123456-SP" para um formato que aceita
+      // "COREN-SP 123456").
       const v = validate(tipo_registro, normalized);
       if (!v.ok) {
-        // Tenta o validador de UF antes de rejeitar (compat com main)
         const vUf = validateRegistro(tipo_registro, normalized, uf);
-        if (!vUf.ok) {
-          return res.status(400).json({ error: v.motivo === 'regex_invalido' ? vUf.motivo : v.motivo });
+        // Erro de UF é definitivo (o número pode estar em formato legado).
+        if (!vUf.ok && /UF/i.test(String(vUf.motivo || ''))) {
+          return res.status(400).json({ error: vUf.motivo });
         }
+        return res.status(400).json({
+          error: v.motivo === 'regex_invalido'
+            ? `Formato inválido para ${tipo_registro}. Exemplo: ${EXEMPLOS[tipo_registro] || '—'}`
+            : v.motivo
+        });
       }
       // Auto-aprova só em modo dev (sem API externa)
       if (process.env.AUTO_VERIFICAR_REGISTROS === 'true') {
@@ -83,6 +94,8 @@ router.put('/me', authRequired, requireTipo('profissional'),
       `UPDATE profissionais_detalhes
           SET registro_conselho = COALESCE(?, registro_conselho),
               tipo_registro     = COALESCE(?, tipo_registro),
+              profissao         = COALESCE(?, profissao),
+              regiao            = COALESCE(?, regiao),
               especialidades    = COALESCE(?, especialidades),
               disponibilidade   = COALESCE(?, disponibilidade),
               bio               = COALESCE(?, bio),
@@ -92,6 +105,8 @@ router.put('/me', authRequired, requireTipo('profissional'),
       [
         normalized ?? null,
         tipo_registro ?? null,
+        profissao ?? null,
+        regiao ?? null,
         especialidades ? JSON.stringify(especialidades) : null,
         disponibilidade ? JSON.stringify(disponibilidade) : null,
         bio ?? null,
@@ -242,6 +257,20 @@ router.post('/me/verificar-registro', authRequired, requireTipo('profissional'),
 );
 
 /**
+ * GET /api/profissionais/profissoes — taxonomia canônica de profissões.
+ *
+ * O frontend usa essa lista para montar o seletor de "profissão" do cadastro
+ * e da edição de perfil, garantindo que o valor gravado em
+ * `profissionais_detalhes.profissao` seja sempre um id canônico reconhecido
+ * pelo motor de matching.
+ *
+ * Precisa vir ANTES de `GET /:id` — senão "/profissoes" cai no `:id`.
+ */
+router.get('/profissoes', (req, res) => {
+  res.json({ profissoes: PROFISSOES });
+});
+
+/**
  * GET /api/profissionais/:id — perfil público
  * Inclui estatísticas de avaliação (média e total) do schema do main
  * (colunas id_profissional, id_contratante, id_vaga, nota).
@@ -267,10 +296,28 @@ router.get('/:id', async (req, res) => {
     [id]
   );
 
+  // Estatísticas de ATUAÇÃO — o que o perfil público exibe nos 3 cards
+  // ("Atendimentos concluídos", "Vagas aceitas", "Candidaturas totais").
+  // `stats.total`/`stats.media` acima são as notas; estas são os contratos.
+  const atuacao = await db.get(
+    `SELECT
+        (SELECT COUNT(*) FROM candidaturas WHERE id_profissional = ?) AS total_candidaturas,
+        (SELECT COUNT(*) FROM candidaturas WHERE id_profissional = ? AND status_candidatura = 'aceita') AS aceitas,
+        (SELECT COUNT(DISTINCT id_vaga) FROM candidaturas WHERE id_profissional = ? AND status_candidatura = 'aceita') AS vagas_aceitas,
+        (SELECT COUNT(*) FROM candidaturas c
+           JOIN vagas v ON v.id = c.id_vaga
+          WHERE c.id_profissional = ? AND c.status_candidatura = 'aceita' AND v.status = 'fechada') AS vagas_concluidas`,
+    [id, id, id, id]
+  );
+
   res.json({
     user,
     detalhes,
-    stats: { total: stats?.total || 0, media: stats?.media || 0 }
+    stats: {
+      ...(atuacao || {}),
+      total: stats?.total || 0,
+      media: stats?.media || 0
+    }
   });
 });
 

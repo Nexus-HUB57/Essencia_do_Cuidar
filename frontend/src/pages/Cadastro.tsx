@@ -4,6 +4,7 @@ import { useAuth, getErrorMessage } from '../context/AuthContext';
 import Wizard from '../components/Wizard';
 import api from '../utils/api';
 import { useTranslation } from 'react-i18next';
+import { useProfissoes } from '../hooks/useProfissoes';
 
 const ESPECIALIDADES_OPCOES = [
   'Idosos', 'Alzheimer', 'Cuidados Paliativos', 'Pós-operatório',
@@ -31,6 +32,7 @@ export default function Cadastro() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { cadastro } = useAuth();
+  const { opcoes: opcoesProfissao } = useProfissoes();
 
   const tipoInicial = (params.get('tipo') as 'profissional' | 'contratante') || 'contratante';
   const [step, setStep] = useState(0);
@@ -38,6 +40,7 @@ export default function Cadastro() {
   const [form, setForm] = useState({
     nome: '', email: '', senha: '', telefone: '',
     tipo_registro: '', registro_conselho: '', uf: '',
+    profissao: '', regiao: '',
     especialidades: [] as string[], disponibilidade: [] as string[], bio: ''
   });
   const [erro, setErro] = useState('');
@@ -80,6 +83,8 @@ export default function Cadastro() {
           tipo_registro: form.tipo_registro,
           registro_conselho: form.registro_conselho,
           uf: form.uf,
+          profissao: form.profissao || undefined,
+          regiao: form.regiao || undefined,
           especialidades: form.especialidades,
           disponibilidade: form.disponibilidade,
           bio: form.bio
@@ -168,6 +173,23 @@ export default function Cadastro() {
 
           {step === 3 && tipo === 'profissional' && (
             <div className="space-y-3">
+              <div>
+                <label className="label">{t('matching.perfil.profissao')}</label>
+                <select className="input" value={form.profissao}
+                  onChange={(e) => setForm({ ...form, profissao: e.target.value })}>
+                  <option value="">{t('matching.perfil.selectProfissao')}</option>
+                  {opcoesProfissao.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">{t('matching.perfil.regiao')}</label>
+                <input className="input" value={form.regiao}
+                  onChange={(e) => setForm({ ...form, regiao: e.target.value })}
+                  placeholder={t('matching.perfil.regiaoPlaceholder')} />
+                <p className="text-[10px] text-slate-400 mt-1">{t('matching.perfil.regiaoHint')}</p>
+              </div>
               <div>
                 <label className="label">Especialidades</label>
                 <div className="flex flex-wrap gap-1.5">

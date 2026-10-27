@@ -89,6 +89,8 @@ export async function initSchema() {
       registro_conselho TEXT,
       tipo_registro TEXT,
       registro_verificado INTEGER NOT NULL DEFAULT 0,
+      profissao TEXT,
+      regiao TEXT,
       especialidades TEXT NOT NULL DEFAULT '[]',
       disponibilidade TEXT NOT NULL DEFAULT '[]',
       bio TEXT,
@@ -273,6 +275,17 @@ export async function initSchema() {
     await pool.query(`ALTER TABLE pagamentos ADD COLUMN stripe_event_id TEXT`);
   } catch (e) {
     if (!/already exists/i.test(String(e.message))) throw e;
+  }
+
+  // M1-fix — Matching: profissão canônica e região de atuação do profissional.
+  // Sem `profissao` o matcher não tem contra o que comparar com o
+  // `profissional_desejado` da vaga (o `tipo_registro` é o conselho, não a profissão).
+  for (const col of ['profissao', 'regiao']) {
+    try {
+      await pool.query(`ALTER TABLE profissionais_detalhes ADD COLUMN ${col} TEXT`);
+    } catch (e) {
+      if (!/already exists/i.test(String(e.message))) throw e;
+    }
   }
 
   console.log('[db:postgres] schema inicializado');

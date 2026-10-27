@@ -201,6 +201,14 @@ router.patch('/verificacoes/:id', validateBody({
       'UPDATE profissionais_detalhes SET registro_verificado = 1 WHERE id_user = ?',
       [v.id_user]
     );
+  } else {
+    // A rejeição precisa ficar visível no perfil do profissional — sem isso o
+    // estado 2 ("⏳ Em análise") da tabela de 3 estados nunca era alcançado e
+    // a decisão do admin não tinha efeito em lugar nenhum.
+    await db.run(
+      'UPDATE profissionais_detalhes SET registro_verificado = 2 WHERE id_user = ?',
+      [v.id_user]
+    );
   }
   await db.run(
     `INSERT INTO admin_audit (id_admin, acao, alvo_tipo, alvo_id, detalhes) VALUES (?, ?, ?, ?, ?)`,

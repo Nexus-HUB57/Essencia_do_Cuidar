@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api, { getErrorMessage } from '../utils/api';
 import Estrelas from '../components/Estrelas';
 import FavoritarBotao from '../components/FavoritarBotao';
+import { useProfissoes } from '../hooks/useProfissoes';
 
 interface ProfDetalhes {
   id_user: number;
@@ -10,6 +12,8 @@ interface ProfDetalhes {
   tipo_registro: string | null;
   registro_verificado: 0 | 1 | 2;
   registro_verificado_em?: string | null;
+  profissao?: string | null;
+  regiao?: string | null;
   diploma_nome_original: string | null;
   diploma_verificado: 0 | 1;
   especialidades: string[];
@@ -51,6 +55,7 @@ const DISP_LABEL: Record<string, string> = {
 export default function ProfissionalPerfil() {
   const { t, i18n } = useTranslation();
   const { id } = useParams();
+  const { rotulo: rotuloProfissao } = useProfissoes();
   const [user, setUser] = useState<ProfUser | null>(null);
   const [detalhes, setDetalhes] = useState<ProfDetalhes | null>(null);
   const [stats, setStats] = useState<AvalStats | null>(null);
@@ -143,6 +148,14 @@ export default function ProfissionalPerfil() {
                 ? t("profissionais.anosPlataforma", { count: anosNaPlataforma })
                 : t("profissionais.novoPlataforma")}
             </p>
+            {(detalhes?.profissao || detalhes?.regiao) && (
+              <p className="text-sm text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                {detalhes?.profissao && (
+                  <span className="badge-blue">{rotuloProfissao(detalhes.profissao)}</span>
+                )}
+                {detalhes?.regiao && <span>📍 {detalhes.regiao}</span>}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <FavoritarBotao tipo="profissional" id={Number(id)} size="md" />

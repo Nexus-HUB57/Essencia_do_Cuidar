@@ -12,6 +12,30 @@ export interface User {
   nome: string;
   email: string;
   telefone?: string | null;
+  /**
+   * Enviado pelo backend em POST /auth/login e GET /auth/me.
+   * SQLite devolve 0|1; Postgres pode devolver boolean — ambos aceitos.
+   */
+  is_admin?: 0 | 1 | boolean | null;
+}
+
+/** Ids canônicos de profissão — espelham `PROFISSOES` em backend/src/services/matching.js */
+export type ProfissaoId =
+  | "cuidador"
+  | "tecnico_enfermagem"
+  | "enfermeiro"
+  | "fisioterapeuta"
+  | "terapeuta_ocupacional"
+  | "psicologo"
+  | "fonoaudiologo"
+  | "nutricionista"
+  | "medico"
+  | "dentista";
+
+export interface Profissao {
+  id: ProfissaoId;
+  rotulo: string;
+  conselhos: string[];
 }
 
 export interface ProfissionalDetalhes {
@@ -24,6 +48,10 @@ export interface ProfissionalDetalhes {
   tipo_registro?: string | null;
   registro_verificado: RegistroVerificadoEstado;
   registro_verificado_em?: string | null;
+  /** Profissão canônica — usada pelo motor de matching. */
+  profissao?: ProfissaoId | null;
+  /** Região de atuação (texto livre, ex.: "Zona Sul - SP"). */
+  regiao?: string | null;
   especialidades: string[];
   disponibilidade: string[];
   bio?: string | null;
@@ -126,4 +154,88 @@ export interface Conversa {
   ultima_mensagem: string;
   ultima_em: string;
   nao_lidas: number;
+}
+
+/* ══════════════════════ Sistema de matching ══════════════════════ */
+
+/** Nível de compatibilidade de um match. */
+export type MatchingNivel = "alto" | "medio" | "baixo";
+
+/**
+ * Motivo estruturado do matching.
+ * `codigo` é estável e traduzido pelo frontend via `matching.reasons.<codigo>`.
+ * `detalhe` carrega os parâmetros de interpolação.
+ */
+export interface MatchingMotivo {
+  codigo: string;
+  peso: number;
+  pontos: number | null;
+  detalhe: {
+    profissao?: string;
+    turnos?: number;
+    total?: number;
+    media?: number;
+    concluidas?: number;
+    especialidade?: string;
+    regiao?: string;
+    regiaoVaga?: string;
+    regiaoProf?: string;
+  };
+}
+
+export interface MatchingProfissionalRecomendado {
+  id: number;
+  nome: string;
+  telefone?: string | null;
+  profissao?: ProfissaoId | null;
+  regiao?: string | null;
+  registro_conselho?: string | null;
+  tipo_registro?: string | null;
+  registro_verificado: RegistroVerificadoEstado;
+  diploma_verificado: 0 | 1;
+  especialidades: string[];
+  disponibilidade: string[];
+  bio?: string | null;
+  media_avaliacao: number;
+  total_avaliacoes: number;
+}
+
+export interface MatchingVagaRecomendada {
+  id: number;
+  profissional_desejado: string;
+  complexidade: "baixa" | "media";
+  regiao?: string | null;
+  remuneracao_valor?: number | null;
+  remuneracao_tipo?: "plantao" | "hora" | null;
+  tipo_contrato?: "PJ" | "CLT" | null;
+  servico_descricao: string;
+  jornada_horario?: string | null;
+  jornada_escala?: string | null;
+  criado_em: string;
+}
+
+export interface MatchingProfissionaisResponse {
+  vaga_id: number;
+  total: number;
+  pesos: Record<string, number>;
+  recomendacoes: Array<{
+    profissional: MatchingProfissionalRecomendado;
+    score: number;
+    nivel: MatchingNivel;
+    motivos: string[];
+    motivosDetalhados: MatchingMotivo[];
+  }>;
+}
+
+export interface MatchingVagasResponse {
+  profissional_id: number;
+  total: number;
+  pesos: Record<string, number>;
+  recomendacoes: Array<{
+    vaga: MatchingVagaRecomendada;
+    score: number;
+    nivel: MatchingNivel;
+    motivos: string[];
+    motivosDetalhados: MatchingMotivo[];
+  }>;
 }
