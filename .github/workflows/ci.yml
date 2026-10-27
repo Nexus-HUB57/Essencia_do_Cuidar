@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci --no-audit --no-fund
+
+      - name: Seed database
+        working-directory: backend
+        run: npm run seed
+
+      - name: Start backend
+        working-directory: backend
+        run: |
+          nohup node src/index.js > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4000/api/health > /dev/null; then
+              echo "Backend up após ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -sf http://localhost:4000/api/health || { cat /tmp/backend.log; exit 1; }
+
+      # As três suítes. `smoke-test.sh` cobre os fluxos gerais, `smoke-test-v2.sh`
+      # as 6 features (PG, registros, Stripe, push, admin, i18n) e
+      # `smoke-test-matching.sh` o sistema de matching Vagas x Profissional.
+      - name: Smoke test — fluxos gerais
+        env:
+          BASE: http://localhost:4000
+        run: bash scripts/smoke-test.sh
+
+      - name: Smoke test — features
+        env:
+          BASE: http://localhost:4000
+        run: bash scripts/smoke-test-v2.sh
+
+      - name: Smoke test — matching
+        env:
+          BASE: http://localhost:4000
+        run: bash scripts/smoke-test-matching.sh
+
+      - name: Show backend logs (on failure)
+        if: failure()
+        run: cat /tmp/backend.log || true
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f /tmp/backend.pid ]; then
+            kill $(cat /tmp/backend.pid) || true
+          fi
+
+  frontend:
+    name: Frontend — typecheck + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      # O `vite build` NÃO faz typecheck — um import faltando (ex.: um provider
+      # usado no main.tsx) só quebra em runtime. O tsc pega isso no CI.
+      - name: Typecheck
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
