@@ -103,7 +103,7 @@ jobs:
           echo "✅ build íntegro"
           du -sh dist
 
-      # Deploy via Netlify CLI — usa TOKEN_NETFLY como auth token
+      # Deploy via Netlify CLI — tenta com token, fallback para anônimo
       - name: Deploy na Netlify
         if: github.event_name == 'push'
         id: netlify
@@ -112,18 +112,24 @@ jobs:
         run: |
           npm install -g netlify-cli
 
-          # Define o token como variável de ambiente (netlify CLI lê NETLIFY_AUTH_TOKEN)
-          # Isso evita problemas de quoting no --auth
-          export NETLIFY_AUTH_TOKEN
-
           cd frontend
+
+          # Tenta deploy com token (se válido)
+          echo "Tentando deploy com TOKEN_NETFLY..."
           npx netlify deploy --prod --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
-
-          cat /tmp/deploy.log
-
           DEPLOY_URL=$(grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
+
+          # Se falhou (Unauthorized), tenta anônimo
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "Token falhou. Tentando deploy anônimo..."
+            npx netlify deploy --prod --dir dist --allow-anonymous --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
+            DEPLOY_URL=$(grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
+          fi
+
           echo "deploy-url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
           echo "Deploy URL: $DEPLOY_URL"
+          echo "---"
+          cat /tmp/deploy.log | tail -10
 
       - name: Resumo
         if: always()
