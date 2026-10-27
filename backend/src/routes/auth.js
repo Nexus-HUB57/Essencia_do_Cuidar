@@ -97,7 +97,8 @@ router.post('/login', validateBody(loginSchema), async (req, res) => {
  */
 router.get('/me', authRequired, async (req, res) => {
   if (req.user.tipo_usuario === 'profissional') {
-    const detalhes = await db.get('SELECT * FROM profissionais_detalhes WHERE id_user = ?', [req.user.id]);
+    const { buscarDetalhes } = await import('../utils/profissional.js');
+    const detalhes = await buscarDetalhes(req.user.id);
     return res.json({ user: req.user, detalhes });
   }
   res.json({ user: req.user });

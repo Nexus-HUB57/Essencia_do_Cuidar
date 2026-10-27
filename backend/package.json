@@ -8,7 +8,10 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "seed": "node src/db/seed.js",
-    "migrate:pg": "node scripts/migrate-pg.js"
+    "migrate:pg": "node scripts/migrate-pg.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -24,5 +27,10 @@
     "socket.io": "^4.8.0",
     "stripe": "^23.0.0",
     "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
+    "supertest": "^7.3.1",
+    "vitest": "^2.1.9"
   }
 }
