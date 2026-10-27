@@ -1,4 +1,5 @@
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -36,7 +37,7 @@ const upload = multer({
   }
 });
 
-const router = express.Router();
+const router = createRouter(express);
 
 const detalhesSchema = {
   registro_conselho: { type: 'string', min: 3, max: 30 },

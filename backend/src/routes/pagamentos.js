@@ -10,6 +10,7 @@
  *   POST /api/pagamentos/webhook            → webhook Stripe (eventos)
  */
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
@@ -19,7 +20,7 @@ import {
   criarPagamento, confirmarPagamento, processarWebhookStripe
 } from '../services/stripe.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 router.get('/config', (req, res) => {
   res.json({ mock: isMock, platform_fee_pct: platformFeePct });

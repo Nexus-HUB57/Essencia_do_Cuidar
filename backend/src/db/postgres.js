@@ -135,6 +135,22 @@ export async function initSchema() {
       criado_em TEXT NOT NULL DEFAULT (now()::text)
     );
 
+    CREATE TABLE IF NOT EXISTS favoritos (
+      id SERIAL PRIMARY KEY,
+      id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga','profissional')),
+      id_recurso INTEGER NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      UNIQUE(id_user, tipo, id_recurso)
+    );
+
+    CREATE TABLE IF NOT EXISTS vaga_visualizacoes (
+      id SERIAL PRIMARY KEY,
+      id_vaga INTEGER NOT NULL REFERENCES vagas(id) ON DELETE CASCADE,
+      id_user INTEGER,
+      criado_em TEXT NOT NULL DEFAULT (now()::text)
+    );
+
     CREATE TABLE IF NOT EXISTS webhook_logs (
       id SERIAL PRIMARY KEY,
       tipo TEXT NOT NULL,
@@ -159,6 +175,8 @@ export async function initSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
     CREATE INDEX IF NOT EXISTS idx_av_contratante ON avaliacoes(id_contratante);
+    CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
+    CREATE INDEX IF NOT EXISTS idx_visualizacoes_vaga ON vaga_visualizacoes(id_vaga);
 
     CREATE TABLE IF NOT EXISTS verificacao_registros (
       id SERIAL PRIMARY KEY,

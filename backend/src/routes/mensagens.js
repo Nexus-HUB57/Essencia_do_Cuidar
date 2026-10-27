@@ -1,10 +1,11 @@
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import db from '../db/driver.js';
 import { authRequired } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyUser } from '../services/push.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 router.get('/', authRequired, async (req, res) => {
   const rows = await db.all(

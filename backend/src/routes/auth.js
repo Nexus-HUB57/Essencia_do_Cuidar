@@ -1,10 +1,11 @@
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import bcrypt from 'bcryptjs';
 import db from '../db/driver.js';
 import { authRequired, signToken } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 const cadastroSchema = {
   tipo_usuario: { required: true, type: 'enum', values: ['profissional', 'contratante'] },

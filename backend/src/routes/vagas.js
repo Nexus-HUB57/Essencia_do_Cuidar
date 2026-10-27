@@ -1,10 +1,11 @@
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyNetlify } from '../services/netlify.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 const vagaSchema = {
   paciente_sexo:        { type: 'enum', values: ['M', 'F', 'Outro'] },
@@ -21,8 +22,16 @@ const vagaSchema = {
   regiao:               { type: 'string', max: 80 }
 };
 
+// Critérios de ordenação aceitos em ?ordenar=
+const ORDENACOES = {
+  remuneracao: 'v.remuneracao_valor',
+  complexidade: 'v.complexidade',
+  regiao: 'v.regiao',
+  recentes: 'v.criado_em'
+};
+
 router.get('/', async (req, res) => {
-  const { profissional, complexidade, regiao, remuneracaoMin } = req.query;
+  const { profissional, complexidade, regiao, remuneracaoMin, ordenar, limite, offset } = req.query;
   const filters = ["v.status = 'ativa'"];
   const params = [];
 
@@ -31,17 +40,25 @@ router.get('/', async (req, res) => {
   if (regiao)       { filters.push('v.regiao LIKE ?');       params.push(`%${regiao}%`); }
   if (remuneracaoMin) { filters.push('v.remuneracao_valor >= ?'); params.push(Number(remuneracaoMin)); }
 
+  // Ordenação — whitelist para não permitir injeção via nome de coluna
+  const colunaOrdem = ORDENACOES[ordenar] || 'v.criado_em';
+  const direcao = String(req.query.dir || (ordenar === 'remuneracao' ? 'DESC' : 'DESC')).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+  // LIMIT/OFFSET — clamp para evitar abuse
+  const lim = Math.min(Math.max(parseInt(limite, 10) || 100, 1), 200);
+  const off = Math.max(parseInt(offset, 10) || 0, 0);
+
   const where = 'WHERE ' + filters.join(' AND ');
   const rows = await db.all(
     `SELECT v.*, u.nome AS contratante_nome
        FROM vagas v
        JOIN users u ON u.id = v.id_contratante
        ${where}
-      ORDER BY v.criado_em DESC
-      LIMIT 100`,
-    params
+      ORDER BY ${colunaOrdem} ${direcao}, v.id DESC
+      LIMIT ? OFFSET ?`,
+    [...params, lim, off]
   );
-  res.json({ vagas: rows });
+  res.json({ vagas: rows, total: rows.length, limite: lim, offset: off, ordenado_por: ordenar || 'recentes' });
 });
 
 router.get('/:id', async (req, res) => {
@@ -63,10 +80,10 @@ router.get('/:id', async (req, res) => {
       userId = payload.id;
     } catch {}
   }
-  db.prepare('INSERT INTO vaga_visualizacoes (id_vaga, id_user) VALUES (?, ?)')
-    .run(id, userId);
+  await db.run('INSERT INTO vaga_visualizacoes (id_vaga, id_user) VALUES (?, ?)', [id, userId]);
 
-  const visualizacoes = db.prepare('SELECT COUNT(*) AS n FROM vaga_visualizacoes WHERE id_vaga = ?').get(id).n;
+  const visRow = await db.get('SELECT COUNT(*) AS n FROM vaga_visualizacoes WHERE id_vaga = ?', [id]);
+  const visualizacoes = visRow?.n || 0;
   res.json({ vaga, visualizacoes });
 });
 

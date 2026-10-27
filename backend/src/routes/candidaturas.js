@@ -1,10 +1,11 @@
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyNetlify } from '../services/netlify.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 const candidaturaSchema = {
   id_vaga:  { required: true, type: 'integer', min: 1 },
@@ -115,26 +116,27 @@ router.patch('/:id', authRequired, requireTipo('contratante'),
  * GET /api/candidaturas/contratante/historico
  * Lista todas as vagas FECHADAS do contratante + profissional vencedor.
  */
-router.get('/contratante/historico', authRequired, requireTipo('contratante'), (req, res) => {
-  const rows = db.prepare(`
-    SELECT v.id AS vaga_id, v.profissional_desejado, v.complexidade, v.regiao,
-           v.remuneracao_valor, v.remuneracao_tipo, v.criado_em, v.status,
-           u.id AS profissional_id, u.nome AS profissional_nome, u.telefone AS profissional_telefone,
-           c.id AS candidatura_id, c.criado_em AS candidatura_em
-      FROM vagas v
-      JOIN candidaturas c ON c.id_vaga = v.id AND c.status_candidatura = 'aceita'
-      JOIN users u ON u.id = c.id_profissional
-     WHERE v.id_contratante = ? AND v.status = 'fechada'
-     ORDER BY v.criado_em DESC
-  `).all(req.user.id);
+router.get('/contratante/historico', authRequired, requireTipo('contratante'), async (req, res) => {
+  const rows = await db.all(
+    `SELECT v.id AS vaga_id, v.profissional_desejado, v.complexidade, v.regiao,
+            v.remuneracao_valor, v.remuneracao_tipo, v.criado_em, v.status,
+            u.id AS profissional_id, u.nome AS profissional_nome, u.telefone AS profissional_telefone,
+            c.id AS candidatura_id, c.criado_em AS candidatura_em
+       FROM vagas v
+       JOIN candidaturas c ON c.id_vaga = v.id AND c.status_candidatura = 'aceita'
+       JOIN users u ON u.id = c.id_profissional
+      WHERE v.id_contratante = ? AND v.status = 'fechada'
+      ORDER BY v.criado_em DESC`,
+    [req.user.id]
+  );
 
   // Adiciona info de avaliação (se houver)
-  const getAv = db.prepare(`
-    SELECT nota, comentario, criado_em FROM avaliacoes
-     WHERE id_contratante = ? AND id_profissional = ? AND id_vaga = ?
-  `);
   for (const r of rows) {
-    const av = getAv.get(req.user.id, r.profissional_id, r.vaga_id);
+    const av = await db.get(
+      `SELECT nota, comentario, criado_em FROM avaliacoes
+        WHERE id_contratante = ? AND id_profissional = ? AND id_vaga = ?`,
+      [req.user.id, r.profissional_id, r.vaga_id]
+    );
     r.avaliacao = av || null;
   }
   res.json({ historico: rows });

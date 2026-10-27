@@ -126,6 +126,24 @@ export function initSchema() {
       FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE SET NULL
     );
 
+    CREATE TABLE IF NOT EXISTS favoritos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_user INTEGER NOT NULL,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga','profissional')),
+      id_recurso INTEGER NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(id_user, tipo, id_recurso),
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS vaga_visualizacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_vaga INTEGER NOT NULL,
+      id_user INTEGER,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS webhook_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tipo TEXT NOT NULL,
@@ -153,6 +171,8 @@ export function initSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
     CREATE INDEX IF NOT EXISTS idx_av_contratante ON avaliacoes(id_contratante);
+    CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
+    CREATE INDEX IF NOT EXISTS idx_visualizacoes_vaga ON vaga_visualizacoes(id_vaga);
 
     -- Feature 2: verificação de registros (campos adicionais)
     CREATE TABLE IF NOT EXISTS verificacao_registros (

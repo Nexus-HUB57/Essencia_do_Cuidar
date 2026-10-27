@@ -34,7 +34,8 @@ echo ""
 echo "[0] Healthcheck"
 HC=$(http_body "$BASE/api/health")
 echo "  $HC"
-echo "$HC" | grep -q '"db":"sqlite"' && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "  DB driver errado"; }
+# O main passou a retornar db como objeto {driver, reachable, error}
+echo "$HC" | grep -q '"driver":"sqlite"' && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "  DB driver errado"; }
 
 # 1. Feature 1 — DB driver exposed
 echo ""

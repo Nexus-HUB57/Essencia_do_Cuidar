@@ -9,6 +9,7 @@ import jwt from 'jsonwebtoken';
 import fs from 'fs';
 
 import db from './db/driver.js';
+import { asyncHandler } from './middleware/async.js';
 import authRouter from './routes/auth.js';
 import profissionaisRouter from './routes/profissionais.js';
 import vagasRouter from './routes/vagas.js';
@@ -19,6 +20,8 @@ import pushRouter from './routes/push.js';
 import adminRouter from './routes/admin.js';
 import i18nRouter from './routes/i18n.js';
 import avaliacoesRouter from './routes/avaliacoes.js';
+import favoritosRouter from './routes/favoritos.js';
+import notificacoesRouter from './routes/notificacoes.js';
 import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -31,6 +34,19 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-trocar';
 // Inicializa o schema do driver escolhido
 await db.initSchema();
 
+// ─────────────────────────────────────────────────────────────
+// Guarda de processo: o Express 4 NÃO captura rejeições de
+// handlers async. Sem isto, um único request com bug (ex.: query
+// em tabela inexistente) derruba o servidor inteiro — o healthcheck
+// passa a falhar e o container entra em crash-loop.
+// ─────────────────────────────────────────────────────────────
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+
 const app = express();
 app.use(securityHeaders);
 app.use(cors({ origin: FRONTEND_URL.split(','), credentials: true }));
@@ -38,7 +54,7 @@ app.use(express.json({ limit: '1mb' }));
 
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', asyncHandler(async (req, res) => {
   const ts = new Date().toISOString();
   // Tenta uma query leve no DB para confirmar que o driver está vivo.
   // Falha no DB → retorna 503 (Service Unavailable) para healthchecks
@@ -63,7 +79,7 @@ app.get('/api/health', async (req, res) => {
       error: dbError
     }
   });
-});
+}));
 
 // Rate limit mais agressivo em /api/auth/* (anti brute-force em login/cadastro)
 app.use('/api/auth', authLimiter, authRouter);
@@ -95,7 +111,13 @@ app.use((req, res) => res.status(404).json({ error: 'Rota não encontrada' }));
 
 app.use((err, req, res, _next) => {
   console.error('[erro]', err);
-  res.status(500).json({ error: 'Erro interno do servidor', detalhe: err.message });
+  if (res.headersSent) return;
+  // Erros de constraint de FK normalmente indicam id inexistente no body
+  const isFk = /FOREIGN KEY|23503/.test(String(err.code || '') + String(err.message || ''));
+  res.status(isFk ? 400 : 500).json({
+    error: isFk ? 'Referência inválida (id não encontrado)' : 'Erro interno do servidor',
+    detalhe: err.message
+  });
 });
 
 const server = http.createServer(app);

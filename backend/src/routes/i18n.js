@@ -7,9 +7,10 @@
  * e-mails, push notifications, etc.
  */
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import { dictionaries } from '../i18n/dictionaries.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 const supported = ['pt-BR', 'es', 'en'];
 
