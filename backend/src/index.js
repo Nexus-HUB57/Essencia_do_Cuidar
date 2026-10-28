@@ -203,6 +203,20 @@ app.get('/api/docs', (req, res) => {
 app.use('/api/auth', authLimiter, authRouter);
 // Rate limit geral nas demais APIs
 app.use('/api', apiLimiter);
+
+// Webhook do Mercado Pago — SEM rate limit e SEM parser json (precisa do raw body para validar assinatura)
+app.post('/api/webhooks/mercadopago', express.json({ limit: '1mb' }), async (req, res) => {
+  try {
+    const { processarWebhook } = await import('./services/mercadopago.js');
+    const result = await processarWebhook(req.body);
+    console.log('[mercadopago-webhook]', result);
+    res.status(200).json({ received: true, ...result });
+  } catch (err) {
+    console.error('[mercadopago-webhook] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.use('/api/profissionais', profissionaisRouter);
 app.use('/api/vagas', vagasRouter);
 app.use('/api/candidaturas', candidaturasRouter);

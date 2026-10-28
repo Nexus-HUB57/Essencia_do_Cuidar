@@ -129,16 +129,97 @@ router.post('/:id/recusar', authRequired, requireTipo('profissional'),
 /**
  * POST /api/protocolos/:id/pagar
  * Contratante paga PDC (custódia).
- * Em modo mock: simula pagamento imediato.
- * Em modo live: integra com Stripe Connect.
+ *
+ * Fluxo:
+ *   1. MERCADOPAGO_MOCK=true (default): simula pagamento imediato e confirma custódia.
+ *   2. MERCADOPAGO_MOCK=false (live): cria cobrança Pix e retorna QR code.
+ *      Após webhook MP confirmar, sistema chama pagarPDC() automaticamente.
+ *      Contratante pode também chamar POST /:id/confirmar-pix após receber
+ *      notificação externa de que pagou via Pix (fallback ao webhook).
  */
 router.post('/:id/pagar', authRequired, requireTipo('contratante'), async (req, res) => {
   try {
-    const result = await pagarPDC(Number(req.params.id), req.user.id);
-    res.json({
-      ...result,
-      mensagem: 'Pagamento em custódia confirmado. Profissional notificado com garantia.'
+    const pdc_id = Number(req.params.id);
+    const { criarCobrancaPix, isMock: mpIsMock } = await import('../services/mercadopago.js');
+
+    // Mock MP: confirma imediato (legacy behavior)
+    if (mpIsMock) {
+      const result = await pagarPDC(pdc_id, req.user.id);
+      return res.json({
+        ...result,
+        mensagem: 'Pagamento em custódia confirmado. Profissional notificado com garantia.',
+        pix_flow: false
+      });
+    }
+
+    // Live MP: cria cobrança Pix, retorna QR code, NÃO confirma ainda
+    const pdc = await db.get('SELECT * FROM protocolos WHERE id = ? AND tipo = ?', [pdc_id, 'PDC']);
+    if (!pdc) return res.status(404).json({ error: 'PDC não encontrado' });
+    if (pdc.id_contratante !== req.user.id) return res.status(403).json({ error: 'Não autorizado' });
+    if (pdc.status !== 'enviado') return res.status(400).json({ error: `PDC não pode ser pago (status: ${pdc.status})` });
+
+    const user = await db.get('SELECT email FROM users WHERE id = ?', [req.user.id]);
+    const cobranca = await criarCobrancaPix({
+      protocolo_id: pdc_id,
+      valor_centavos: pdc.valor_total_centavos,
+      descricao: `Custódia de Plantão #${pdc_id} — Essência do Cuidar`,
+      contratante_id: req.user.id,
+      metadata: {
+        contratante_email: user?.email,
+        vaga_id: pdc.id_vaga,
+        profissional_id: pdc.id_profissional
+      }
     });
+
+    // Salva payment_id do MP na tabela pagamentos_custodia (stripe_payment_intent_id)
+    await db.run(
+      `UPDATE pagamentos_custodia SET stripe_payment_intent_id = ? WHERE id_protocolo = ?`,
+      [cobranca.payment_id, pdc_id]
+    );
+
+    return res.json({
+      pix_flow: true,
+      payment_id: cobranca.payment_id,
+      txid: cobranca.txid,
+      qr_code_base64: cobranca.qr_code_base64,
+      qr_code_texto: cobranca.qr_code_texto,
+      valor_total_centavos: pdc.valor_total_centavos,
+      mensagem: 'Pix gerado. Após confirmação do pagamento, o sistema confirmará a custódia automaticamente.'
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/protocolos/:id/confirmar-pix
+ * Confirma manualmente um pagamento Pix (fallback ao webhook MP).
+ * Em modo mock: simula confirmação imediata.
+ * Em modo live: consulta status no MP, e se 'approved', chama pagarPDC.
+ */
+router.post('/:id/confirmar-pix', authRequired, requireTipo('contratante'), async (req, res) => {
+  try {
+    const pdc_id = Number(req.params.id);
+    const { consultarPagamento, isMock: mpIsMock } = await import('../services/mercadopago.js');
+    const { pagarPDC } = await import('../services/protocolos.js');
+
+    if (mpIsMock) {
+      const result = await pagarPDC(pdc_id, req.user.id);
+      return res.json({ ...result, mensagem: 'Pix confirmado (mock). Custódia ativa.', pix_flow: false });
+    }
+
+    // Live: consulta MP
+    const pag = await db.get('SELECT stripe_payment_intent_id FROM pagamentos_custodia WHERE id_protocolo = ?', [pdc_id]);
+    if (!pag?.stripe_payment_intent_id) {
+      return res.status(400).json({ error: 'Nenhuma cobrança Pix encontrada para este protocolo' });
+    }
+    const info = await consultarPagamento(pag.stripe_payment_intent_id);
+    if (info.status !== 'approved') {
+      return res.status(202).json({ status: info.status, mensagem: 'Pagamento ainda não aprovado pelo MP' });
+    }
+    // Aprovado — chama pagarPDC
+    const result = await pagarPDC(pdc_id, null);  // null = sistema
+    res.json({ ...result, mensagem: 'Pix confirmado. Custódia ativa.' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

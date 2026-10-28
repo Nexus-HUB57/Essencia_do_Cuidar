@@ -295,7 +295,8 @@ export async function recusarPCM(pcm_id, profissional_id, motivo = null) {
 export async function pagarPDC(pdc_id, contratante_id) {
   const pdc = await db.get('SELECT * FROM protocolos WHERE id = ? AND tipo = ?', [pdc_id, 'PDC']);
   if (!pdc) throw new Error('PDC não encontrado');
-  if (pdc.id_contratante !== contratante_id) throw new Error('Não autorizado');
+  // contratante_id === null = chamada interna do sistema (webhook MP)
+  if (contratante_id !== null && pdc.id_contratante !== contratante_id) throw new Error('Não autorizado');
   if (pdc.status !== 'enviado') throw new Error(`PDC não pode ser pago (status: ${pdc.status})`);
 
   // Verifica expiração
