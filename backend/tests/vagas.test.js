@@ -6,7 +6,7 @@ describe('GET /api/vagas', () => {
     await resetDb();
     const c = await createUser({ tipo_usuario: 'contratante' });
     await createVaga(c.id);
-    await createVaga(c.id, { complexidade: 'media', regiao: 'Campinas - SP' });
+    await createVaga(c.id, { complexidade: 'media', cidade: 'Campinas', carga_horaria: '12h' });
   });
 
   it('lista vagas publicamente (sem auth)', async () => {
@@ -15,15 +15,22 @@ describe('GET /api/vagas', () => {
     expect(r.body.vagas.length).toBe(2);
   });
 
-  it('filtra por complexidade', async () => {
-    const r = await (await api()).get('/api/vagas?complexidade=media');
+  it('filtra por cidade (matching atual)', async () => {
+    const r = await (await api()).get('/api/vagas?cidade=Campinas');
     expect(r.status).toBe(200);
     expect(r.body.vagas.length).toBe(1);
-    expect(r.body.vagas[0].complexidade).toBe('media');
+    expect(r.body.vagas[0].cidade).toBe('Campinas');
   });
 
-  it('filtra por região', async () => {
-    const r = await (await api()).get('/api/vagas?regiao=Campinas');
+  it('filtra por carga horária (matching atual)', async () => {
+    const r = await (await api()).get('/api/vagas?cargaHoraria=12h');
+    expect(r.status).toBe(200);
+    expect(r.body.vagas.length).toBe(1);
+    expect(r.body.vagas[0].carga_horaria).toBe('12h');
+  });
+
+  it('pagina com limite', async () => {
+    const r = await (await api()).get('/api/vagas?limite=1');
     expect(r.status).toBe(200);
     expect(r.body.vagas.length).toBe(1);
   });

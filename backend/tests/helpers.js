@@ -81,18 +81,22 @@ export async function createVaga(contratanteId, overrides = {}) {
     remuneracao_tipo: 'hora',
     remuneracao_valor: 120,
     regiao: 'São Paulo - SP',
+    cidade: 'São Paulo',
+    carga_horaria: '6h',
     ...overrides
   };
   const info = await db.run(
     `INSERT INTO vagas (
        id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
        complexidade, servico_descricao, profissional_desejado, jornada_horario,
-       jornada_escala, tipo_contrato, remuneracao_tipo, remuneracao_valor, regiao
-     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       jornada_escala, tipo_contrato, remuneracao_tipo, remuneracao_valor, regiao,
+       cidade, carga_horaria
+     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       contratanteId, v.paciente_sexo, v.paciente_idade, v.paciente_diagnostico,
       v.complexidade, v.servico_descricao, v.profissional_desejado, v.jornada_horario,
-      v.jornada_escala, v.tipo_contrato, v.remuneracao_tipo, v.remuneracao_valor, v.regiao
+      v.jornada_escala, v.tipo_contrato, v.remuneracao_tipo, v.remuneracao_valor, v.regiao,
+      v.cidade, v.carga_horaria
     ]
   );
   return { id: info.lastInsertRowid, ...v };
