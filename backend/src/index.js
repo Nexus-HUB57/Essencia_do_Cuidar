@@ -18,6 +18,22 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-trocar';
 
 const app = await createApp();
 
+// Guardas de processo. O default do Node >= 15 e terminar o processo em
+// qualquer unhandledRejection — um handler async sem try/catch derrubava o
+// backend inteiro. Com createRouter() (middleware/async.js) as rejeicoes
+// chegam ao error handler de app.js; estas guardas sao a rede final para o
+// que escapar (bug em codigo fora de request, timer, etc).
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+  // Nao sair: o estado pode estar inconsistente, mas derrubar o servico por
+  // uma excecao nao tratada e pior. Em producao, o orquestrador (Render)
+  // reinicia o container se o processo realmente morrer.
+});
+
 const server = http.createServer(app);
 const io = new SocketServer(server, {
   cors: { origin: FRONTEND_URL.split(','), credentials: true }
