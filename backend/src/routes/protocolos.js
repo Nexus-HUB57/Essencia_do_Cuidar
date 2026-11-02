@@ -36,6 +36,7 @@
  *   GET    /api/protocolos/:id/historico-status     → histórico de transições (auditoria)
  */
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import db from '../db/driver.js';
 import { authRequired, requireTipo, requireAdmin } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
@@ -45,7 +46,7 @@ import {
 } from '../services/protocolos.js';
 import { recusarPagamentoPNP, adminResolverPNP } from '../services/protocolos-ppp-pnp.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 /**
  * GET /api/protocolos
