@@ -5,10 +5,11 @@ import api from '../utils/api';
 import type { Vaga, Candidatura, ProfissionalDetalhes } from '../types';
 import Chat from '../components/Chat';
 import OnboardingConnectModal from '../components/OnboardingConnectModal';
+import ProtocolosPanel from '../components/ProtocolosPanel';
 
 export default function DashboardProfissional() {
   const { user, refreshUser } = useAuth();
-  const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'favoritos' | 'perfil'>('buscar');
+  const [tab, setTab] = useState<'buscar' | 'candidaturas' | 'favoritos' | 'perfil' | 'protocolos'>('buscar');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [cands, setCands] = useState<Candidatura[]>([]);
   const [favoritas, setFavoritas] = useState<Vaga[]>([]);
@@ -105,6 +106,7 @@ export default function DashboardProfissional() {
         {[
           { k: 'buscar', l: '🔍 Buscar vagas' },
           { k: 'candidaturas', l: '📋 Minhas candidaturas' },
+          { k: 'protocolos', l: '🛡️ Protocolos' },
           { k: 'favoritos', l: '❤️ Favoritas' },
           { k: 'perfil', l: '👤 Meu perfil' }
         ].map((t) => (
@@ -216,6 +218,11 @@ export default function DashboardProfissional() {
             </div>
           )}
         </div>
+      )}
+
+      {/* TAB: PROTOCOLOS (PCP/PCM/PDC) */}
+      {tab === 'protocolos' && (
+        <ProtocolosPanel />
       )}
 
       {/* TAB: FAVORITOS */}
