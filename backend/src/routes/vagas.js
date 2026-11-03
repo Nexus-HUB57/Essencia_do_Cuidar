@@ -1,4 +1,5 @@
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import jwt from 'jsonwebtoken';
 import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
@@ -8,7 +9,7 @@ import { recomendarParaVaga } from '../services/matching.js';
 import { notificarVagaStatus } from '../services/event-bus.js';
 import { buscarVagas, isFtsEnabled } from '../services/search-fts.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 const vagaSchema = {
   paciente_sexo:        { type: 'enum', values: ['M', 'F', 'Outro'] },
