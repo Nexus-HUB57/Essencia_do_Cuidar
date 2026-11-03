@@ -79,9 +79,10 @@ function normalize(tipo, numero) {
   const trimmed = String(numero).trim().replace(/\s+/g, " ");
   if (tipo && REGEX_POR_CONSELHO[tipo.toUpperCase()]) {
     // Garante que o prefixo do conselho (quando houver) fique em maiusculas
+    // sem alterar o separador: "COREN-SP" deve continuar "COREN-SP".
     return trimmed.replace(
-      new RegExp(`^${tipo}\\s*`, "i"),
-      `${tipo.toUpperCase()} `
+      new RegExp(`^${tipo}(?=[-\\s]|$)`, "i"),
+      tipo.toUpperCase()
     );
   }
   return trimmed;
