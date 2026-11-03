@@ -18,6 +18,7 @@
  *   GET  /api/admin/pagamentos                     → todos os pagamentos
  */
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import db from '../db/driver.js';
 import { authRequired, requireAdmin } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
@@ -27,7 +28,7 @@ import { listarAlertas, emitirAlerta } from '../services/alerting.js';
 import { statsProtocolos } from '../services/protocolos.js';
 import { rodarProtocolosCleanup } from '../services/protocolos-cleanup.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 router.use(authRequired, requireAdmin);
 
@@ -205,6 +206,14 @@ router.patch('/verificacoes/:id', validateBody({
   if (req.body.status === 'aprovado') {
     await db.run(
       'UPDATE profissionais_detalhes SET registro_verificado = 1 WHERE id_user = ?',
+      [v.id_user]
+    );
+  } else {
+    // A rejeição precisa ficar visível no perfil do profissional — sem isso o
+    // estado 2 ("⏳ Em análise") da tabela de 3 estados nunca era alcançado e
+    // a decisão do admin não tinha efeito em lugar nenhum.
+    await db.run(
+      'UPDATE profissionais_detalhes SET registro_verificado = 2 WHERE id_user = ?',
       [v.id_user]
     );
   }

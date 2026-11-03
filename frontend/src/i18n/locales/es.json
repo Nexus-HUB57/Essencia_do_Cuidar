@@ -143,5 +143,69 @@
     "enablePush": "Activar notificaciones push",
     "enabled": "Notificaciones activadas",
     "permissionDenied": "Permiso denegado por el navegador"
+  },
+  "matching": {
+    "title": "Matching automático",
+    "subtitle": "Ordenado por compatibilidad con tu perfil",
+    "recommendedProfessionals": "Profesionales recomendados",
+    "recommendedVagas": "Vacantes recomendadas para ti",
+    "score": "Compatibilidad",
+    "level": {
+      "alto": "Alta compatibilidad",
+      "medio": "Compatibilidad media",
+      "baixo": "Baja compatibilidad"
+    },
+    "why": "Por qué lo recomendamos",
+    "noRecommendations": "Aún no hay recomendaciones.",
+    "noRecommendationsHint": "Completa tu profesión, zona de atención y disponibilidad para recibir recomendaciones.",
+    "viewProfile": "Ver perfil",
+    "viewVaga": "Ver vacante",
+    "apply": "Postularse",
+    "match": "match",
+    "matches": "matches",
+    "loading": "Calculando compatibilidad...",
+    "reasons": {
+      "profissao_exata": "Profesión exacta: {{profissao}}",
+      "profissao_compativel": "Profesión compatible: {{profissao}}",
+      "profissao_diferente": "Profesión distinta a la deseada",
+      "profissao_indisponivel": "Profesión no informada",
+      "disponibilidade_total": "Disponibilidad total ({{turnos}} turnos)",
+      "disponibilidade_parcial": "Disponibilidad parcial ({{turnos}}/{{total}} turnos)",
+      "disponibilidade_incompativel": "Turnos incompatibles",
+      "disponibilidade_indisponivel": "Disponibilidad no informada",
+      "especialidade_afim": "Especialidad afín: {{especialidade}}",
+      "especialidade_sem_afinidade": "Sin especialidad en común",
+      "especialidade_indisponivel": "Sin especialidades registradas",
+      "registro_verificado": "Registro profesional verificado",
+      "registro_pendente": "Registro en análisis",
+      "registro_nao_verificado": "Registro no validado",
+      "reputacao": "Reputación: {{media}}★ ({{total}} reseñas · {{concluidas}} completadas)",
+      "reputacao_indisponivel": "Aún sin reseñas",
+      "regiao_compativel": "Zona compatible: {{regiao}}",
+      "regiao_parcial": "Zona parcialmente compatible: {{regiao}}",
+      "regiao_diferente": "Zona distinta a la vacante",
+      "regiao_indisponivel": "Zona no informada",
+      "reputacao_historico": "Historial: {{concluidas}} atenciones completadas"
+    },
+    "profissoes": {
+      "cuidador": "Cuidador de Ancianos",
+      "tecnico_enfermagem": "Técnico de Enfermería",
+      "enfermeiro": "Enfermero",
+      "fisioterapeuta": "Fisioterapeuta",
+      "terapeuta_ocupacional": "Terapeuta Ocupacional",
+      "psicologo": "Psicólogo",
+      "fonoaudiologo": "Fonoaudiólogo",
+      "nutricionista": "Nutricionista",
+      "medico": "Médico",
+      "dentista": "Dentista"
+    },
+    "perfil": {
+      "profissao": "Profesión",
+      "regiao": "Zona de atención",
+      "regiaoPlaceholder": "Ej.: Zona Sur - SP",
+      "regiaoHint": "Dónde atiendes. Solo se recomiendan profesionales de tu zona.",
+      "selectProfissao": "Selecciona",
+      "completeProfile": "Completa tu perfil para mejorar las recomendaciones"
+    }
   }
 }

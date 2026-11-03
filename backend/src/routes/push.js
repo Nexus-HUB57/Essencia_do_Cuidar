@@ -6,10 +6,11 @@
  *   POST /api/push/unsubscribe  → remove subscription
  */
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import { authRequired } from '../middleware/auth.js';
 import { saveSubscription, removeSubscription, getPublicKey, isEnabled } from '../services/push.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 router.get('/key', (req, res) => {
   res.json({ enabled: isEnabled(), publicKey: getPublicKey() });

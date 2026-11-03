@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
 import Wizard from '../components/Wizard';
 import api from '../utils/api';
 import { useTranslation } from 'react-i18next';
+import { useProfissoes } from '../hooks/useProfissoes';
 
 const ESPECIALIDADES_OPCOES = [
   'Idosos', 'Alzheimer', 'Cuidados Paliativos', 'Pós-operatório',
@@ -24,26 +25,13 @@ const TIPO_REGISTRO_OPCOES = [
   { v: 'CRN', l: 'CRN (Nutrição)' },
   { v: 'OUTRO', l: 'Outro' }
 ];
-const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
-
-// M2/M3 — Profissões canônicas e UFs carregados do backend (Sprint 3).
-// Fallback local se o endpoint /api/profissoes não responder (ex.: dev sem backend).
-const PROFISSOES_FALLBACK = [
-  { id: 'cuidador_idosos', label: 'Cuidador de Idosos', conselho: null, sinonimos: ['cuidador', 'cuidadora', 'acompanhante'] },
-  { id: 'enfermeiro', label: 'Enfermeiro(a)', conselho: 'COREN', sinonimos: ['enfermeiro', 'enfermeira'] },
-  { id: 'tecnico_enfermagem', label: 'Técnico de Enfermagem', conselho: 'COREN', sinonimos: ['tecnico_enfermagem'] },
-  { id: 'fisioterapeuta', label: 'Fisioterapeuta', conselho: 'CREFITO', sinonimos: ['fisioterapeuta', 'fisio'] },
-  { id: 'psicologo', label: 'Psicólogo(a)', conselho: 'CRP', sinonimos: ['psicologo', 'psicologa'] },
-  { id: 'terapeuta_ocupacional', label: 'Terapeuta Ocupacional', conselho: 'CREFITO', sinonimos: ['terapeuta ocupacional'] },
-  { id: 'nutricionista', label: 'Nutricionista', conselho: 'CRN', sinonimos: ['nutricionista'] },
-  { id: 'medico', label: 'Médico(a)', conselho: 'CRM', sinonimos: ['medico', 'medica'] }
-];
 
 export default function Cadastro() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { cadastro } = useAuth();
+  const { opcoes: opcoesProfissao, ufs } = useProfissoes();
 
   const tipoInicial = (params.get('tipo') as 'profissional' | 'contratante') || 'contratante';
   const [step, setStep] = useState(0);
@@ -51,20 +39,11 @@ export default function Cadastro() {
   const [form, setForm] = useState({
     nome: '', email: '', senha: '', telefone: '',
     tipo_registro: '', registro_conselho: '', uf: '',
+    profissao: '', regiao: '',
     especialidades: [] as string[], disponibilidade: [] as string[], bio: ''
   });
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // M2/M3 — Carrega lista canônica de profissões do backend (com fallback local)
-  const [profissoes, setProfissoes] = useState(PROFISSOES_FALLBACK);
-  const [ufs, setUfs] = useState(UFS);
-  useEffect(() => {
-    api.get('/profissoes').then(({ data }) => {
-      if (data.profissoes?.length) setProfissoes(data.profissoes);
-      if (data.ufs?.length) setUfs(data.ufs);
-    }).catch(() => {/* fallback mantém */});
-  }, []);
 
   const steps = tipo === 'profissional'
     ? [
@@ -103,6 +82,8 @@ export default function Cadastro() {
           tipo_registro: form.tipo_registro,
           registro_conselho: form.registro_conselho,
           uf: form.uf,
+          profissao: form.profissao || undefined,
+          regiao: form.regiao || undefined,
           especialidades: form.especialidades,
           disponibilidade: form.disponibilidade,
           bio: form.bio
@@ -179,7 +160,7 @@ export default function Cadastro() {
                   <label className="label">UF</label>
                   <select className="input" value={form.uf} onChange={(e) => setForm({ ...form, uf: e.target.value })}>
                     <option value="">-</option>
-                    {UFS.map(u => <option key={u} value={u}>{u}</option>)}
+                    {ufs.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
               </div>
@@ -191,6 +172,23 @@ export default function Cadastro() {
 
           {step === 3 && tipo === 'profissional' && (
             <div className="space-y-3">
+              <div>
+                <label className="label">{t('matching.perfil.profissao')}</label>
+                <select className="input" value={form.profissao}
+                  onChange={(e) => setForm({ ...form, profissao: e.target.value })}>
+                  <option value="">{t('matching.perfil.selectProfissao')}</option>
+                  {opcoesProfissao.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">{t('matching.perfil.regiao')}</label>
+                <input className="input" value={form.regiao}
+                  onChange={(e) => setForm({ ...form, regiao: e.target.value })}
+                  placeholder={t('matching.perfil.regiaoPlaceholder')} />
+                <p className="text-[10px] text-slate-400 mt-1">{t('matching.perfil.regiaoHint')}</p>
+              </div>
               <div>
                 <label className="label">Especialidades</label>
                 <div className="flex flex-wrap gap-1.5">

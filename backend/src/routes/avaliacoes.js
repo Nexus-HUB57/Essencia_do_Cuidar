@@ -10,12 +10,13 @@
  * e `await db.all()` ao invés de `db.prepare(...).get/all`.
  */
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyNetlify } from '../services/netlify.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 /**
  * POST /api/avaliacoes
