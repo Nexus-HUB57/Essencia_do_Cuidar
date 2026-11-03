@@ -2,7 +2,7 @@
 # Smoke test — Sistema de Matching Vagas x Profissional (Sprint 2 / M1-fix)
 #
 # Cobre:
-#   - taxonomia de profissões (GET /api/profissionais/profissoes)
+#   - taxonomia de profissões (GET /api/profissoes)
 #   - GET /api/vagas/:id/recomendar  (contratante → profissionais)
 #   - GET /api/profissionais/me/recomendar (profissional → vagas)
 #   - o critério de profession realmente pontua (regressão do bug do Sprint 1)
@@ -73,7 +73,8 @@ assert_true "$(echo "$HC" | grep -q '"reachable":true' && echo 1 || echo 0)" "ba
 # ── 1. Taxonomia de profissões ───────────────────────────────────────────
 echo ""
 echo "[1] Taxonomia de profissões"
-PROFISSOES=$(http_body "$BASE/api/profissionais/profissoes")
+# A taxonomia é servida pelo endpoint canônico /api/profissoes
+PROFISSOES=$(http_body "$BASE/api/profissoes")
 N_PROF=$(echo "$PROFISSOES" | json "len(d['profissoes'])")
 assert_true "$([ "${N_PROF:-0}" -ge 10 ] && echo 1 || echo 0)" "lista traz $N_PROF profissões"
 assert_true "$(echo "$PROFISSOES" | grep -q '"cuidador"' && echo 1 || echo 0)" "inclui 'cuidador'"

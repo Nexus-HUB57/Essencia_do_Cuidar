@@ -25,7 +25,7 @@
  * Endpoints que usam este serviço:
  *   GET /api/vagas/:id/recomendar          → top N profissionais para uma vaga
  *   GET /api/profissionais/me/recomendar   → top N vagas para o profissional logado
- *   GET /api/profissionais/profissoes       → taxonomia canônica (para o formulário)
+ *   GET /api/profissoes                     → taxonomia canônica (para o formulário)
  *
  * Não há mudança de contrato — matching automático é opcional e aditivo.
  * O fluxo manual (filtrar + candidatar) continua funcionando.

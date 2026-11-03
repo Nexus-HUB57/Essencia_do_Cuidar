@@ -215,7 +215,7 @@ O nível resultante é `alto` (≥ 0.70), `medio` (≥ 0.45) ou `baixo`.
 ### Taxonomia de profissões
 
 O profissional declara sua profissão no cadastro/edit de perfil. O backend é a
-fonte da verdade — a lista vem de `GET /api/profissionais/profissoes`:
+fonte da verdade — a lista vem de `GET /api/profissoes`:
 
 `cuidador` · `tecnico_enfermagem` · `enfermeiro` · `fisioterapeuta` ·
 `terapeuta_ocupacional` · `psicologo` · `fonoaudiologo` · `nutricionista` ·
@@ -229,7 +229,7 @@ taxonomia, com sinônimos e radicais — "Cuidador de Idosos", "Acompanhante",
 
 | Método | Rota                                    | Auth        | Descrição                                   |
 |--------|-----------------------------------------|-------------|---------------------------------------------|
-| GET    | `/api/profissionais/profissoes`          | —           | Taxonomia canônica de profissões            |
+| GET    | `/api/profissoes`                        | —           | Taxonomia canônica de profissões + UFs      |
 | GET    | `/api/vagas/:id/recomendar`              | contratante | Profissionais recomendados para a vaga      |
 | GET    | `/api/profissionais/me/recomendar`       | profissional| Vagas recomendadas para o profissional logado |
 
