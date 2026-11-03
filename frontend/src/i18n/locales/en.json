@@ -143,5 +143,69 @@
     "enablePush": "Enable push notifications",
     "enabled": "Notifications enabled",
     "permissionDenied": "Permission denied by browser"
+  },
+  "matching": {
+    "title": "Automatic matching",
+    "subtitle": "Ranked by compatibility with your profile",
+    "recommendedProfessionals": "Recommended professionals",
+    "recommendedVagas": "Jobs recommended for you",
+    "score": "Compatibility",
+    "level": {
+      "alto": "High compatibility",
+      "medio": "Medium compatibility",
+      "baixo": "Low compatibility"
+    },
+    "why": "Why we recommend",
+    "noRecommendations": "No recommendations yet.",
+    "noRecommendationsHint": "Fill in your profession, service area and availability to get recommendations.",
+    "viewProfile": "View profile",
+    "viewVaga": "View job",
+    "apply": "Apply",
+    "match": "match",
+    "matches": "matches",
+    "loading": "Calculating compatibility...",
+    "reasons": {
+      "profissao_exata": "Exact profession: {{profissao}}",
+      "profissao_compativel": "Compatible profession: {{profissao}}",
+      "profissao_diferente": "Different profession than requested",
+      "profissao_indisponivel": "Profession not provided",
+      "disponibilidade_total": "Full availability ({{turnos}} shifts)",
+      "disponibilidade_parcial": "Partial availability ({{turnos}}/{{total}} shifts)",
+      "disponibilidade_incompativel": "Incompatible shifts",
+      "disponibilidade_indisponivel": "Availability not provided",
+      "especialidade_afim": "Related specialty: {{especialidade}}",
+      "especialidade_sem_afinidade": "No specialty in common",
+      "especialidade_indisponivel": "No specialties listed",
+      "registro_verificado": "Verified professional registration",
+      "registro_pendente": "Registration under review",
+      "registro_nao_verificado": "Registration not validated",
+      "reputacao": "Reputation: {{media}}★ ({{total}} reviews · {{concluidas}} completed)",
+      "reputacao_indisponivel": "No reviews yet",
+      "regiao_compativel": "Matching area: {{regiao}}",
+      "regiao_parcial": "Partially matching area: {{regiao}}",
+      "regiao_diferente": "Different area from the job",
+      "regiao_indisponivel": "Area not provided",
+      "reputacao_historico": "Track record: {{concluidas}} completed care assignments"
+    },
+    "profissoes": {
+      "cuidador": "Elder Caregiver",
+      "tecnico_enfermagem": "Nursing Technician",
+      "enfermeiro": "Nurse",
+      "fisioterapeuta": "Physiotherapist",
+      "terapeuta_ocupacional": "Occupational Therapist",
+      "psicologo": "Psychologist",
+      "fonoaudiologo": "Speech Therapist",
+      "nutricionista": "Nutritionist",
+      "medico": "Doctor",
+      "dentista": "Dentist"
+    },
+    "perfil": {
+      "profissao": "Profession",
+      "regiao": "Service area",
+      "regiaoPlaceholder": "e.g.: South Zone - SP",
+      "regiaoHint": "Where you work. Only professionals in your area are recommended.",
+      "selectProfissao": "Select",
+      "completeProfile": "Complete your profile to improve recommendations"
+    }
   }
 }

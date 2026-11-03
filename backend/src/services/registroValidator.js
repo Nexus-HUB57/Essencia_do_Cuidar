@@ -58,6 +58,16 @@ const REGEX_POR_CONSELHO = {
   CRN:   /^(?:\d{3,6})[\/\-\s]([A-Z]{2})$/i
 };
 
+/** Exemplos usados nas mensagens de erro (espelham o README). */
+const EXEMPLOS = {
+  COREN: 'COREN-SP 123456',
+  CRM: '123456/SP',
+  CREFITO: 'CREFITO-12345-F',
+  CRP: '06/12345',
+  CRN: '12345/RJ',
+  OUTRO: 'qualquer identificação'
+};
+
 /**
  * Normaliza o numero para o formato canonico antes de salvar.
  * - Remove espacos duplicados
@@ -141,6 +151,7 @@ async function verifyWithCouncil(tipo_registro, registro_conselho) {
 
 export {
   REGEX_POR_CONSELHO,
+  EXEMPLOS,
   normalize,
   validate,
   verifyWithCouncil
