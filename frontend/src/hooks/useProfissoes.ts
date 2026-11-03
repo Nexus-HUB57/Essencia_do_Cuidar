@@ -10,28 +10,24 @@ import type { Profissao, ProfissaoId } from '../types';
  * (`GET /api/profissoes`) para que o seletor do cadastro e da edição de
  * perfil gravem sempre um id que o motor de matching reconhece.
  *
- * O rótulo exibido vem do i18n (`matching.profissoes.<id>`), com o `label`
- * do backend como fallback.
+ * O endpoint é o mesmo que já servia o autocomplete legado — não existe uma
+ * segunda rota de taxonomia, para não haver dois formatos de resposta.
  *
- * A lista local abaixo é usada só se o endpoint não responder (dev sem
- * backend) — o id continua sendo o canônico, então nada quebra.
+ * O rótulo exibido vem do i18n (`matching.profissoes.<id>`), com o `rotulo`
+ * do backend como fallback.
  */
-const FALLBACK: Profissao[] = [
-  { id: 'cuidador_idosos', label: 'Cuidador de Idosos', conselho: null, sinonimos: ['cuidador', 'cuidadora', 'acompanhante'] },
-  { id: 'enfermeiro', label: 'Enfermeiro(a)', conselho: 'COREN', sinonimos: ['enfermeiro', 'enfermeira'] },
-  { id: 'tecnico_enfermagem', label: 'Técnico de Enfermagem', conselho: 'COREN', sinonimos: ['tecnico_enfermagem'] },
-  { id: 'fisioterapeuta', label: 'Fisioterapeuta', conselho: 'CREFITO', sinonimos: ['fisioterapeuta', 'fisio'] },
-  { id: 'psicologo', label: 'Psicólogo(a)', conselho: 'CRP', sinonimos: ['psicologo', 'psicologa'] },
-  { id: 'terapeuta_ocupacional', label: 'Terapeuta Ocupacional', conselho: 'CREFITO', sinonimos: ['terapeuta ocupacional'] },
-  { id: 'nutricionista', label: 'Nutricionista', conselho: 'CRN', sinonimos: ['nutricionista'] },
-  { id: 'medico', label: 'Médico(a)', conselho: 'CRM', sinonimos: ['medico', 'medica'] },
-  { id: 'fonoaudiologo', label: 'Fonoaudiólogo(a)', conselho: 'CRP', sinonimos: ['fonoaudiologo'] },
-  { id: 'dentista', label: 'Dentista', conselho: 'CRO', sinonimos: ['dentista'] }
+
+/** UFs válidas — fallback local caso o backend não responda. */
+const UFS_FALLBACK = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
 export function useProfissoes() {
   const { t } = useTranslation();
-  const [profissoes, setProfissoes] = useState<Profissao[]>(FALLBACK);
+  const [profissoes, setProfissoes] = useState<Profissao[]>([]);
+  const [ufs, setUfs] = useState<string[]>(UFS_FALLBACK);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,9 +35,13 @@ export function useProfissoes() {
     (async () => {
       try {
         const { data } = await api.get('/profissoes');
-        if (!cancelado && data.profissoes?.length) setProfissoes(data.profissoes);
+        if (cancelado) return;
+        setProfissoes(data.profissoes || []);
+        if (data.ufs?.length) setUfs(data.ufs);
       } catch {
-        // Falha de rede não pode travar o cadastro — o fallback local serve.
+        // Falha de rede não pode travar o cadastro — o seletor fica vazio e
+        // o usuário ainda consegue enviar o resto do formulário.
+        if (!cancelado) setProfissoes([]);
       } finally {
         if (!cancelado) setLoading(false);
       }
@@ -59,10 +59,10 @@ export function useProfissoes() {
   /** Opções prontas para um <select>. */
   const opcoes = profissoes.map((p) => ({
     value: p.id as ProfissaoId,
-    label: rotulo(p.id, p.label)
+    label: rotulo(p.id, p.rotulo)
   }));
 
-  return { profissoes, opcoes, loading, rotulo };
+  return { profissoes, opcoes, ufs, loading, rotulo };
 }
 
 export default useProfissoes;

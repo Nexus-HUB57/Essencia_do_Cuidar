@@ -13,20 +13,14 @@
 Esta versão foi construída sobre o trabalho recuperado de branches perdidas e
 expandida com 4 Sprints de melhorias + 12 itens de robustez pós-merge.
 
-### Sistema de Matching Automático (Sprint 1 → Sprint 2)
-- **Algoritmo de score 0-1** (`services/matching.js`) com 6 critérios:
-  **profissão** (0.40), disponibilidade vs jornada (0.20), reputação (0.15),
-  especialidade (0.10), **localização** (0.10), registro verificado (0.05)
-- A profession e a localização deixou de ser "boost decorativo": a profissão
-  do profissional passou a ser um campo de primeira classe
-  (`profissionais_detalhes.profissao`) e a comparação usa a taxonomia
-  canônica de `services/profissoes.js`
-- Motivos **estruturados** (`codigo` + `detalhe`) traduzidos no frontend
-  (pt-BR / es / en) — o backend não fixa texto em português
+### Sistema de Matching Automático (Sprint 1)
+- **Algoritmo de score 0-1** (services/matching.js) com 5 componentes:
+  tipo de profissional (0.40), disponibilidade vs jornada (0.20),
+  boost por `registro_verificado` (0.15), boost por avaliação média (0.15),
+  boost por região definida (0.05)
 - `GET /api/vagas/:id/recomendar` — top N profissionais recomendados para uma vaga
 - `GET /api/profissionais/me/recomendar` — top N vagas recomendadas para o profissional logado
 - Exclui recursos já relacionados (não recomenda duplicar)
-- Detalhes do algoritmo: [Sistema de Matching](#-sistema-de-matching-vagas-x-profissional)
 
 ### Eventos Socket.IO em tempo real (Sprint 2)
 - 7 eventos: `candidatura:visualizada/aceita/recusada`, `vaga:fechada/pausada/reativada`, `mensagem:nova`
@@ -147,8 +141,7 @@ médicos) para cuidado domiciliar com confiança, empatia e segurança.
 - ✅ **Chat interno** tempo real (Socket.IO) com fallback HTTP — sem echo ao remetente (W1)
 - ✅ **Upload de diploma** (PDF/JPG/PNG, 5 MB) com selo de verificação + auth U3
 - ✅ **Validação estrutural de registros** (CRM, COREN, CREFITO, CRP, CRN) com 3 estados
-- ✅ **Matching automático Vagas x Profissional** — score 0–1 com 6 critérios, incluindo **profissão** (0.40) e **localização** (0.10), com motivos traduzidos (pt-BR/es/en)
-- ✅ **Recomendações dos dois lados** — profissionais por vaga, vagas por profissional
+- ✅ **Matching automático** — score 0-1 com 6 critérios explicados (profissão, disponibilidade, reputação, especialidade, registro, região) + 2 endpoints de recomendação
 - ✅ **Eventos Socket.IO em tempo real** (7 eventos) + Web Push + hook React (W4, W5)
 - ✅ **Auditoria de transições** de status em `candidatura_status_log` (M11)
 - ✅ **Limite de candidaturas por vaga** (M8) + **expiração automática** (M9)
@@ -197,66 +190,67 @@ A validação roda no endpoint `POST /api/profissionais/me/verificar-registro`
 
 ## 🎯 Sistema de Matching (Vagas x Profissional)
 
-> O que o dia a dia precisa: quem contrata **vê profissionais recomendados**
-> para a vaga que publicou; quem trabalha **vê vagas recomendadas** para o
-> seu perfil. O matching é **aditivo** — o fluxo manual (filtrar + candidatar)
-> continua intacto.
+> Endpoint do dia a dia: quem contrata **vê profissionais recomendados** para a vaga
+> que publicou; quem trabalha **vê vagas recomendadas** para o seu perfil.
+> O matching é **aditivo** — o fluxo manual (filtrar + candidatar) continua intacto.
 
 ### Como o score é calculado
 
 Cada par (vaga, profissional) recebe um score de **0.0 a 1.0**, com pesos que
-somam 1.0. Critérios sem dados (ex.: profissional sem cidade cadastrada) têm
-o peso **redistribuído proporcionalmente** entre os demais — assim o score
-final permanece interpretável mesmo com perfis incompletos.
+somam 1.0. Critérios sem dados (ex.: profissional sem região cadastrada) têm o
+peso **redistribuído proporcionalmente** entre os demais — assim o score final
+permanece interpretável mesmo com perfis incompletos.
 
-| Critério                | Peso  | Como é medido                                                             |
-|-------------------------|-------|---------------------------------------------------------------------------|
+| Critério                | Peso  | Como é medido                                                            |
+|-------------------------|-------|--------------------------------------------------------------------------|
 | **Profissão**           | 0.40  | Profissão canônica da vaga (`profissional_desejado`) × do profissional. Match exato = 1.0; profissões compatíveis (ex.: técnico de enfermagem × cuidador) = fração parcial; inviável = 0 |
-| **Disponibilidade**     | 0.20  | Turnos da jornada da vaga (`carga_horaria` / `jornada_horario`) × disponibilidade declarada |
+| **Disponibilidade**     | 0.20  | Turnos da jornada da vaga (`08h às 18h` → manhã+tarde) × disponibilidade declarada |
 | **Reputação**           | 0.15  | Média das avaliações (com peso por confiança de amostra: 1 avaliação não pesa como 10) + histórico de contratos concluídos |
 | **Especialidade**       | 0.10  | Especialidades do profissional citadas no texto da vaga (descrição do serviço / diagnóstico) |
-| **Localização**         | 0.10  | Mesma cidade = 1.0; mesma UF = 0.60 + 0.40 × sobreposição; UF diferente = 0 (atendimento é local) |
-| **Registro verificado** | 0.05  | Selo `✓ Verificado` (1) / `⏳ Em análise` (2) / não validado (0)           |
+| **Registro verificado** | 0.05  | Selo `✓ Verificado` (1) / `⏳ Em análise` (2) / não validado (0)          |
+| **Região**              | 0.10  | Mesma UF = 0.70 + 0.30 × sobreposição da sub-região; UF diferente = 0 (atendimento domiciliar é local) |
 
 O nível resultante é `alto` (≥ 0.70), `medio` (≥ 0.45) ou `baixo`.
 
-> A **profissão** é o critério de maior peso de propósito: duas pessoas podem
-> morar na mesma cidade e ter a mesma disponibilidade, e uma ser enfermeira
-> enquanto a outra é fisioterapeuta — para a vaga, só uma serve.
-
 ### Taxonomia de profissões
 
-A taxonomia canônica vive em `backend/src/services/profissoes.js` e é
-exposta em `GET /api/profissoes`. O profissional declara a sua no
-cadastro/edição de perfil; o texto livre da vaga (`profissional_desejado`) é
-canonicalizado pela mesma lista, com sinônimos:
+O profissional declara sua profissão no cadastro/edit de perfil. O backend é a
+fonte da verdade — a lista vem de `GET /api/profissoes`:
 
-`cuidador_idosos` · `tecnico_enfermagem` · `enfermeiro` · `fisioterapeuta` ·
+`cuidador` · `tecnico_enfermagem` · `enfermeiro` · `fisioterapeuta` ·
 `terapeuta_ocupacional` · `psicologo` · `fonoaudiologo` · `nutricionista` ·
 `medico` · `dentista`
 
-Ex.: "Cuidador de Idosos", "Acompanhante" e "cuidador" caem no mesmo grupo;
-"Técnico de Enfermagem" é detectado como `tecnico_enfermagem` e **não** como
-`enfermeiro` (o sinônimo mais longo ganha).
+O texto livre da vaga (`profissional_desejado`) é canonicalizado pela mesma
+taxonomia, com sinônimos e radicais — "Cuidador de Idosos", "Acompanhante",
+"Fisioterapia" e "Fisioterapeuta" caem no mesmo grupo.
 
 ### Endpoints
 
-| Método | Rota                                 | Auth        | Descrição                                    |
-|--------|--------------------------------------|-------------|----------------------------------------------|
-| GET    | `/api/profissoes`                    | —           | Taxonomia canônica de profissões             |
-| GET    | `/api/vagas/:id/recomendar`          | contratante | Profissionais recomendados para a vaga       |
-| GET    | `/api/profissionais/me/recomendar`   | profissional| Vagas recomendadas para o profissional logado |
+| Método | Rota                                    | Auth        | Descrição                                   |
+|--------|-----------------------------------------|-------------|---------------------------------------------|
+| GET    | `/api/profissoes`                        | —           | Taxonomia canônica de profissões + UFs      |
+| GET    | `/api/vagas/:id/recomendar`              | contratante | Profissionais recomendados para a vaga      |
+| GET    | `/api/profissionais/me/recomendar`       | profissional| Vagas recomendadas para o profissional logado |
 
 Parâmetros: `limite` (1–50, default 10) e `minScore` (default 0.3).
 
-A resposta traz o score, o nível e os **motivos estruturados** — cada motivo
-tem um `codigo` estável (`profissao_exata`, `disponibilidade_parcial`,
-`reputacao`, …) e um `detalhe` com os parâmetros de interpolação. É o
-frontend que traduz o texto (`matching.reasons.*` em pt-BR / es / en), e não
-o backend — por isso o mesmo payload serve aos três idiomas.
+A resposta traz o score, o nível e os **motivos estruturados** — cada motivo tem
+um `codigo` estável (`profissao_exata`, `disponibilidade_parcial`,
+`reputacao`, …) e um `detalhe` com os parâmetros de interpolação. É o frontend
+que traduz o texto (`matching.reasons.*` em pt-BR / es / en), e não o backend —
+por isso o mesmo payload serve aos três idiomas.
 
 Profissionais que **já se candidataram** à vaga não são recomendados (não faz
 sentido sugerir o mesmo candidato duas vezes).
+
+### Filtros de listagem
+
+`GET /api/vagas` aceita, além dos filtros originais: `tipoContrato`,
+`remuneracaoTipo`, `jornadaEscala`, `ordenar` (`recentes` | `antigos` |
+`remuneracao`), `limite` (1–200) e `offset`. A resposta inclui `total`,
+`limite` e `offset` para paginação. A coluna de ordenação é validada contra
+uma whitelist — um valor fora dela cai no default, nunca chega ao SQL.
 
 ---
 
@@ -270,7 +264,7 @@ Essencia_do_Cuidar/
 │   │   ├── db/                 # driver.js (sqlite+pg) + sqlite.js + postgres.js + index.js (facade)
 │   │   ├── routes/             # auth, profissionais, vagas, candidaturas, mensagens, avaliacoes,
 │   │   │                       # favoritos, notificacoes, pagamentos, push, admin, i18n
-│   │   ├── middleware/         # auth (JWT+jti+blacklist), validate (schema), security (helmet+rate-limit)
+│   │   ├── middleware/         # auth (JWT+jti+blacklist), validate (schema), security (helmet+rate-limit), async (wrapRouter)
 │   │   └── services/
 │   │       ├── netlify.js          # Cliente do webhook netlify.ai
 │   │       ├── registroValidator.js # Verificação estrutural de registros (regex)
@@ -319,6 +313,7 @@ Essencia_do_Cuidar/
 ├── scripts/
 │   ├── smoke-test.sh           # 21+ testes E2E (saúde, auth, vagas, candidatura, etc.)
 │   ├── smoke-test-v2.sh        # 28+ testes E2E com 6 features
+│   ├── smoke-test-matching.sh  # 39 testes E2E do matching (score, pesos, auth, filtros)
 │   ├── cron-webhook-retry.sh   # Cron job: POST /api/admin/webhooks/retry
 │   └── cron-candidatura-cleanup.sh # Cron job: POST /api/admin/candidaturas/limpar-expiradas
 ├── render.yaml                 # Render Blueprint (1 Web + 2 Cron Jobs)
@@ -360,7 +355,7 @@ users                (id, tipo_usuario, nome, email, senha_hash, telefone, criad
 profissionais_detalhes (id, id_user, diploma_url, diploma_nome_original,
                         diploma_verificado, registro_conselho, tipo_registro,
                         registro_verificado [0|1|2], registro_verificado_em,
-                        profissao, cidade,
+                        profissao, regiao,
                         especialidades JSON, disponibilidade JSON, bio)
 vagas                (id, id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
                       complexidade [baixa|media], servico_descricao, profissional_desejado,
@@ -431,7 +426,7 @@ Senha de todas: **`demo1234`**
 ### Helpers (1)
 | Método | Rota                          | Auth | Descrição                              |
 |--------|-------------------------------|------|----------------------------------------|
-| GET    | `/api/profissoes`             | —    | 8 profissões canônicas + 27 UFs        |
+| GET    | `/api/profissoes`             | —    | 10 profissões canônicas + 27 UFs       |
 
 ### Auth (6)
 | Método | Rota                          | Auth | Descrição                              |
@@ -650,7 +645,7 @@ Para instalar: abra no Chrome mobile, banner aparecerá automaticamente.
 
 ### Matching (39 testes — `scripts/smoke-test-matching.sh`)
 
-28. ✅ Taxonomia de profissões disponível e canônica
+28. ✅ Taxonomia de profissões retorna as 10 profissões canônicas
 29. ✅ Recomendações por vaga retornam profissionais com score
 30. ✅ **O critério de profissão pontua** (regressão do bug do Sprint 1)
 31. ✅ Scores são distintos entre os candidatos e vêm ordenados
@@ -659,7 +654,7 @@ Para instalar: abra no Chrome mobile, banner aparecerá automaticamente.
 34. ✅ Profissional que já se candidatou não é recomendado
 35. ✅ `minScore` e `limite` filtram a lista
 36. ✅ Autorização: sem token → 401, tipo errado → 403, não-dono → 403
-37. ✅ `PUT /profissionais/me` persiste `profissao` e `cidade`
+37. ✅ `PUT /profissionais/me` persiste `profissao` e `regiao`
 38. ✅ Profissão fora da taxonomia → 400
 39. ✅ Filtros expandidos de listagem + anti-injeção no `ordenar`
 
@@ -673,19 +668,15 @@ Para instalar: abra no Chrome mobile, banner aparecerá automaticamente.
 - [x] Notificações push (Web Push / VAPID)
 - [x] Painel administrativo (moderação, stats, users, verificações, pagamentos)
 - [x] Internacionalização (pt-BR, es, en) com react-i18next
-- [x] Matching automático Vagas x Profissional (6 critérios, motivos traduzidos)
 
-### Matching automático (Sprint 2)
+### Matching automático (branch `feat/matching-sprint-2`)
 
 - [x] **Motor de matching reescrito** (`backend/src/services/matching.js`) — a
-      versão anterior pontuava só cidade + carga horária; a profissão, que é
-      o critério mais importante de um marketplace de cuidado, nem entrava na conta
-- [x] **Profissão modelada** (`profissionais_detalhes.profissao`) — sem ela não
-      havia o que comparar: o único campo de "tipo" era `tipo_registro`, que é o
-      *conselho* (COREN, CREFITO), não a profissão
-- [x] Taxonomia canônica compartilhada com `services/profissoes.js` (fonte da
-      verdade única) + 2 profissões novas (fonoaudiólogo, dentista)
-- [x] Localização comparada de verdade (cidade + UF + sub-região)
+      versão anterior comparava a profissão da vaga com as *especialidades* do
+      profissional, o que nunca pontuava e achatava todos os scores em ~0.5
+- [x] **Profissão e região modeladas** (`profissionais_detalhes.profissao` /
+      `.regiao`) — sem elas o matcher não tinha contra o que comparar
+- [x] Taxonomia canônica de 10 profissões + sinônimos/radicais
 - [x] Reputação com histórico de contratos concluídos e peso por amostra
 - [x] Motivos estruturados e traduzidos (pt-BR / es / en)
 - [x] UI de recomendações dos dois lados + edição de perfil
@@ -732,7 +723,7 @@ BASE=http://localhost:4000 bash scripts/smoke-test-v2.sh       # 28/28
 BASE=http://localhost:4000 bash scripts/smoke-test-matching.sh # 39/39
 ```
 
-O `npm run seed` é **determinístico** (reseta os contadores de id), então
+O `npm run seed` é **determinístico**: os ids são sempre os mesmos, então
 demos e testes podem referenciar ids fixos.
 
 ### Validação local completa
@@ -740,8 +731,7 @@ demos e testes podem referenciar ids fixos.
 bash scripts/validate-e2e.sh
 ```
 Sobe a API, roda as três suítes, faz o typecheck e o build do frontend, e
-por fim checa que uma entrada inválida não derruba o servidor. É o mesmo
-que o CI (`.github/workflows/ci.yml`) roda.
+por fim checa que uma entrada inválida não derruba o servidor.
 
 ---
 

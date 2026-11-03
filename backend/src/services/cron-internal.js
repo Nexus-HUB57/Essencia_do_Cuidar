@@ -14,6 +14,7 @@
  *
  * Jobs:
  *   - A cada 30min: retry de webhooks com falha (services/webhook-retry.js)
+ *   - A cada 1h: protocolos PPP + CGPP (services/protocolos-cleanup.js)
  *   - Diário às 3h: expirar candidaturas antigas (services/candidatura-cleanup.js)
  *   - Semanal (domingo 4h): limpar blacklist de tokens expirados
  */
@@ -48,9 +49,22 @@ export function startInternalCron() {
   }, intervalWebhook);
   timers.push(t1);
 
-  // Job 2: expiração de candidaturas a cada 24h (a partir do boot, ~24h depois)
-  const intervalCleanup = 24 * 60 * 60 * 1000;
+  // Job 2: protocolos cleanup (PPP + expiração + CGPP) a cada 1h
+  const intervalProtocolos = 60 * 60 * 1000;
   const t2 = setInterval(async () => {
+    try {
+      const { rodarProtocolosCleanup } = await import('./protocolos-cleanup.js');
+      const r = await rodarProtocolosCleanup();
+      console.log(`[cron-internal] protocolos-cleanup: ppp=${JSON.stringify(r.ppp)} expiracao=${JSON.stringify(r.expiracao)} liberacao=${JSON.stringify(r.liberacao)}`);
+    } catch (err) {
+      console.error('[cron-internal] protocolos-cleanup falhou:', err.message);
+    }
+  }, intervalProtocolos);
+  timers.push(t2);
+
+  // Job 3: expiração de candidaturas a cada 24h (a partir do boot, ~24h depois)
+  const intervalCleanup = 24 * 60 * 60 * 1000;
+  const t3 = setInterval(async () => {
     try {
       const r = await expirarCandidaturasAntigas();
       console.log(`[cron-internal] candidatura-cleanup: expiradas=${r.expiradas}`);
@@ -58,11 +72,11 @@ export function startInternalCron() {
       console.error('[cron-internal] candidatura-cleanup falhou:', err.message);
     }
   }, intervalCleanup);
-  timers.push(t2);
+  timers.push(t3);
 
-  // Job 3 (semanal): limpar blacklist expirada
+  // Job 4 (semanal): limpar blacklist expirada
   const intervalBlacklist = 7 * 24 * 60 * 60 * 1000;
-  const t3 = setInterval(async () => {
+  const t4 = setInterval(async () => {
     try {
       const { limparBlacklistExpirada } = await import('./auth-advanced.js');
       const r = await limparBlacklistExpirada();
@@ -71,7 +85,7 @@ export function startInternalCron() {
       console.error('[cron-internal] blacklist-cleanup falhou:', err.message);
     }
   }, intervalBlacklist);
-  timers.push(t3);
+  timers.push(t4);
 
   // Roda o webhook-retry imediatamente no boot (não espera 30 min)
   setTimeout(async () => {
@@ -83,8 +97,19 @@ export function startInternalCron() {
     }
   }, 5000);  // 5s após boot
 
+  // Roda o protocolos-cleanup imediatamente no boot (para não esperar 1h)
+  setTimeout(async () => {
+    try {
+      const { rodarProtocolosCleanup } = await import('./protocolos-cleanup.js');
+      const r = await rodarProtocolosCleanup();
+      console.log(`[cron-internal] protocolos-cleanup (inicial): ppp=${JSON.stringify(r.ppp)}`);
+    } catch (err) {
+      console.error('[cron-internal] protocolos-cleanup (inicial) falhou:', err.message);
+    }
+  }, 10000);  // 10s após boot
+
   jobsAtivos = true;
-  console.log('[cron-internal] 3 jobs agendados: webhook-retry (30min), candidatura-cleanup (24h), blacklist-cleanup (7d)');
+  console.log('[cron-internal] 4 jobs agendados: webhook-retry (30min), protocolos-cleanup (1h), candidatura-cleanup (24h), blacklist-cleanup (7d)');
 }
 
 /**

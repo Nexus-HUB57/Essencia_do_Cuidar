@@ -90,27 +90,28 @@ async function resetSequences() {
     ['profissional', 'Beatriz Mendes', 'bia@demo.com', hash('demo1234'), '11999990004']
   );
 
-  // Detalhes profissionais — com cidade (matching) e profissão canônica.
+  // Detalhes profissionais — com cidade (matching simplificado)
   //
-  // `profissao` usa os ids de backend/src/services/profissoes.js e `cidade`
-  // alimenta o critério de região. O seed cobre os casos que interessam:
-  //   Ana      → match exato de profissão (vaga "Cuidador de Idosos"), mesma cidade
-  //   João     → match exato de profissão (vaga "Fisioterapeuta"), mesma cidade
-  //   Beatriz  → profissão sem vaga correspondente + cidade diferente
+  // `profissao` e `regiao` alimentam o motor de matching (services/matching.js).
+  // `cidade` alimenta o fallback geográfico quando não há região textual.
+  // O seed cobre os três casos que interessam:
+  //   Ana      → match exato de profissão (vaga "Cuidador de Idosos"), mesma região
+  //   João     → match exato de profissão (vaga "Fisioterapeuta"), mesma região
+  //   Beatriz  → profession sem vaga correspondente + região diferente (demo do caso "sem match")
   const insertProf = async (id, args) => {
     return db.run(
       `INSERT INTO profissionais_detalhes
         (id_user, diploma_url, diploma_nome_original, diploma_verificado,
          registro_conselho, tipo_registro, registro_verificado,
-         profissao, especialidades, disponibilidade, bio, cidade)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         profissao, regiao, especialidades, disponibilidade, bio, cidade)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args
     );
   };
   await insertProf(prof1.lastInsertRowid, [
     prof1.lastInsertRowid, '/uploads/diploma-demo-ana.pdf', 'diploma-ana.pdf', 1,
     'COREN-SP 123456', 'COREN', 1,
-    'cuidador_idosos',
+    'cuidador', 'Zona Sul - SP',
     JSON.stringify(['Idosos', 'Alzheimer', 'Cuidados Paliativos']),
     JSON.stringify(['manha', 'tarde', '12h']),
     'Cuidadora de idosos há 8 anos, especializada em Alzheimer e cuidados paliativos.',
@@ -119,7 +120,7 @@ async function resetSequences() {
   await insertProf(prof2.lastInsertRowid, [
     prof2.lastInsertRowid, '/uploads/diploma-demo-joao.pdf', 'diploma-joao.pdf', 1,
     'CREFITO-12345-F', 'CREFITO', 1,
-    'fisioterapeuta',
+    'fisioterapeuta', 'Zona Oeste - SP',
     JSON.stringify(['Fisioterapia', 'Pós-operatório', 'Geriatria']),
     JSON.stringify(['manha', 'tarde']),
     'Fisioterapeuta com foco em reabilitação pós-cirúrgica e geriátrica.',
@@ -128,11 +129,11 @@ async function resetSequences() {
   await insertProf(prof3.lastInsertRowid, [
     prof3.lastInsertRowid, '/uploads/diploma-demo-bia.pdf', 'diploma-bia.pdf', 0,
     '06/12345', 'CRP', 0,
-    'psicologo',
+    'psicologo', 'Centro - SP',
     JSON.stringify(['Psicologia', 'Idosos', 'Acompanhamento Familiar']),
     JSON.stringify(['tarde', 'noite']),
     'Psicóloga clínica com 5 anos de experiência em saúde do idoso.',
-    'Campinas'
+    'São Paulo'
   ]);
 
   // Vagas — com cidade + carga_horaria (matching simplificado: 2 filtros)

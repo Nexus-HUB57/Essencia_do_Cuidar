@@ -45,6 +45,7 @@ const detalhesSchema = {
   registro_conselho: { type: 'string', min: 3, max: 30 },
   tipo_registro:     { type: 'enum', values: ['CRM', 'COREN', 'CREFITO', 'CRP', 'CRN', 'OUTRO'] },
   profissao:         { type: 'enum', values: PROFISSOES.map((p) => p.id) },
+  regiao:            { type: 'string', max: 80 },
   especialidades:    { type: 'array' },
   disponibilidade:   { type: 'array' },
   bio:               { type: 'string', max: 1000 },
@@ -54,7 +55,10 @@ const detalhesSchema = {
 
 router.put('/me', authRequired, requireTipo('profissional'),
   validateBody(detalhesSchema), async (req, res) => {
-    const { registro_conselho, tipo_registro, profissao, especialidades, disponibilidade, bio, uf, cidade } = req.body;
+    const {
+      registro_conselho, tipo_registro, profissao, regiao,
+      especialidades, disponibilidade, bio, uf, cidade
+    } = req.body;
 
     // Normaliza o número de registro (se fornecido) para o formato canônico
     const normalized = (registro_conselho && tipo_registro)
@@ -96,6 +100,7 @@ router.put('/me', authRequired, requireTipo('profissional'),
           SET registro_conselho = COALESCE(?, registro_conselho),
               tipo_registro     = COALESCE(?, tipo_registro),
               profissao         = COALESCE(?, profissao),
+              regiao            = COALESCE(?, regiao),
               especialidades    = COALESCE(?, especialidades),
               disponibilidade   = COALESCE(?, disponibilidade),
               bio               = COALESCE(?, bio),
@@ -107,6 +112,7 @@ router.put('/me', authRequired, requireTipo('profissional'),
         normalized ?? null,
         tipo_registro ?? null,
         profissao ?? null,
+        regiao ?? null,
         especialidades ? JSON.stringify(especialidades) : null,
         disponibilidade ? JSON.stringify(disponibilidade) : null,
         bio ?? null,

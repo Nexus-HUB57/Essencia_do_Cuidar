@@ -3,66 +3,133 @@
  *
  * Sistema de matching automático entre profissionais e vagas.
  *
- * ── Evolução ────────────────────────────────────────────────────────────
+ * ── Por que este arquivo foi reescrito (Sprint 2 / M1-fix) ──────────────
  *
- * A primeira versão (main) pontuava só DOIS critérios: cidade (0.50) e
- * carga horária (0.50). Isso ignorava a informação mais importante de
- * qualquer marketplace de cuidado — **a profissão**. Duas pessoas podem
- * morar na mesma cidade e ter a mesma disponibilidade, e uma ser enfermeira
- * enquanto a outra é fisioterapeuta: para a vaga, só uma serve.
+ * A versão anterior (Sprint 1) comparava o campo `profissional_desejado` da
+ * vaga com as `especialidades` do profissional usando Jaccard de tokens. Isso
+ * **nunca pontuava**: `especialidades` guarda foco clínico (Alzheimer,
+ * Geriatria, Pós-operatório), não a profissão, e o stemming não existia
+ * ("fisioterapia" ≠ "fisioterapeuta"). Resultado: o critério de maior peso
+ * (0.40) era permanentemente 0 e o score máximo real era ~0.60.
  *
- * A versão anterior (branch recovery) tentava comparar a profissão da vaga
- * com as *especialidades* do profissional, mas `especialidades` guarda foco
- * clínico (Alzheimer, Geriatria), não a profissão — e sem stemming
- * ("fisioterapia" ≠ "fisioterapeuta") o critério nunca pontuava. O critério
- * de maior peso era sempre 0.
+ * Agora o modelo é:
+ *   1. O profissional declara sua `profissao` (taxonomia canônica) e sua
+ *      `regiao` de atuação — campos que antes simplesmente não existiam.
+ *   2. A profissão da vaga (texto livre) é canonicalizada pela mesma
+ *      taxonomia, com sinônimos e stemming por prefixo.
+ *   3. Critérios sem dados são **redistribuídos** proporcionalmente, de modo
+ *      que o score final continue numa escala 0.0–1.0 interpretável.
+ *   4. Os motivos saem estruturados (`codigo` + `detalhe`) para que o
+ *      frontend consiga traduzi-los (pt-BR / es / en).
  *
- * Esta versão usa a taxonomia canônica de `services/profissoes.js` (a fonte
- * da verdade, compartilhada com o resto do backend) e pontua seis critérios
- * que somam 1.0:
+ * Endpoints que usam este serviço:
+ *   GET /api/vagas/:id/recomendar          → top N profissionais para uma vaga
+ *   GET /api/profissionais/me/recomendar   → top N vagas para o profissional logado
+ *   GET /api/profissoes                     → taxonomia canônica (para o formulário)
  *
- *   Profissão 0.40 · Disponibilidade 0.20 · Reputação 0.15 ·
- *   Especialidade 0.10 · Região 0.10 · Registro 0.05
- *
- * Critérios sem dado (perfil incompleto) têm o peso redistribuído
- * proporcionalmente entre os demais — assim o score final continua numa
- * escala 0.0–1.0 interpretável mesmo quando faltam informações.
- *
- * Os motivos saem ESTRUTURADOS (`codigo` + `detalhe`) para que o frontend
- * os traduza (pt-BR / es / en) em vez de o backend fixar texto em português.
+ * Não há mudança de contrato — matching automático é opcional e aditivo.
+ * O fluxo manual (filtrar + candidatar) continua funcionando.
  */
 import db from '../db/driver.js';
-import {
-  PROFISSOES,
-  UFS_VALIDAS,
-  normalizarProfissao,
-  compatibilidadeEntre
-} from './profissoes.js';
+import { PROFISSOES, UFS_VALIDAS as UFS_VALIDAS_LISTA } from './profissoes.js';
+
+/* ═══════════════════════════ Taxonomia de profissões ═══════════════════════ */
+
+/**
+ * A taxonomia vive em `services/profissoes.js` — fonte única compartilhada
+ * com o endpoint /api/profissoes. Aqui só reaproveitamos.
+ *
+ * `id` é o valor gravado em `profissionais_detalhes.profissao` e devolvido
+ * pela API; `rotulo` é a exibição em pt-BR (o frontend traduz via i18n).
+ */
+export { PROFISSOES };
+
+const PROFISSAO_IDS = new Set(PROFISSOES.map((p) => p.id));
+
+/**
+ * Stems (radicais) que identificam uma profissão em texto livre.
+ * A busca usa o radical mais longo primeiro, para que
+ * "técnico de enfermagem" não seja classificado como "enfermeiro".
+ */
+const STEMS = [
+  ['tecnico de nursing',        'tecnico_enfermagem'],
+  ['tecnico de enfermagem',     'tecnico_enfermagem'],
+  ['tecnica de enfermagem',     'tecnico_enfermagem'],
+  ['auxiliar de enfermagem',    'tecnico_enfermagem'],
+  ['tecnico de enfermag',       'tecnico_enfermagem'],
+  ['cuidador de idosos',        'cuidador'],
+  ['cuidador de idosa',         'cuidador'],
+  ['cuidador de pessoa',        'cuidador'],
+  ['acompanhante familiar',     'cuidador'],
+  ['acompanhante',              'cuidador'],
+  ['cuidador',                  'cuidador'],
+  ['cuidadora',                 'cuidador'],
+  ['enfermeiro',                'enfermeiro'],
+  ['enfermeira',                'enfermeiro'],
+  ['enfermagem',                'enfermeiro'],
+  ['fisioterapeuta',            'fisioterapeuta'],
+  ['fisioterapia',               'fisioterapeuta'],
+  ['fisioterapia domiciliar',    'fisioterapeuta'],
+  ['fisio',                     'fisioterapeuta'],
+  ['terapeuta ocupacional',     'terapeuta_ocupacional'],
+  ['ocupacional',               'terapeuta_ocupacional'],
+  ['psicologo',                 'psicologo'],
+  ['psicologa',                 'psicologo'],
+  ['psicologia',                'psicologo'],
+  ['psicoterapia',               'psicologo'],
+  ['fonoaudiologo',             'fonoaudiologo'],
+  ['fonologia',                 'fonoaudiologo'],
+  ['nutricionista',              'nutricionista'],
+  ['nutricao',                  'nutricionista'],
+  ['medico',                    'medico'],
+  ['medica',                    'medico'],
+  ['medicina',                  'medico'],
+  ['clinica medica',            'medico'],
+  ['dentista',                  'dentista'],
+  ['odontologo',                'dentista']
+].sort((a, b) => b[0].length - a[0].length);
+
+/**
+ * Profissões que substituem parcialmente umas às outras.
+ * O valor é o quanto o match "parcial" vale (0..1) contra o peso do critério.
+ * Consultado simetricamente.
+ */
+const COMPATIBILIDADE = {
+  'tecnico_enfermagem':    { 'enfermeiro': 0.6, 'cuidador': 0.7, 'medico': 0.3 },
+  'enfermeiro':            { 'tecnico_enfermagem': 0.6, 'medico': 0.5, 'cuidador': 0.4 },
+  'cuidador':              { 'tecnico_enfermagem': 0.7, 'enfermeiro': 0.4, 'fisioterapeuta': 0.3, 'psicologo': 0.3 },
+  'fisioterapeuta':        { 'terapeuta_ocupacional': 0.7, 'enfermeiro': 0.3 },
+  'terapeuta_ocupacional': { 'fisioterapeuta': 0.7, 'psicologo': 0.5 },
+  'psicologo':             { 'terapeuta_ocupacional': 0.5, 'fonoaudiologo': 0.4 },
+  'medico':                { 'enfermeiro': 0.5, 'tecnico_enfermagem': 0.3, 'nutricionista': 0.3 },
+  'nutricionista':         { 'medico': 0.3, 'enfermeiro': 0.2 },
+  'fonoaudiologo':         { 'psicologo': 0.4 }
+};
+
+/** Consejo (tipo_registro) → profissão. Usado só como fallback. */
+const CONSELHO_PROFISSAO = {
+  COREN:   'enfermeiro',
+  CREFITO: 'fisioterapeuta',
+  CRP:     'psicologo',
+  CRN:     'nutricionista',
+  CRM:     'medico',
+  CRO:     'dentista'
+};
 
 /* ═════════════════════════════ Pesos dos critérios ════════════════════════ */
 
 export const PESOS = {
   profissao:      0.40,  // profissão canônica confere
   disponibilidade: 0.20, // sobreposição de turnos
-  reputacao:      0.15,  // média de avaliações + contratos concluídos
+  reputacao:      0.15,  // média de avaliações
   especialidade:  0.10,  // afinidade entre especialidades e o texto da vaga
-  regiao:         0.10,  // proximidade geográfica (cidade / UF)
-  registro:       0.05   // selo de registro profissional
+  registro:       0.05,  // selo de registro verificado
+  regiao:         0.10   // proximidade geográfica
 };
 
 /* ═══════════════════════════════ Utilidades ════════════════════════════════ */
 
-/** Nome do estado → UF. Usado para comparar "São Paulo" com "SP". */
-const UF_POR_NOME = {
-  'acre': 'AC', 'alagoas': 'AL', 'amapa': 'AP', 'bahia': 'BA', 'ceara': 'CE',
-  'distrito federal': 'DF', 'espirito santo': 'ES', 'goias': 'GO',
-  'maranhao': 'MA', 'mato grosso': 'MT', 'mato grosso do sul': 'MS',
-  'minas gerais': 'MG', 'para': 'PA', 'parana': 'PR', 'paraiba': 'PB',
-  'pernambuco': 'PE', 'piaui': 'PI', 'rio de janeiro': 'RJ',
-  'rio grande do norte': 'RN', 'rio grande do sul': 'RS', 'rondonia': 'RO',
-  'roraima': 'RR', 'santa catarina': 'SC', 'sao paulo': 'SP', 'sergipe': 'SE',
-  'tocantins': 'TO'
-};
+const UFS_VALIDAS = new Set(UFS_VALIDAS_LISTA);
 
 /**
  * Normaliza um texto: lowercase, sem acentos, espaços colapsados.
@@ -74,10 +141,47 @@ export function normalizarTexto(texto) {
   return String(texto)
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .replace(/[\u0300-\u036f]/g, '')  // remove acentos
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')  // mantém letras, números, espaço e hífen
     .replace(/\s+/g, ' ')
     .trim();
+}
+/**
+ * Canonicaliza um texto livre para um id de profissão.
+ * @param {string} texto
+ * @returns {string|null} id da profissão ou null se não reconhecível
+ */
+export function resolverProfissao(texto) {
+  const norm = normalizarTexto(texto);
+  if (!norm) return null;
+  for (const [stem, id] of STEMS) {
+    if (norm === stem || norm.includes(stem)) return id;
+  }
+  return null;
+}
+
+/**
+ * Infere a profissão de um profissional quando `profissao` não foi informada:
+ * 1) conselho (tipo_registro) → 2) especialidades.
+ * @param {Object} detalhes
+ * @returns {string|null}
+ */
+export function inferirProfissao(detalhes) {
+  if (!detalhes) return null;
+
+  const declarada = normalizarTexto(detalhes.profissao || '').replace(/\s+/g, '_');
+  if (PROFISSAO_IDS.has(declarada)) return declarada;
+  if (detalhes.profissao && PROFISSAO_IDS.has(detalhes.profissao)) return detalhes.profissao;
+
+  const conselho = String(detalhes.tipo_registro || '').toUpperCase();
+  if (CONSELHO_PROFISSAO[conselho]) return CONSELHO_PROFISSAO[conselho];
+
+  const especialidades = parseJsonArray(detalhes.especialidades);
+  for (const esp of especialidades) {
+    const id = resolverProfissao(esp);
+    if (id) return id;
+  }
+  return null;
 }
 
 /**
@@ -97,119 +201,25 @@ function parseJsonArray(valor) {
 }
 
 /**
- * Cobertura de um conjunto de tokens por outro: fração do conjunto menor
- * que aparece no maior.
+ * Coeficiente de Jaccard entre dois conjuntos de tokens.
  * @param {string[]} a
  * @param {string[]} b
  * @returns {number} 0.0 a 1.0
  */
-function cobertura(a, b) {
+export function jaccard(a, b) {
   const setA = new Set(a);
   const setB = new Set(b);
   if (setA.size === 0 || setB.size === 0) return 0;
-  const menor = setA.size <= setB.size ? setA : setB;
-  const maior = setA.size <= setB.size ? setB : setA;
   let inter = 0;
-  for (const x of menor) if (maior.has(x)) inter++;
-  return inter / menor.size;
+  for (const x of setA) if (setB.has(x)) inter++;
+  const uni = setA.size + setB.size - inter;
+  return uni === 0 ? 0 : inter / uni;
 }
 
 /**
- * Extrai a UF de um texto de localização.
- * "Zona Sul - SP" → SP · "São Paulo" → SP · "Campinas" → null
- * @param {string} texto
- * @returns {string|null}
- */
-export function extrairUF(texto) {
-  if (!texto) return null;
-  const norm = normalizarTexto(texto);
-  if (!norm) return null;
-
-  // UF explícita no fim: "Zona Sul - SP", "sp"
-  const m = norm.match(/\b([a-z]{2})\s*$/);
-  if (m && UFS_VALIDAS.includes(m[1].toUpperCase())) return m[1].toUpperCase();
-
-  // Nome do estado por extenso: "São Paulo" → SP
-  if (UF_POR_NOME[norm]) return UF_POR_NOME[norm];
-
-  return null;
-}
-
-/**
- * Tokens significativos de um local, sem a UF e sem o nome do estado.
- * @param {string} texto
- * @returns {string[]}
- */
-function tokensLocal(texto) {
-  const norm = normalizarTexto(texto);
-  if (!norm) return [];
-  const uf = extrairUF(texto);
-  const porNome = UF_POR_NOME[norm];
-  return norm
-    .split(/\s+/)
-    .filter((t) => t.length > 2)
-    .filter((t) => !(t.length === 2 && UFS_VALIDAS.includes(t.toUpperCase())))
-    .filter((t) => !porNome || norm !== porNome);
-}
-
-/**
- * Compara a localização da vaga com a do profissional.
- *
- * Regras:
- *   - nomes iguais                       → 1.00
- *   - um contém o outro ("São Paulo" ⊂
- *     "São Paulo - Centro")              → 0.70 + 0.30 × cobertura
- *   - mesma UF, nomes diferentes         → 0.60 + 0.40 × cobertura
- *   - UFs diferentes                     → 0.00 (atendimento é local)
- *   - sem dado de um dos lados           → indisponível
- *
- * @param {Object} vaga
- * @param {Object} detalhes
- * @returns {{ pontos: number|null, tipo: string }}
- */
-export function compararLocalizacoes(vaga, detalhes) {
-  // A vaga tem `cidade` (coluna nova) e `regiao` (texto livre, ex.: "Zona Sul - SP").
-  const cidadeVaga = vaga.cidade || null;
-  const regiaoVaga = vaga.regiao || null;
-  const cidadeProf = detalhes.cidade || null;
-
-  if (!cidadeProf || (!cidadeVaga && !regiaoVaga)) {
-    return { pontos: null, tipo: 'indisponivel' };
-  }
-
-  // UF da vaga: explícita em regiao_uf, ou extraída do texto.
-  const ufVaga = vaga.regiao_uf || extrairUF(regiaoVaga) || extrairUF(cidadeVaga);
-  const ufProf = extrairUF(cidadeProf);
-
-  const nomeVaga = normalizarTexto(cidadeVaga || regiaoVaga);
-  const nomeProf = normalizarTexto(cidadeProf);
-
-  if (nomeVaga && nomeVaga === nomeProf) {
-    return { pontos: 1, tipo: 'compativel' };
-  }
-
-  if (ufVaga && ufProf && ufVaga !== ufProf) {
-    return { pontos: 0, tipo: 'diferente' };
-  }
-
-  const sobreposicao = cobertura(tokensLocal(cidadeVaga || regiaoVaga), tokensLocal(cidadeProf));
-
-  if (nomeVaga.includes(nomeProf) || nomeProf.includes(nomeVaga)) {
-    return { pontos: 0.70 + 0.30 * sobreposicao, tipo: 'compativel' };
-  }
-
-  if (ufVaga && ufProf && ufVaga === ufProf) {
-    return { pontos: 0.60 + 0.40 * sobreposicao, tipo: 'parcial' };
-  }
-
-  // Nomes diferentes e sem UF em comum (ou UFs diferentes) — não dá para
-  // assumir proximidade: atendimento domiciliar é local.
-  return { pontos: 0, tipo: 'diferente' };
-}
-
-/**
- * Detecta turnos a partir de uma string de horário/carga horária.
- * "08h às 18h" → ['manha', 'tarde'] · "20h às 08h" → ['noite', 'madrugada']
+ * Detecta turnos a partir de string de horário.
+ * "08h às 18h" → ['manha', 'tarde']
+ * "20h às 08h" → ['noite', 'manha']
  * @param {string} horario
  * @returns {string[]}
  */
@@ -217,7 +227,6 @@ export function extrairTurnos(horario) {
   if (!horario) return [];
   const norm = normalizarTexto(horario);
   const turnos = new Set();
-
   const horas = norm.match(/\d{1,2}\s*h/g)?.map((h) => parseInt(h, 10)) || [];
   if (horas.length >= 2) {
     const [inicio, fim] = horas;
@@ -232,28 +241,17 @@ export function extrairTurnos(horario) {
       h++;
     }
   }
-
   if (/\bmanha\b/.test(norm)) turnos.add('manha');
   if (/\btarde\b/.test(norm)) turnos.add('tarde');
   if (/\bnoite\b/.test(norm)) turnos.add('noite');
   if (/\bmadrugada\b/.test(norm)) turnos.add('madrugada');
-  if (/\bplantao\b/.test(norm)) {
-    if (/\bnoturno\b/.test(norm)) { turnos.add('noite'); turnos.add('madrugada'); }
-    else { turnos.add('manha'); turnos.add('tarde'); }
-  }
-  if (/\b12h\b|\b12x36\b|\b12 x 36\b/.test(norm)) {
-    turnos.add('manha'); turnos.add('tarde'); turnos.add('noite');
-  }
-  if (/\b24h\b|\b24 horas\b|\bintegral\b/.test(norm)) {
-    turnos.add('manha'); turnos.add('tarde'); turnos.add('noite'); turnos.add('madrugada');
-  }
-
   return Array.from(turnos);
 }
 
 /**
  * Mapeia disponibilidade para turnos canônicos.
- * "12h" → manhã+tarde+noite · "24h" → todos.
+ * "12h" cobre manhã+tarde (ou tarde+noite) → todos os três.
+ * "24h" cobre tudo.
  * @param {string[]} disp
  * @returns {string[]}
  */
@@ -273,8 +271,157 @@ export function normalizarDisponibilidade(disp) {
 }
 
 /**
+ * Palavras estruturais que descrevem *como* a região é nomeada, e não
+ * *qual* é a região. "Zona Sul" e "Zona Oeste" compartilham "zona" — se isso
+ * contasse, as duas pareciam mais compatíveis do que "Zona Sul" e "Centro".
+ */
+const TOKENS_ESTRUTURAIS = new Set([
+  'zona', 'bairro', 'regiao', 'area', 'cidade', 'municipio', 'estado', 'setor'
+]);
+
+/**
+ * Separa uma região em UF e sub-região.
+ * "Zona Sul - SP" → { uf: 'SP', sub: ['sul'] }
+ * @param {string} regiao
+ * @returns {{ uf: string|null, sub: string[] }|null}
+ */
+/** Nome do estado (por extenso) → UF. */
+const UF_POR_NOME = {
+  'acre': 'AC', 'alagoas': 'AL', 'amapa': 'AP', 'bahia': 'BA', 'ceara': 'CE',
+  'distrito federal': 'DF', 'espirito santo': 'ES', 'goias': 'GO',
+  'maranhao': 'MA', 'mato grosso': 'MT', 'mato grosso do sul': 'MS',
+  'minas gerais': 'MG', 'para': 'PA', 'parana': 'PR', 'paraiba': 'PB',
+  'pernambuco': 'PE', 'piaui': 'PI', 'rio de janeiro': 'RJ',
+  'rio grande do norte': 'RN', 'rio grande do sul': 'RS', 'rondonia': 'RO',
+  'roraima': 'RR', 'santa catarina': 'SC', 'sao paulo': 'SP', 'sergipe': 'SE',
+  'tocantins': 'TO'
+};
+
+export function normalizarRegiao(regiao) {
+  if (!regiao) return null;
+  const norm = normalizarTexto(regiao);
+  if (!norm) return null;
+
+  const tokens = norm.split(/\s+/).filter(Boolean);
+  let uf = null;
+  const sub = [];
+
+  for (const t of tokens) {
+    if (t.length === 2 && UFS_VALIDAS.has(t.toUpperCase())) {
+      uf = t.toUpperCase();
+      continue;
+    }
+    // Ignora marcadores de separador ("de", "do", "da") e tokens muito curtos
+    if (t.length > 2 && !['de', 'do', 'da', 'em'].includes(t) && !TOKENS_ESTRUTURAIS.has(t)) {
+      sub.push(t);
+    }
+  }
+
+  // Nome do estado por extenso ("São Paulo" → SP). A coluna `cidade` do
+  // profissional guarda o nome da cidade, e a comparação precisa saber se
+  // os dois estão no mesmo estado.
+  if (!uf && UF_POR_NOME[norm]) {
+    uf = UF_POR_NOME[norm];
+    sub.length = 0;
+  }
+
+  if (!uf && sub.length === 0) return null;
+  return { uf, sub, nome: norm };
+}
+
+/**
+ * Cobertura de um conjunto de tokens por outro: fração do conjunto menor
+ * que aparece no maior. Para regiões nomeadas ("Jardim das Acácias" vs
+ * "Jardim Maravilha") reflete melhor a proximidade do que Jaccard.
+ * @param {string[]} a
+ * @param {string[]} b
+ * @returns {number} 0.0 a 1.0
+ */
+function cobertura(a, b) {
+  const setA = new Set(a);
+  const setB = new Set(b);
+  if (setA.size === 0 || setB.size === 0) return 0;
+  const menor = setA.size <= setB.size ? setA : setB;
+  const maior = setA.size <= setB.size ? setB : setA;
+  let inter = 0;
+  for (const x of menor) if (maior.has(x)) inter++;
+  return inter / menor.size;
+}
+
+/**
+ * Compara a região da vaga com a região do profissional.
+ *
+ * Regras:
+ *   - mesma UF            → 0.70 + 0.30 × cobertura(sub-região)
+ *   - UFs diferentes      → 0.00 (atendimento domiciliar é local)
+ *   - UF ausente em um dos lados → 0.50 × cobertura(sub-região)
+ *
+ * @param {string} regiaoVaga
+ * @param {string} regiaoProf
+ * @returns {{ pontos: number|null, tipo: 'compativel'|'parcial'|'diferente'|'indisponivel', ufIgual: boolean|null }}
+ */
+export function compararRegioes(regiaoVaga, regiaoProf) {
+  const a = normalizarRegiao(regiaoVaga);
+  const b = normalizarRegiao(regiaoProf);
+  if (!a || !b) {
+    return { pontos: null, tipo: 'indisponivel', ufIgual: null };
+  }
+
+  const sobreposicao = cobertura(a.sub, b.sub);
+
+  // Mesmo nome de local (ignorando a UF) → match pleno.
+  if (a.nome === b.nome) {
+    return { pontos: 1, tipo: 'compativel', ufIgual: a.uf && b.uf ? a.uf === b.uf : null };
+  }
+
+  if (a.uf && b.uf) {
+    if (a.uf !== b.uf) {
+      // Atendimento domiciliar é local: UF diferente é zero.
+      return { pontos: 0, tipo: 'diferente', ufIgual: false };
+    }
+    return { pontos: 0.70 + 0.30 * sobreposicao, tipo: 'compativel', ufIgual: true };
+  }
+
+  // Sem UF dos dois lados: só dá para dizer que é compatível se os nomes
+  // se sobrepõem. Nomes sem relação nenhuma → não dá para assumir
+  // proximidade, então o local é tratado como "indisponível" (o peso do
+  // critério é redistribuído) em vez de um "parcial" com 0 pontos, que
+  // puniria quem mora em outro lugar sem dar informação útil.
+  if (sobreposicao > 0) {
+    return { pontos: 0.50 * sobreposicao, tipo: 'parcial', ufIgual: null };
+  }
+  return { pontos: null, tipo: 'indisponivel', ufIgual: null };
+}
+
+/**
+ * Verifica quantas especialidades do profissional aparecem no texto da vaga.
+ * @param {string[]} especialidades
+ * @param {string} texto
+ * @returns {string[]} especialidades encontradas
+ */
+function especialidadesAfins(especialidades, texto) {
+  const norm = normalizarTexto(texto);
+  if (!norm) return [];
+  const achadas = [];
+  for (const esp of especialidades) {
+    const alvo = normalizarTexto(esp);
+    if (!alvo || alvo.length < 3) continue;
+    if (norm.includes(alvo)) {
+      achadas.push(esp);
+      continue;
+    }
+    // Match parcial por radical: "Alzheimer" ⊂ "doença de Alzheimer"
+    const radical = alvo.slice(0, Math.max(4, Math.floor(alvo.length * 0.7)));
+    if (radical.length >= 4 && norm.includes(radical)) achadas.push(esp);
+  }
+  return achadas;
+}
+
+/* ═══════════════════════════════ Cálculo ══════════════════════════════════ */
+
+/**
  * Converte o histórico de contratos concluídos em uma nota de confiança.
- * Curva escalonada: 1 contrato já mostra experiência, mas a nota satura
+ * Curva escalonada: 1 contrato já mostra experiência, mas a nota só satura
  * com 12+ atendimentos concluídos.
  * @param {number} n
  * @returns {number} 0.0 a 1.0
@@ -289,67 +436,11 @@ function historicoTier(n) {
 }
 
 /**
- * Verifica quantas especialidades do profissional aparecem no texto da vaga.
- * @param {string[]} especialidades
- * @param {string} texto
- * @returns {string[]}
- */
-function especialidadesAfins(especialidades, texto) {
-  const norm = normalizarTexto(texto);
-  if (!norm) return [];
-  const achadas = [];
-  for (const esp of especialidades) {
-    const alvo = normalizarTexto(esp);
-    if (!alvo || alvo.length < 3) continue;
-    if (norm.includes(alvo)) {
-      achadas.push(esp);
-      continue;
-    }
-    // Match por radical: "Alzheimer" ⊂ "doença de Alzheimer"
-    const radical = alvo.slice(0, Math.max(4, Math.floor(alvo.length * 0.7)));
-    if (radical.length >= 4 && norm.includes(radical)) achadas.push(esp);
-  }
-  return achadas;
-}
-
-/**
- * Infere a profissão do profissional quando `profissao` não foi informada:
- * 1) campo declarado · 2) conselho (tipo_registro) · 3) especialidades.
- * @param {Object} detalhes
- * @returns {string|null}
- */
-export function inferirProfissao(detalhes) {
-  if (!detalhes) return null;
-
-  const declarada = String(detalhes.profissao || '').trim();
-  if (declarada) {
-    if (PROFISSOES.some((p) => p.id === declarada)) return declarada;
-    const r = normalizarProfissao(declarada);
-    if (r.matched) return r.id;
-  }
-
-  // Fallback: conselho (COREN → enfermeiro, CREFITO → fisioterapeuta, ...)
-  const conselho = String(detalhes.tipo_registro || '').toUpperCase();
-  const porConselho = PROFISSOES.find((p) => p.conselho === conselho);
-  if (porConselho) return porConselho.id;
-
-  // Último recurso: alguma especialidade que seja uma profissão.
-  for (const esp of parseJsonArray(detalhes.especialidades)) {
-    const r = normalizarProfissao(esp);
-    if (r.matched) return r.id;
-  }
-
-  return null;
-}
-
-/* ═══════════════════════════════ Cálculo ══════════════════════════════════ */
-
-/**
  * Calcula o score de matching entre uma vaga e um profissional.
  *
  * @param {Object} vaga — linha da tabela `vagas`
  * @param {Object} profissional — { detalhes, stats }
- * @returns {{ score: number, motivos: string[], motivosDetalhados: Object[] }}
+ * @returns {Object} { score, motivos, motivosDetalhados }
  */
 export function calcularScore(vaga, profissional) {
   const detalhes = profissional?.detalhes || {};
@@ -361,28 +452,33 @@ export function calcularScore(vaga, profissional) {
     criterios.push({ codigo, peso, pontos, detalhe });
 
   /* 1. Profissão (peso 0.40) ------------------------------------------- */
-  const profissaoVaga = normalizarProfissao(vaga.profissional_desejado).id;
+  const profissaoVaga = resolverProfissao(vaga.profissional_desejado);
   const profissaoProf = inferirProfissao(detalhes);
 
   if (profissaoVaga && profissaoProf) {
-    const comp = compatibilidadeEntre(profissaoProf, profissaoVaga);
-    if (comp >= 1) {
+    if (profissaoVaga === profissaoProf) {
       registrar('profissao_exata', PESOS.profissao, 1, { profissao: profissaoProf });
-    } else if (comp > 0) {
-      registrar('profissao_compativel', PESOS.profissao, comp, { profissao: profissaoProf });
     } else {
-      registrar('profissao_diferente', PESOS.profissao, 0, { profissao: profissaoProf });
+      const comp = COMPATIBILIDADE[profissaoProf]?.[profissaoVaga]
+        ?? COMPATIBILIDADE[profissaoVaga]?.[profissaoProf]
+        ?? 0;
+      if (comp > 0) {
+        registrar('profissao_compativel', PESOS.profissao, comp, { profissao: profissaoProf });
+      } else {
+        registrar('profissao_diferente', PESOS.profissao, 0, { profissao: profissaoProf });
+      }
     }
   } else {
+    // Sem dado dos dois lados o critério não é avaliável.
     registrar('profissao_indisponivel', PESOS.profissao, null, {
       profissao: profissaoProf || undefined
     });
   }
 
   /* 2. Disponibilidade × jornada (peso 0.20) ---------------------------- */
-  // A vaga tem `carga_horaria` (coluna nova) e `jornada_horario` (histórico).
-  const carga = vaga.carga_horaria || vaga.jornada_horario || vaga.jornada_escala;
-  const turnosVaga = extrairTurnos(carga);
+  // `carga_horaria` é o fallback: o matching simplificado do main gravava
+  // a carga da vaga nessa coluna, e ela descreve os mesmos turnos.
+  const turnosVaga = extrairTurnos(vaga.jornada_horario || vaga.carga_horaria);
   const turnosProf = normalizarDisponibilidade(parseJsonArray(detalhes.disponibilidade));
   if (turnosVaga.length > 0 && turnosProf.length > 0) {
     const compat = turnosVaga.filter((t) => turnosProf.includes(t)).length;
@@ -417,6 +513,7 @@ export function calcularScore(vaga, profissional) {
       media, total: totalAvaliacoes, concluidas: vagasConcluidas
     });
   } else if (vagasConcluidas > 0) {
+    // Sem avaliações, o histórico ainda vale — com desconto por falta de nota.
     registrar('reputacao_historico', PESOS.reputacao, 0.7 * historico, {
       media, total: 0, concluidas: vagasConcluidas
     });
@@ -433,7 +530,8 @@ export function calcularScore(vaga, profissional) {
     if (afins.length > 0) {
       const pontos = Math.min(1, 0.6 + 0.2 * (afins.length - 1));
       registrar('especialidade_afim', PESOS.especialidade, pontos, {
-        especialidade: afins[0], total: afins.length
+        especialidade: afins[0],
+        total: afins.length
       });
     } else {
       registrar('especialidade_sem_afinidade', PESOS.especialidade, 0, {});
@@ -442,22 +540,7 @@ export function calcularScore(vaga, profissional) {
     registrar('especialidade_indisponivel', PESOS.especialidade, null, {});
   }
 
-  /* 5. Região / cidade (peso 0.10) -------------------------------------- */
-  const local = compararLocalizacoes(vaga, detalhes);
-  if (local.pontos === null) {
-    registrar('regiao_indisponivel', PESOS.regiao, null, {});
-  } else if (local.tipo === 'diferente') {
-    registrar('regiao_diferente', PESOS.regiao, 0, {
-      regiao: detalhes.cidade || '',
-      regiaoVaga: vaga.cidade || vaga.regiao || ''
-    });
-  } else if (local.tipo === 'parcial') {
-    registrar('regiao_parcial', PESOS.regiao, local.pontos, { regiao: detalhes.cidade || '' });
-  } else {
-    registrar('regiao_compativel', PESOS.regiao, local.pontos, { regiao: detalhes.cidade || '' });
-  }
-
-  /* 6. Registro verificado (peso 0.05) ---------------------------------- */
+  /* 5. Registro verificado (peso 0.05) ---------------------------------- */
   const estadoRegistro = Number(detalhes.registro_verificado || 0);
   if (estadoRegistro === 1) {
     registrar('registro_verificado', PESOS.registro, 1, {});
@@ -465,6 +548,22 @@ export function calcularScore(vaga, profissional) {
     registrar('registro_pendente', PESOS.registro, 0.3, {});
   } else {
     registrar('registro_nao_verificado', PESOS.registro, 0, {});
+  }
+
+  /* 6. Região (peso 0.10) ----------------------------------------------- */
+  // `cidade` é o fallback: profissionais e vagas podem ter só a cidade
+  // preenchida (matching simplificado) e não a região textual.
+  const regiao = compararRegioes(vaga.regiao || vaga.cidade, detalhes.regiao || detalhes.cidade);
+  if (regiao.pontos === null) {
+    registrar('regiao_indisponivel', PESOS.regiao, null, {});
+  } else if (regiao.tipo === 'diferente') {
+    registrar('regiao_diferente', PESOS.regiao, 0, {
+      regiaoVaga: vaga.regiao || '', regiaoProf: detalhes.regiao || ''
+    });
+  } else if (regiao.tipo === 'parcial') {
+    registrar('regiao_parcial', PESOS.regiao, regiao.pontos, { regiao: detalhes.regiao || '' });
+  } else {
+    registrar('regiao_compativel', PESOS.regiao, regiao.pontos, { regiao: detalhes.regiao || '' });
   }
 
   /* Soma ponderada com redistribuição dos pesos indisponíveis ----------- */
@@ -516,7 +615,7 @@ export function nivelDoScore(score) {
  *
  * @param {number} idVaga
  * @param {Object} opts — { limite: 10, minScore: 0.3 }
- * @returns {Object|null} { vaga_id, total, pesos, recomendacoes }
+ * @returns {Object|null} { vaga_id, total, recomendacoes }
  */
 export async function recomendarParaVaga(idVaga, opts = {}) {
   const limite = Math.min(Number(opts.limite) || 10, 50);
@@ -529,7 +628,7 @@ export async function recomendarParaVaga(idVaga, opts = {}) {
     `SELECT u.id, u.nome, u.telefone, u.criado_em,
             d.id_user, d.diploma_url, d.diploma_verificado,
             d.registro_conselho, d.tipo_registro, d.registro_verificado,
-            d.profissao, d.cidade,
+            d.profissao, d.regiao, d.cidade,
             d.especialidades, d.disponibilidade, d.bio,
             (SELECT COALESCE(ROUND(AVG(nota), 2), 0) FROM avaliacoes WHERE id_profissional = u.id) AS media,
             (SELECT COUNT(*) FROM avaliacoes WHERE id_profissional = u.id) AS total_avaliacoes,
@@ -577,7 +676,7 @@ export async function recomendarParaVaga(idVaga, opts = {}) {
           nome: p.nome,
           telefone: p.telefone,
           profissao: inferirProfissao(detalhes),
-          cidade: p.cidade || null,
+          regiao: p.regiao || null,
           registro_conselho: p.registro_conselho,
           tipo_registro: p.tipo_registro,
           registro_verificado: p.registro_verificado,
@@ -608,11 +707,11 @@ export async function recomendarParaVaga(idVaga, opts = {}) {
 
 /**
  * GET /api/profissionais/me/recomendar
- * Retorna as top N vagas ativas recomendadas para um profissional.
+ * Retorna as top N vagas ativas recomendadas para um profissional, ordenadas por score.
  *
  * @param {number} idProf
  * @param {Object} opts — { limite: 10, minScore: 0.3 }
- * @returns {Object|null} { profissional_id, total, pesos, recomendacoes }
+ * @returns {Object|null} { profissional_id, total, recomendacoes }
  */
 export async function recomendarParaProfissional(idProf, opts = {}) {
   const limite = Math.min(Number(opts.limite) || 10, 50);
@@ -678,15 +777,15 @@ export async function recomendarParaProfissional(idProf, opts = {}) {
           id: vaga.id,
           profissional_desejado: vaga.profissional_desejado,
           complexidade: vaga.complexidade,
-          cidade: vaga.cidade,
           regiao: vaga.regiao,
+          cidade: vaga.cidade,
           carga_horaria: vaga.carga_horaria,
-          jornada_horario: vaga.jornada_horario,
-          jornada_escala: vaga.jornada_escala,
           remuneracao_valor: vaga.remuneracao_valor,
           remuneracao_tipo: vaga.remuneracao_tipo,
           tipo_contrato: vaga.tipo_contrato,
           servico_descricao: vaga.servico_descricao,
+          jornada_horario: vaga.jornada_horario,
+          jornada_escala: vaga.jornada_escala,
           criado_em: vaga.criado_em
         },
         score,

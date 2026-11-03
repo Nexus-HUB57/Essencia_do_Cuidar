@@ -23,9 +23,9 @@ import favoritosRouter from './routes/favoritos.js';
 import notificacoesRouter from './routes/notificacoes.js';
 import protocolosRouter from './routes/protocolos.js';
 import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
-import { wrapRouter } from './middleware/async.js';
 import { listarProfissoes, UFS_VALIDAS } from './services/profissoes.js';
 import { getOpenApiSpec, getSwaggerUIHtml } from './services/openapi.js';
+import { wrapRouter } from './middleware/async.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -212,9 +212,23 @@ app.get('/api/docs', (req, res) => {
 });
 
 // Rate limit mais agressivo em /api/auth/* (anti brute-force em login/cadastro)
-app.use('/api/auth', authLimiter, authRouter);
+app.use('/api/auth', authLimiter, wrapRouter(authRouter));
 // Rate limit geral nas demais APIs
 app.use('/api', apiLimiter);
+
+// Webhook do Mercado Pago — SEM rate limit e SEM parser json (precisa do raw body para validar assinatura)
+app.post('/api/webhooks/mercadopago', express.json({ limit: '1mb' }), async (req, res) => {
+  try {
+    const { processarWebhook } = await import('./services/mercadopago.js');
+    const result = await processarWebhook(req.body);
+    console.log('[mercadopago-webhook]', result);
+    res.status(200).json({ received: true, ...result });
+  } catch (err) {
+    console.error('[mercadopago-webhook] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Os handlers das rotas são `async`. O Express 4 não captura rejeições de
 // Promise — elas viravam unhandledRejection e derrubavam o processo inteiro
 // (Node >= 15 aborta por padrão). wrapRouter converte qualquer erro async em

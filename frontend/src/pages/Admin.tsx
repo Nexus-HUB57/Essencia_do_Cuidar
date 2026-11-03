@@ -1,6 +1,6 @@
 /**
  * Feature 5 — Painel administrativo.
- * Tabs: stats, users, vagas, verificações, pagamentos, webhooks.
+ * Tabs: stats, users, vagas, verificações, pagamentos, webhooks, protocolos.
  * Acessível apenas para usuários com is_admin = true.
  */
 import { useEffect, useState } from 'react';
@@ -40,20 +40,68 @@ interface Pagamento {
   id: number; contratante_nome: string; profissional_nome: string;
   valor_centavos: number; metodo: string; status: string; criado_em: string;
 }
+interface ProtocoloPPP {
+  id: number;
+  id_vaga: number;
+  id_contratante: number;
+  id_profissional: number;
+  status: string;
+  valor_plantao_centavos: number;
+  valor_total_centavos: number;
+  checkout_profissional_em: string;
+  contratante_nome: string;
+  profissional_nome: string;
+  vaga_titulo: string;
+  horas_desde_checkout: number;
+  proxima_notificacao: string;
+}
+interface ProtocoloPNP {
+  id: number;
+  id_vaga: number;
+  status: string;
+  valor_plantao_centavos: number;
+  motivo_rejeicao: string;
+  criado_em: string;
+  contratante_nome: string;
+  profissional_nome: string;
+  vaga_titulo: string;
+}
+interface ProtocoloStats {
+  pendente: number;
+  enviado: number;
+  aceito: number;
+  em_custodia: number;
+  checkout_pendente: number;
+  checkout_profissional: number;
+  checkout_completo: number;
+  liberado: number;
+  liberado_parcial: number;
+  recusado_pnp: number;
+  em_analise_pnp: number;
+  reembolsado: number;
+  expirado: number;
+  cancelado: number;
+  valor_em_custodia_centavos: number;
+  valor_liberado_centavos: number;
+}
 
 const BRL = (cents: number) => `R$ ${(cents / 100).toFixed(2)}`;
 
 export default function Admin() {
   const { user } = useAuth();
   const { t } = useTranslation();
-  const [tab, setTab] = useState<'stats' | 'users' | 'vagas' | 'verificacoes' | 'pagamentos' | 'webhooks'>('stats');
+  const [tab, setTab] = useState<'stats' | 'users' | 'vagas' | 'verificacoes' | 'pagamentos' | 'webhooks' | 'protocolos'>('stats');
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [verificacoes, setVerificacoes] = useState<Verificacao[]>([]);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [webhooks, setWebhooks] = useState<any[]>([]);
+  const [pppPendentes, setPppPendentes] = useState<ProtocoloPPP[]>([]);
+  const [pnpEmAnalise, setPnpEmAnalise] = useState<ProtocoloPNP[]>([]);
+  const [protoStats, setProtoStats] = useState<ProtocoloStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.is_admin) return;
@@ -63,6 +111,7 @@ export default function Admin() {
     if (tab === 'verificacoes') loadVerificacoes();
     if (tab === 'pagamentos') loadPagamentos();
     if (tab === 'webhooks') loadWebhooks();
+    if (tab === 'protocolos') loadProtocolos();
   }, [tab, user?.is_admin]);
 
   if (user && !user.is_admin) {
@@ -99,6 +148,59 @@ export default function Admin() {
     setLoading(true);
     try { const { data } = await api.get('/admin/webhooks'); setWebhooks(data.webhooks); }
     finally { setLoading(false); }
+  }
+  async function loadProtocolos() {
+    setLoading(true);
+    setCleanupResult(null);
+    try {
+      const [s, ppp, pnp] = await Promise.all([
+        api.get('/admin/protocolos/stats'),
+        api.get('/protocolos/ppp/pendentes'),
+        api.get('/protocolos/pnp/em-analise')
+      ]);
+      setProtoStats(s.data);
+      setPppPendentes(ppp.data.ppp_pendentes || []);
+      setPnpEmAnalise(pnp.data.pnp_em_analise || []);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }
+
+  async function rodarCronManual() {
+    if (!confirm('Rodar cleanup de protocolos manualmente? (PPP + expiração + CGPP)')) return;
+    setCleanupResult('Rodando...');
+    try {
+      const { data } = await api.post('/admin/protocolos/cleanup');
+      setCleanupResult(`✅ Cron executado: ${JSON.stringify(data)}`);
+      loadProtocolos();  // recarrega
+    } catch (e) {
+      setCleanupResult(`❌ Erro: ${getErrorMessage(e)}`);
+    }
+  }
+
+  async function liberarManual(id: number) {
+    if (!confirm(`Liberar pagamento do protocolo #${id} imediatamente? (ignora 72h do CGPP)`)) return;
+    try {
+      await api.post(`/protocolos/${id}/liberar`);
+      alert('✅ Pagamento liberado');
+      loadProtocolos();
+    } catch (e) { alert(getErrorMessage(e)); }
+  }
+
+  async function resolverPNP(id: number, decisao: 'reembolso_total' | 'reembolso_parcial' | 'liberar_profissional') {
+    let valor_parcial_centavos: number | undefined;
+    let motivo = '';
+    if (decisao === 'reembolso_parcial') {
+      const v = prompt('Valor parcial em centavos para o PROFISSIONAL (ex: 25000 = R$ 250):');
+      if (!v) return;
+      valor_parcial_centavos = Number(v);
+    }
+    motivo = prompt('Motivo da decisão:') || '';
+    if (!motivo) return;
+    try {
+      await api.post(`/protocolos/${id}/resolver-pnp`, { decisao, valor_parcial_centavos, motivo });
+      alert('✅ PNP resolvido');
+      loadProtocolos();
+    } catch (e) { alert(getErrorMessage(e)); }
   }
 
   async function toggleSuspend(u: AdminUser) {
@@ -151,7 +253,8 @@ export default function Admin() {
           { k: 'vagas', l: `📋 ${t('admin.vagas')}` },
           { k: 'verificacoes', l: `✅ ${t('admin.verificacoes')}` },
           { k: 'pagamentos', l: `💰 ${t('admin.pagamentos')}` },
-          { k: 'webhooks', l: `🔗 ${t('admin.webhooks')}` }
+          { k: 'webhooks', l: `🔗 ${t('admin.webhooks')}` },
+          { k: 'protocolos', l: '🛡️ Protocolos' }
         ].map((x) => (
           <button key={x.k} onClick={() => setTab(x.k as any)}
             className={`px-3 py-2.5 text-xs font-medium border-b-2 transition whitespace-nowrap ${
@@ -289,6 +392,156 @@ export default function Admin() {
               {w.erro && <p className="text-[10px] text-rose-500 mt-1">{w.erro}</p>}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ────────────────────────────────────────────────────────────────
+          Tab PROTOCOLOS — PCP/PCM/PDC/PPP/PNP/CGPP
+       ──────────────────────────────────────────────────────────────── */}
+      {!loading && tab === 'protocolos' && protoStats && (
+        <div className="space-y-6">
+
+          {/* Stats de protocolos por status */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3 text-slate-700">Status dos protocolos</h3>
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+              {[
+                { l: 'Pendente', v: protoStats.pendente, color: 'badge-slate' },
+                { l: 'Enviado', v: protoStats.enviado, color: 'badge-blue' },
+                { l: 'Aceito', v: protoStats.aceito, color: 'badge-amber' },
+                { l: 'Em Custódia', v: protoStats.em_custodia, color: 'badge-purple' },
+                { l: 'Checkout Pend.', v: protoStats.checkout_pendente, color: 'badge-amber' },
+                { l: 'Checkout Prof.', v: protoStats.checkout_profissional, color: 'badge-amber' },
+                { l: 'Checkout Compl.', v: protoStats.checkout_completo, color: 'badge-green' },
+                { l: 'Liberado', v: protoStats.liberado, color: 'badge-green' },
+                { l: 'Liberado Parc.', v: protoStats.liberado_parcial, color: 'badge-green' },
+                { l: 'Recusado PNP', v: protoStats.recusado_pnp, color: 'badge-rose' },
+                { l: 'Em Análise PNP', v: protoStats.em_analise_pnp, color: 'badge-amber' },
+                { l: 'Reembolsado', v: protoStats.reembolsado, color: 'badge-slate' },
+                { l: 'Expirado', v: protoStats.expirado, color: 'badge-slate' },
+                { l: 'Cancelado', v: protoStats.cancelado, color: 'badge-slate' }
+              ].map((s, i) => (
+                <div key={i} className="card p-2">
+                  <p className="text-[10px] text-slate-500">{s.l}</p>
+                  <p className="text-xl font-bold mt-0.5">{s.v}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="card p-3 bg-purple-50">
+                <p className="text-xs text-slate-600">💵 Em custódia (retido)</p>
+                <p className="text-xl font-bold text-purple-700">{BRL(protoStats.valor_em_custodia_centavos)}</p>
+              </div>
+              <div className="card p-3 bg-emerald-50">
+                <p className="text-xs text-slate-600">💸 Já liberado a profissionais</p>
+                <p className="text-xl font-bold text-emerald-700">{BRL(protoStats.valor_liberado_centavos)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Botão para rodar cron manual */}
+          <div className="card p-3 flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-sm font-semibold">⚙️ Cron manual de protocolos</p>
+              <p className="text-xs text-slate-500">Dispara PPP (notificações + auto-confirmação 48h) + expiração + CGPP (liberação 72h)</p>
+            </div>
+            <button onClick={rodarCronManual}
+              className="text-xs px-3 py-1.5 rounded bg-serenity-600 text-white hover:bg-serenity-700">
+              Rodar agora
+            </button>
+          </div>
+          {cleanupResult && (
+            <div className="card p-3 text-xs font-mono bg-slate-50 break-all">
+              {cleanupResult}
+            </div>
+          )}
+
+          {/* PPP pendentes (contratante não respondeu em 24/48h) */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3 text-slate-700">
+              📋 PPP pendentes (contratante ainda não fez checkout)
+            </h3>
+            {pppPendentes.length === 0 ? (
+              <div className="card text-center py-6 text-slate-500 text-sm">
+                Nenhum PPP pendente 🎉 (todos os contratantes confirmaram a tempo)
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {pppPendentes.map((p) => (
+                  <div key={p.id} className="card flex items-center justify-between gap-3 flex-wrap p-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">
+                        #{p.id} — {p.vaga_titulo || `Vaga ${p.id_vaga}`}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Contratante: {p.contratante_nome} • Profissional: {p.profissional_nome}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Valor: {BRL(p.valor_plantao_centavos)} • Status: <span className="font-mono">{p.status}</span>
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        ⏱️ {p.horas_desde_checkout}h desde checkout profissional
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={p.proxima_notificacao === 'auto-confirmação' ? 'badge-rose' : p.proxima_notificacao.startsWith('3ª') ? 'badge-amber' : 'badge-blue'}>
+                        {p.proxima_notificacao}
+                      </span>
+                      <button onClick={() => liberarManual(p.id)}
+                        className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                        Liberar agora
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* PNP em análise (admin precisa decidir) */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3 text-slate-700">
+              ⚖️ PNP em análise administrativa (precisa de decisão)
+            </h3>
+            {pnpEmAnalise.length === 0 ? (
+              <div className="card text-center py-6 text-slate-500 text-sm">
+                Nenhum PNP em análise 🎉
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {pnpEmAnalise.map((p) => (
+                  <div key={p.id} className="card p-3 border-l-4 border-l-amber-500">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold">#{p.id} — {p.vaga_titulo || `Vaga ${p.id_vaga}`}</p>
+                        <p className="text-xs text-slate-500">
+                          Contratante: {p.contratante_nome} • Profissional: {p.profissional_nome}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Valor: {BRL(p.valor_plantao_centavos)} • Motivo: <span className="font-mono">{p.motivo_rejeicao || '—'}</span>
+                        </p>
+                        <p className="text-[10px] text-slate-400">{new Date(p.criado_em + 'Z').toLocaleString('pt-BR')}</p>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <button onClick={() => resolverPNP(p.id, 'reembolso_total')}
+                          className="text-[10px] px-2 py-0.5 rounded bg-rose-50 text-rose-700">
+                          Reembolso total
+                        </button>
+                        <button onClick={() => resolverPNP(p.id, 'reembolso_parcial')}
+                          className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700">
+                          Reembolso parcial
+                        </button>
+                        <button onClick={() => resolverPNP(p.id, 'liberar_profissional')}
+                          className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                          Liberar ao prof.
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

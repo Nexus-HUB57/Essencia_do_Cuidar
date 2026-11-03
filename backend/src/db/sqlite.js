@@ -317,8 +317,9 @@ export function initSchema() {
         CHECK(status IN ('pendente', 'enviado', 'aceito', 'recusado',
                          'pago', 'em_custodia', 'checkout_pendente',
                          'checkout_profissional', 'checkout_contratante',
-                         'checkout_completo', 'liberado', 'cancelado',
-                         'expirado', 'reembolsado')),
+                         'checkout_completo', 'liberado', 'liberado_parcial',
+                         'cancelado', 'expirado', 'reembolsado',
+                         'recusado_pnp', 'em_analise_pnp')),
       valor_plantao_centavos INTEGER NOT NULL,
       valor_taxa_centavos INTEGER NOT NULL DEFAULT 0,
       valor_total_centavos INTEGER NOT NULL,
@@ -423,15 +424,15 @@ export function initSchema() {
   safeExec("ALTER TABLE pagamentos ADD COLUMN stripe_event_id TEXT");
   // M3 — Adiciona coluna regiao_uf em vagas (validação geográfica)
   safeExec("ALTER TABLE vagas ADD COLUMN regiao_uf TEXT");
-  // Matching — filtros de cidade e carga horária
+  // Matching simplificado — 2 filtros: cidade + carga_horaria
   safeExec("ALTER TABLE vagas ADD COLUMN cidade TEXT");
   safeExec("ALTER TABLE vagas ADD COLUMN carga_horaria TEXT");
   safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN cidade TEXT");
-  // M1-fix — Profissão canônica do profissional. Sem esta coluna o matcher
-  // não tinha contra o que comparar com o `profissional_desejado` da vaga:
-  // o `tipo_registro` é o CONSELHO (COREN, CREFITO), não a profissão.
-  // A localização já é modelada pela coluna `cidade` (acima).
+  // M1-fix — Matching: profissão canônica e região de atuação do profissional.
+  // Sem `profissao` o matcher não tinha contra o que comparar com o
+  // `profissional_desejado` da vaga (o `tipo_registro` é o conselho, não a profissão).
   safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN profissao TEXT");
+  safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN regiao TEXT");
   console.log('[db:sqlite] schema inicializado em', dbPath);
 }
 

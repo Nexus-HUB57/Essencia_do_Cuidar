@@ -14,6 +14,11 @@ ok()   { echo -e "  ${GREEN}✓${NC} $*"; }
 bad()  { echo -e "  ${RED}✗${NC} $*"; FAILED=$((FAILED+1)); }
 
 step "1. Backend — dependências (npm ci) e seed"
+# Derruba qualquer servidor anterior: com a API no ar, o `npm ci` falha ao
+# remover o node_modules (o better-sqlite3 fica aberto) e o seed trava no
+# banco. O padrão [n] evita que o pkill case o próprio shell.
+pkill -f "[n]ode src/index.js" 2>/dev/null
+sleep 1
 ( cd backend && npm ci --no-audit --no-fund > /tmp/val-npm.log 2>&1 ) \
   && ok "npm ci no backend" || bad "npm ci no backend (veja /tmp/val-npm.log)"
 ( cd backend && npm run seed > /tmp/val-seed.log 2>&1 ) \

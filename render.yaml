@@ -8,7 +8,7 @@
 #
 # Recursos criados:
 #   - 1 Web Service (backend Node.js)
-#   - 2 Cron Jobs (webhook retry + expiração de candidaturas)
+#   - 3 Cron Jobs (webhook retry + expiração de candidaturas + protocolos PPP/CGPP)
 #
 # Frontend deve ser deployado na Netlify (ver netlify.toml).
 
@@ -30,7 +30,7 @@ services:
       - key: JWT_SECRET
         sync: false  # configurar no painel: openssl rand -hex 32
       - key: FRONTEND_URL
-        value: https://essencia-do-cuidar.netlify.app  # ajustar
+        value: https://ecuidar.netlify.app
       # Opcionais (defaults funcionam para dev)
       - key: STRIPE_MOCK
         value: 'true'  # setar false + STRIPE_SECRET_KEY em produção real
@@ -44,6 +44,19 @@ services:
         value: '30'
       - key: ENABLE_REFRESH_TOKENS
         value: 'false'  # setar true para habilitar refresh token no login
+      # Protocolos (PCP/PCM/PDC/PPP/PNP/CGPP)
+      - key: PROTOCOLOS_ENABLED
+        value: 'true'
+      - key: PLATFORM_FEE_PCT
+        value: '10'
+      - key: PRAZO_PCM_HORAS
+        value: '48'  # profissional tem 48h para aceitar
+      - key: PRAZO_PDC_HORAS
+        value: '72'  # contratante tem 72h para pagar
+      - key: PRAZO_LIBERACAO_HORAS
+        value: '72'  # CGPP: sistema tem 72h para liberar após checkout_completo
+      - key: ENABLE_INTERNAL_CRON
+        value: 'true'  # ativa cron interno (PPP + CGPP) para instâncias free
       # Database (opcional — sem DATABASE_URL usa SQLite)
       # - key: DATABASE_URL
       #   sync: false  # configurar no painel: postgres://...
@@ -87,3 +100,30 @@ services:
         value: '30'
       - key: DATABASE_URL
         sync: false
+
+  # ─── Cron Job 3: Protocolos PPP + CGPP ─────────────────────────
+  # Roda a cada 1h, dispara:
+  #   - PPP: 2ª notif (24h) + 3ª notif + auto-confirmação (48h)
+  #   - Expiração de PCM/PDC não respondidos
+  #   - CGPP: liberação de pagamentos após checkout_completo + 72h
+  - type: cron
+    name: essencia-protocolos-cleanup
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install --omit=dev
+    schedule: '0 * * * *'
+    command: >-
+      node -e "import('./src/services/protocolos-cleanup.js').then(m => m.rodarProtocolosCleanup()).then(r => { console.log('resultado:', r); process.exit(0); }).catch(e => { console.error(e); process.exit(1); });"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: PROTOCOLOS_ENABLED
+        value: 'true'
+      - key: PRAZO_LIBERACAO_HORAS
+        value: '72'
+      - key: DATABASE_URL
+        sync: false
+

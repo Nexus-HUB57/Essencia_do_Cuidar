@@ -1,117 +1,124 @@
 /**
  * services/profissoes.js
  *
- * M2 — Lista canônica de tipos profissionais suportados.
+ * Lista canônica de tipos profissionais suportados.
+ *
+ * É a FONTE ÚNICA da taxonomia de profissões: tanto o motor de matching
+ * (services/matching.js) quanto o endpoint /api/profissoes consomem esta
+ * lista. Antes existiam duas listas divergentes (`cuidador_idosos` aqui e
+ * `cuidador` no matching.js), o que fazia o mesmo campo ter dois ids
+ * dependendo de quem perguntava.
  *
  * O campo `profissional_desejado` (vagas) e `especialidades` (profissionais)
- * continuam sendo TEXT no schema para retrocompatibilidade. Mas esta lista
- * é usada para:
+ * continuam sendo TEXT no schema para retrocompatibilidade. Esta lista é
+ * usada para:
  *   1. Validar entrada (warn se não estiver na lista — não bloqueia)
  *   2. Sugerir opções no frontend (autocomplete)
  *   3. Normalizar para o matching automático (services/matching.js)
  *
- * Cada profissão tem:
- *   - id (slug canônico, ex: "cuidador_idosos")
- *   - label (display)
- *   - conselho (qual conselho regulamenta, se houver)
- *   - sinônimos (variações aceitas pelo matching)
+ * Cada profissão expõe um formato superset, para atender os dois consumidores:
+ *   - id        slug canônico (ex: "cuidador") — gravado no banco
+ *   - label     display legado (frontend antigo)
+ *   - rotulo    display novo (frontend do matching)
+ *   - conselho  conselho regulador ou null (formato legado)
+ *   - conselhos lista de conselhos (formato do matching)
+ *   - sinonimos variações de texto livre aceitas na normalização
  */
 
+/** @typedef {{id:string,label:string,rotulo:string,conselho:string|null,conselhos:string[],sinonimos:string[]}} Profissao */
+
+/** @type {Profissao[]} */
 export const PROFISSOES = [
   {
-    id: 'cuidador_idosos',
+    id: 'cuidador',
     label: 'Cuidador de Idosos',
+    rotulo: 'Cuidador de Idosos',
     conselho: null,
+    conselhos: [],
     sinonimos: ['cuidador', 'cuidadora', 'acompanhante', 'cuidador de idosos', 'cuidador de idosa']
   },
   {
     id: 'enfermeiro',
     label: 'Enfermeiro(a)',
+    rotulo: 'Enfermeiro',
     conselho: 'COREN',
+    conselhos: ['COREN'],
     sinonimos: ['enfermeiro', 'enfermeira', 'enfermagem']
   },
   {
     id: 'tecnico_enfermagem',
     label: 'Técnico de Enfermagem',
+    rotulo: 'Técnico de Enfermagem',
     conselho: 'COREN',
+    conselhos: ['COREN'],
     sinonimos: ['tecnico de enfermagem', 'tecnica de enfermagem', 'tecnico_enfermagem']
   },
   {
     id: 'fisioterapeuta',
     label: 'Fisioterapeuta',
+    rotulo: 'Fisioterapeuta',
     conselho: 'CREFITO',
+    conselhos: ['CREFITO'],
     sinonimos: ['fisioterapeuta', 'fisio', 'fisio domiciliar', 'fisioterapia']
   },
   {
     id: 'psicologo',
     label: 'Psicólogo(a)',
+    rotulo: 'Psicólogo',
     conselho: 'CRP',
+    conselhos: ['CRP'],
     sinonimos: ['psicologo', 'psicologa', 'psicologia']
   },
   {
     id: 'terapeuta_ocupacional',
     label: 'Terapeuta Ocupacional',
+    rotulo: 'Terapeuta Ocupacional',
     conselho: 'CREFITO',
+    conselhos: ['CREFITO'],
     sinonimos: ['terapeuta ocupacional', 'to', 'terapia ocupacional']
-  },
-  {
-    id: 'nutricionista',
-    label: 'Nutricionista',
-    conselho: 'CRN',
-    sinonimos: ['nutricionista', 'nutricao']
-  },
-  {
-    id: 'medico',
-    label: 'Médico(a)',
-    conselho: 'CRM',
-    sinonimos: ['medico', 'medica', 'medicina']
   },
   {
     id: 'fonoaudiologo',
     label: 'Fonoaudiólogo(a)',
+    rotulo: 'Fonoaudiólogo',
     conselho: 'CRP',
-    sinonimos: ['fonoaudiologo', 'fonoaudiologa', 'fonologia', 'fonoaudiólogo']
+    conselhos: ['CRP'],
+    sinonimos: ['fonoaudiologo', 'fonoaudióloga', 'fonologia']
+  },
+  {
+    id: 'nutricionista',
+    label: 'Nutricionista',
+    rotulo: 'Nutricionista',
+    conselho: 'CRN',
+    conselhos: ['CRN'],
+    sinonimos: ['nutricionista', 'nutricao', 'nutrição']
+  },
+  {
+    id: 'medico',
+    label: 'Médico(a)',
+    rotulo: 'Médico',
+    conselho: 'CRM',
+    conselhos: ['CRM'],
+    sinonimos: ['medico', 'medica', 'medicina']
   },
   {
     id: 'dentista',
     label: 'Dentista',
+    rotulo: 'Dentista',
     conselho: 'CRO',
+    conselhos: ['CRO'],
     sinonimos: ['dentista', 'odontologo', 'odontologia']
   }
 ];
 
 /**
- * Profissões que substituem parcialmente umas às outras.
- *
- * O valor é o quanto o match "parcial" vale contra o peso do critério de
- * profissão no motor de matching. Consultado simetricamente.
- *
- * Ex.: um técnico de enfermagem atende bem uma vaga de cuidador (0.7),
- * mas não uma vaga de fisioterapeuta (sem entrada = 0).
+ * Ids legados que ainda podem aparecer em dados gravados antes da
+ * unificação da taxonomia. Mapear para o id canônico evita quebrar
+ * registros antigos.
  */
-export const COMPATIBILIDADE = {
-  tecnico_enfermagem:    { enfermeiro: 0.6, cuidador_idosos: 0.7, medico: 0.3 },
-  enfermeiro:            { tecnico_enfermagem: 0.6, medico: 0.5, cuidador_idosos: 0.4 },
-  cuidador_idosos:       { tecnico_enfermagem: 0.7, enfermeiro: 0.4, fisioterapeuta: 0.3, psicologo: 0.3 },
-  fisioterapeuta:        { terapeuta_ocupacional: 0.7, enfermeiro: 0.3 },
-  terapeuta_ocupacional: { fisioterapeuta: 0.7, psicologo: 0.5 },
-  psicologo:             { terapeuta_ocupacional: 0.5, fonoaudiologo: 0.4 },
-  medico:                { enfermeiro: 0.5, tecnico_enfermagem: 0.3, nutricionista: 0.3 },
-  nutricionista:         { medico: 0.3, enfermeiro: 0.2 },
-  fonoaudiologo:         { psicologo: 0.4 }
+export const ALIAS_PROFISSAO = {
+  cuidador_idosos: 'cuidador'
 };
-
-/**
- * Compatibilidade entre duas profissões (0 = incompatíveis, 1 = mesma).
- * @param {string} idA
- * @param {string} idB
- * @returns {number} 0.0 a 1.0
- */
-export function compatibilidadeEntre(idA, idB) {
-  if (!idA || !idB) return 0;
-  if (idA === idB) return 1;
-  return COMPATIBILIDADE[idA]?.[idB] ?? COMPATIBILIDADE[idB]?.[idA] ?? 0;
-}
 
 /**
  * M3 — UFs válidas (27 estados brasileiros).
@@ -123,33 +130,40 @@ export const UFS_VALIDAS = [
 ];
 
 /**
- * M2 — Normaliza texto livre para um dos IDs canônicos.
+ * Normaliza texto livre para um dos IDs canônicos.
  * Se não encontra match exato, retorna o texto original (não bloqueia).
  *
  * @param {string} texto
- * @returns {Object} { id: string|null, label: string, original: string, matched: boolean }
+ * @returns {{id: string|null, label: string, original: string, matched: boolean}}
  */
 export function normalizarProfissao(texto) {
   if (!texto) return { id: null, label: '', original: '', matched: false };
   const norm = String(texto).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+  // Alias de id legado → id canônico
+  const alias = ALIAS_PROFISSAO[norm];
+  if (alias) {
+    const p = PROFISSOES.find((x) => x.id === alias);
+    if (p) return { id: p.id, label: p.label, original: texto, matched: true };
+  }
+
   // Procura por match exato nos sinônimos
   for (const p of PROFISSOES) {
-    if (p.sinonimos.some(s => s.toLowerCase() === norm)) {
+    if (p.sinonimos.some((s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === norm)) {
       return { id: p.id, label: p.label, original: texto, matched: true };
     }
   }
 
   // Match parcial (contains) — o sinônimo MAIS LONGO primeiro.
-  // Sem ordenar, "Técnico de Enfermagem" era classificado como "enfermeiro"
+  // Sem ordenar, "Técnico de Enfermagem" era classificado como `enfermeiro`
   // (porque 'enfermagem' é substring de 'técnico de enfermagem' e o
-  // enfermeiro vem antes na lista).
+  // enfermeiro vem antes na lista). O sinônimo mais específico tem que ganhar.
   const candidatos = [];
   for (const p of PROFISSOES) {
-    for (const sin of p.sinonimos) {
-      const sl = sin.toLowerCase();
-      if (norm.includes(sl) || sl.includes(norm)) {
-        candidatos.push({ len: sl.length, p });
+    for (const s of p.sinonimos) {
+      const ns = s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (norm.includes(ns) || ns.includes(norm)) {
+        candidatos.push({ len: ns.length, p });
       }
     }
   }
@@ -164,7 +178,7 @@ export function normalizarProfissao(texto) {
 }
 
 /**
- * M3 — Valida e normaliza UF.
+ * Valida e normaliza UF.
  * @param {string} uf
  * @returns {string|null} UF canônica (uppercase) ou null se inválida
  */
@@ -176,12 +190,16 @@ export function validarUF(uf) {
 
 /**
  * Lista de profissões para o frontend (autocomplete).
+ * Retorna o formato superset — serve tanto o seletor legado
+ * (id/label/conselho/sinonimos) quanto o novo (id/rotulo/conselhos).
  */
 export function listarProfissoes() {
-  return PROFISSOES.map(p => ({
+  return PROFISSOES.map((p) => ({
     id: p.id,
     label: p.label,
+    rotulo: p.rotulo,
     conselho: p.conselho,
+    conselhos: p.conselhos,
     sinonimos: p.sinonimos
   }));
 }

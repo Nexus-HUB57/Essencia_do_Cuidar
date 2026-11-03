@@ -17,6 +17,7 @@ import db from '../db/driver.js';
 import { liberarPagamento, buscarProtocolosParaLiberar, buscarProtocolosExpirados } from './protocolos.js';
 import { emitirParaUsuario, logarTransicaoProtocolo } from './event-bus.js';
 import { notifyUser } from './push.js';
+import { processarPPP } from './protocolos-ppp-pnp.js';
 
 /**
  * Libera pagamentos de protocolos em 'checkout_completo' há mais de 72h.
@@ -113,14 +114,17 @@ export async function expirarProtocolosNaoRespondidos() {
 }
 
 /**
- * Job completo (chamado por cron diário):
- *   1. Expira protocolos não respondidos
- *   2. Libera pagamentos após 72h do checkout completo
+ * Job completo (chamado por cron a cada 1h):
+ *   1. Processa PPP (notificações 2ª/3ª + auto-confirmação após 48h)
+ *   2. Expira protocolos não respondidos
+ *   3. Libera pagamentos após 72h do checkout completo
  */
 export async function rodarProtocolosCleanup() {
+  const r0 = await processarPPP();
   const r1 = await expirarProtocolosNaoRespondidos();
   const r2 = await liberarPagamentosApos72h();
   return {
+    ppp: r0,
     expiracao: r1,
     liberacao: r2
   };

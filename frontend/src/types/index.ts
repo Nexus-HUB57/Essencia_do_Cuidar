@@ -19,12 +19,9 @@ export interface User {
   is_admin?: 0 | 1 | boolean | null;
 }
 
-/**
- * Ids canônicos de profissão — espelham `PROFISSOES` em
- * backend/src/services/profissoes.js (a fonte da verdade).
- */
+/** Ids canônicos de profissão — espelham `PROFISSOES` em backend/src/services/profissoes.js */
 export type ProfissaoId =
-  | "cuidador_idosos"
+  | "cuidador"
   | "tecnico_enfermagem"
   | "enfermeiro"
   | "fisioterapeuta"
@@ -37,10 +34,8 @@ export type ProfissaoId =
 
 export interface Profissao {
   id: ProfissaoId;
-  label: string;
-  conselho: string | null;
-  sinonimos: string[];
-
+  rotulo: string;
+  conselhos: string[];
 }
 
 export interface ProfissionalDetalhes {
@@ -55,8 +50,8 @@ export interface ProfissionalDetalhes {
   registro_verificado_em?: string | null;
   /** Profissão canônica — usada pelo motor de matching. */
   profissao?: ProfissaoId | null;
-  /** Cidade/região de atuação (ex.: "São Paulo"). */
-  cidade?: string | null;
+  /** Região de atuação (texto livre, ex.: "Zona Sul - SP"). */
+  regiao?: string | null;
   especialidades: string[];
   disponibilidade: string[];
   bio?: string | null;
@@ -193,7 +188,7 @@ export interface MatchingProfissionalRecomendado {
   nome: string;
   telefone?: string | null;
   profissao?: ProfissaoId | null;
-  cidade?: string | null;
+  regiao?: string | null;
   registro_conselho?: string | null;
   tipo_registro?: string | null;
   registro_verificado: RegistroVerificadoEstado;
@@ -210,8 +205,6 @@ export interface MatchingVagaRecomendada {
   profissional_desejado: string;
   complexidade: "baixa" | "media";
   regiao?: string | null;
-  cidade?: string | null;
-  carga_horaria?: string | null;
   remuneracao_valor?: number | null;
   remuneracao_tipo?: "plantao" | "hora" | null;
   tipo_contrato?: "PJ" | "CLT" | null;

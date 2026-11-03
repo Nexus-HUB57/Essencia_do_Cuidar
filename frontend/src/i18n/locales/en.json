@@ -201,11 +201,11 @@
     },
     "perfil": {
       "profissao": "Profession",
+      "regiao": "Service area",
+      "regiaoPlaceholder": "e.g.: South Zone - SP",
+      "regiaoHint": "Where you work. Only professionals in your area are recommended.",
       "selectProfissao": "Select",
-      "completeProfile": "Complete your profile to improve recommendations",
-      "cidade": "Service area",
-      "cidadePlaceholder": "e.g.: São Paulo",
-      "cidadeHint": "Where you work. Only professionals in the same city/state are recommended."
+      "completeProfile": "Complete your profile to improve recommendations"
     }
   }
 }

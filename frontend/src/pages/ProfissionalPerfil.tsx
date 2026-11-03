@@ -13,7 +13,7 @@ interface ProfDetalhes {
   registro_verificado: 0 | 1 | 2;
   registro_verificado_em?: string | null;
   profissao?: string | null;
-  cidade?: string | null;
+  regiao?: string | null;
   diploma_nome_original: string | null;
   diploma_verificado: 0 | 1;
   especialidades: string[];
@@ -148,12 +148,12 @@ export default function ProfissionalPerfil() {
                 ? t("profissionais.anosPlataforma", { count: anosNaPlataforma })
                 : t("profissionais.novoPlataforma")}
             </p>
-            {(detalhes?.profissao || detalhes?.cidade) && (
+            {(detalhes?.profissao || detalhes?.regiao) && (
               <p className="text-sm text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                 {detalhes?.profissao && (
                   <span className="badge-blue">{rotuloProfissao(detalhes.profissao)}</span>
                 )}
-                {detalhes?.cidade && <span>📍 {detalhes.cidade}</span>}
+                {detalhes?.regiao && <span>📍 {detalhes.regiao}</span>}
               </p>
             )}
           </div>
