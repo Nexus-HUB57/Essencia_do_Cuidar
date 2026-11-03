@@ -90,19 +90,19 @@ async function resetSequences() {
     ['profissional', 'Beatriz Mendes', 'bia@demo.com', hash('demo1234'), '11999990004']
   );
 
-  // Detalhes profissionais
+  // Detalhes profissionais — com cidade (matching) e profissão canônica.
   //
-  // `profissao` e `regiao` alimentam o motor de matching (services/matching.js).
-  // O seed cobre os três casos que interessam:
-  //   Ana      → match exato de profissão (vaga "Cuidador de Idosos"), mesma região
-  //   João     → match exato de profissão (vaga "Fisioterapeuta"), mesma região
-  //   Beatriz  → profession sem vaga correspondente + região diferente (demo do caso "sem match")
+  // `profissao` usa os ids de backend/src/services/profissoes.js e `cidade`
+  // alimenta o critério de região. O seed cobre os casos que interessam:
+  //   Ana      → match exato de profissão (vaga "Cuidador de Idosos"), mesma cidade
+  //   João     → match exato de profissão (vaga "Fisioterapeuta"), mesma cidade
+  //   Beatriz  → profissão sem vaga correspondente + cidade diferente
   const insertProf = async (id, args) => {
     return db.run(
       `INSERT INTO profissionais_detalhes
         (id_user, diploma_url, diploma_nome_original, diploma_verificado,
          registro_conselho, tipo_registro, registro_verificado,
-         profissao, regiao, especialidades, disponibilidade, bio)
+         profissao, especialidades, disponibilidade, bio, cidade)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args
     );
@@ -110,54 +110,60 @@ async function resetSequences() {
   await insertProf(prof1.lastInsertRowid, [
     prof1.lastInsertRowid, '/uploads/diploma-demo-ana.pdf', 'diploma-ana.pdf', 1,
     'COREN-SP 123456', 'COREN', 1,
-    'cuidador', 'Zona Sul - SP',
+    'cuidador_idosos',
     JSON.stringify(['Idosos', 'Alzheimer', 'Cuidados Paliativos']),
     JSON.stringify(['manha', 'tarde', '12h']),
-    'Cuidadora de idosos há 8 anos, especializada em Alzheimer e cuidados paliativos.'
+    'Cuidadora de idosos há 8 anos, especializada em Alzheimer e cuidados paliativos.',
+    'São Paulo'
   ]);
   await insertProf(prof2.lastInsertRowid, [
     prof2.lastInsertRowid, '/uploads/diploma-demo-joao.pdf', 'diploma-joao.pdf', 1,
     'CREFITO-12345-F', 'CREFITO', 1,
-    'fisioterapeuta', 'Zona Oeste - SP',
+    'fisioterapeuta',
     JSON.stringify(['Fisioterapia', 'Pós-operatório', 'Geriatria']),
     JSON.stringify(['manha', 'tarde']),
-    'Fisioterapeuta com foco em reabilitação pós-cirúrgica e geriátrica.'
+    'Fisioterapeuta com foco em reabilitação pós-cirúrgica e geriátrica.',
+    'São Paulo'
   ]);
   await insertProf(prof3.lastInsertRowid, [
     prof3.lastInsertRowid, '/uploads/diploma-demo-bia.pdf', 'diploma-bia.pdf', 0,
     '06/12345', 'CRP', 0,
-    'psicologo', 'Centro - SP',
+    'psicologo',
     JSON.stringify(['Psicologia', 'Idosos', 'Acompanhamento Familiar']),
     JSON.stringify(['tarde', 'noite']),
-    'Psicóloga clínica com 5 anos de experiência em saúde do idoso.'
+    'Psicóloga clínica com 5 anos de experiência em saúde do idoso.',
+    'Campinas'
   ]);
 
-  // Vagas
+  // Vagas — com cidade + carga_horaria (matching simplificado: 2 filtros)
   const insertVaga = async (args) => {
     return db.run(
       `INSERT INTO vagas
         (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
          complexidade, servico_descricao, profissional_desejado,
          jornada_horario, jornada_escala, tipo_contrato, remuneracao_tipo,
-         remuneracao_valor, regiao, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         remuneracao_valor, regiao, cidade, carga_horaria, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args
     );
   };
   await insertVaga([
     contratante.lastInsertRowid, 'F', 82, 'Alzheimer moderado',
     'media', 'Acompanhante diurno para idosa com Alzheimer. Auxílio em medicação, alimentação e mobilidade.',
-    'Cuidador de Idosos', '08h às 18h', 'Segunda a Sexta', 'CLT', 'hora', 35, 'Zona Sul - SP', 'ativa'
+    'Cuidador de Idosos', '08h às 18h', 'Segunda a Sexta', 'CLT', 'hora', 35, 'Zona Sul - SP',
+    'São Paulo', '08h às 18h - Segunda a Sexta', 'ativa'
   ]);
   await insertVaga([
     contratante.lastInsertRowid, 'M', 70, 'Pós-operatório de quadril',
     'media', 'Sessões de fisioterapia domiciliar, 3x por semana, foco em mobilidade.',
-    'Fisioterapeuta', '14h às 16h', 'Seg/Qua/Sex', 'PJ', 'hora', 80, 'Zona Oeste - SP', 'ativa'
+    'Fisioterapeuta', '14h às 16h', 'Seg/Qua/Sex', 'PJ', 'hora', 80, 'Zona Oeste - SP',
+    'São Paulo', '14h às 16h - Seg/Qua/Sex', 'ativa'
   ]);
   await insertVaga([
     contratante.lastInsertRowid, 'F', 75, 'Hipertensão e mobilidade reduzida',
     'baixa', 'Cuidador noturno para idosa independente que precisa de companhia e supervisão.',
-    'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP', 'ativa'
+    'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP',
+    'São Paulo', 'Plantão noturno 12x36', 'ativa'
   ]);
 
   // Avaliações demo (de "contratantes" fictícios para popular o perfil)

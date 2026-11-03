@@ -1,0 +1,240 @@
+# Kubernetes manifests para Essência do Cuidar backend
+# Aplicar com: kubectl apply -f k8s/
+#
+# Recursos:
+#   - Namespace essencia
+#   - Deployment (backend, 2 réplicas)
+#   - Service (ClusterIP para Ingress)
+#   - HorizontalPodAutoscaler (2-10 réplicas por CPU)
+#   - CronJob webhook-retry (a cada 30 min)
+#   - CronJob candidatura-cleanup (diário às 3h)
+#   - PersistentVolumeClaim (SQLite em /data)
+#
+# Pré-requisitos:
+#   - cluster k8s com Ingress controller instalado
+#   - StorageClass para PVC
+#   - Secret "essencia-secrets" com JWT_SECRET e STRIPE_SECRET_KEY
+#
+# Secret deve ser criada antes:
+#   kubectl create secret generic essencia-secrets \
+#     --namespace=essencia \
+#     --from-literal=JWT_SECRET=$(openssl rand -hex 32) \
+#     --from-literal=STRIPE_SECRET_KEY=sk_live_xxx \
+#     --from-literal=STRIPE_WEBHOOK_SECRET=whsec_xxx
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: essencia
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: essencia-backend
+  namespace: essencia
+  labels:
+    app: essencia
+    component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: essencia
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: essencia
+        component: backend
+    spec:
+      containers:
+        - name: backend
+          image: essencia-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: '4000'
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: essencia-secrets
+                  key: JWT_SECRET
+            - name: FRONTEND_URL
+              value: https://essencia-do-cuidar.netlify.app
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: essencia-secrets
+                  key: STRIPE_SECRET_KEY
+                  optional: true
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: essencia-secrets
+                  key: STRIPE_WEBHOOK_SECRET
+                  optional: true
+            - name: AUTH_UPLOADS
+              value: 'true'
+            - name: AUTO_CLOSE_ON_ACCEPT
+              value: 'true'
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: uploads
+              mountPath: /app/uploads
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 4000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: essencia-data
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: essencia-uploads
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: essencia-backend
+  namespace: essencia
+spec:
+  type: ClusterIP
+  selector:
+    app: essencia
+    component: backend
+  ports:
+    - name: http
+      port: 4000
+      targetPort: 4000
+      protocol: TCP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: essencia-backend
+  namespace: essencia
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: essencia-backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: essencia-data
+  namespace: essencia
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: essencia-uploads
+  namespace: essencia
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: essencia-webhook-retry
+  namespace: essencia
+spec:
+  schedule: '*/30 * * * *'
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: webhook-retry
+              image: essencia-backend:latest
+              command:
+                - node
+                - -e
+                - "import('./src/services/webhook-retry.js').then(m => m.runWebhookRetryOnce()).then(r => { console.log('resultado:', r); process.exit(r.erro ? 1 : 0); }).catch(e => { console.error(e); process.exit(1); });"
+              env:
+                - name: NODE_ENV
+                  value: production
+                - name: JWT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: essencia-secrets
+                      key: JWT_SECRET
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: essencia-candidatura-cleanup
+  namespace: essencia
+spec:
+  schedule: '0 3 * * *'
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: cleanup
+              image: essencia-backend:latest
+              command:
+                - node
+                - -e
+                - "import('./src/services/candidatura-cleanup.js').then(m => m.expirarCandidaturasAntigas()).then(r => { console.log('expiradas:', r); process.exit(r.erro ? 1 : 0); }).catch(e => { console.error(e); process.exit(1); });"
+              env:
+                - name: NODE_ENV
+                  value: production
+                - name: JWT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: essencia-secrets
+                      key: JWT_SECRET
+                - name: CANDIDATURA_EXPIRA_DIAS
+                  value: '30'

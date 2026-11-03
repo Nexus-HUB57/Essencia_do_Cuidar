@@ -39,7 +39,7 @@ export default function DashboardProfissional() {
   // Edição do perfil (dados que alimentam o matching)
   const [formPerfil, setFormPerfil] = useState({
     profissao: '',
-    regiao: '',
+    cidade: '',
     disponibilidade: [] as string[]
   });
   const [salvando, setSalvando] = useState(false);
@@ -67,7 +67,7 @@ export default function DashboardProfissional() {
       setDetalhes(data.detalhes);
       setFormPerfil({
         profissao: data.detalhes?.profissao || '',
-        regiao: data.detalhes?.regiao || '',
+        cidade: data.detalhes?.cidade || '',
         disponibilidade: data.detalhes?.disponibilidade || []
       });
     } catch {}
@@ -81,7 +81,7 @@ export default function DashboardProfissional() {
     try {
       const { data } = await api.put('/profissionais/me', {
         profissao: formPerfil.profissao || undefined,
-        regiao: formPerfil.regiao || undefined,
+        cidade: formPerfil.cidade || undefined,
         disponibilidade: formPerfil.disponibilidade
       });
       setDetalhes(data.detalhes);
@@ -431,8 +431,8 @@ export default function DashboardProfissional() {
               {detalhes.profissao ? rotuloProfissao(detalhes.profissao) : '—'}
             </div>
             <div>
-              <span className="text-slate-400">{t('matching.perfil.regiao')}:</span>{' '}
-              {detalhes.regiao || '—'}
+              <span className="text-slate-400">{t('matching.perfil.cidade')}:</span>{' '}
+              {detalhes.cidade || '—'}
             </div>
             <div>
               <span className="text-slate-400">Disponibilidade:</span>{' '}
@@ -461,12 +461,12 @@ export default function DashboardProfissional() {
               </div>
 
               <div>
-                <label className="label">{t('matching.perfil.regiao')}</label>
+                <label className="label">{t('matching.perfil.cidade')}</label>
                 <input
                   className="input"
-                  value={formPerfil.regiao}
-                  onChange={(e) => setFormPerfil({ ...formPerfil, regiao: e.target.value })}
-                  placeholder={t('matching.perfil.regiaoPlaceholder')}
+                  value={formPerfil.cidade}
+                  onChange={(e) => setFormPerfil({ ...formPerfil, cidade: e.target.value })}
+                  placeholder={t('matching.perfil.cidadePlaceholder')}
                 />
               </div>
 

@@ -8,7 +8,8 @@ import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { validateRegistro } from '../services/registros.js';
 import { normalize, validate, verifyWithCouncil, EXEMPLOS } from '../services/registroValidator.js';
-import { recomendarParaProfissional, PROFISSOES } from '../services/matching.js';
+import { recomendarParaProfissional } from '../services/matching.js';
+import { PROFISSOES } from '../services/profissoes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,16 +45,16 @@ const detalhesSchema = {
   registro_conselho: { type: 'string', min: 3, max: 30 },
   tipo_registro:     { type: 'enum', values: ['CRM', 'COREN', 'CREFITO', 'CRP', 'CRN', 'OUTRO'] },
   profissao:         { type: 'enum', values: PROFISSOES.map((p) => p.id) },
-  regiao:            { type: 'string', max: 80 },
   especialidades:    { type: 'array' },
   disponibilidade:   { type: 'array' },
   bio:               { type: 'string', max: 1000 },
-  uf:                { type: 'string', min: 2, max: 2 }
+  uf:                { type: 'string', min: 2, max: 2 },
+  cidade:            { type: 'string', max: 100 }
 };
 
 router.put('/me', authRequired, requireTipo('profissional'),
   validateBody(detalhesSchema), async (req, res) => {
-    const { registro_conselho, tipo_registro, profissao, regiao, especialidades, disponibilidade, bio, uf } = req.body;
+    const { registro_conselho, tipo_registro, profissao, especialidades, disponibilidade, bio, uf, cidade } = req.body;
 
     // Normaliza o número de registro (se fornecido) para o formato canônico
     const normalized = (registro_conselho && tipo_registro)
@@ -95,10 +96,10 @@ router.put('/me', authRequired, requireTipo('profissional'),
           SET registro_conselho = COALESCE(?, registro_conselho),
               tipo_registro     = COALESCE(?, tipo_registro),
               profissao         = COALESCE(?, profissao),
-              regiao            = COALESCE(?, regiao),
               especialidades    = COALESCE(?, especialidades),
               disponibilidade   = COALESCE(?, disponibilidade),
               bio               = COALESCE(?, bio),
+              cidade            = COALESCE(?, cidade),
               registro_verificado = ?,
               atualizado_em     = datetime('now')
         WHERE id_user = ?`,
@@ -106,10 +107,10 @@ router.put('/me', authRequired, requireTipo('profissional'),
         normalized ?? null,
         tipo_registro ?? null,
         profissao ?? null,
-        regiao ?? null,
         especialidades ? JSON.stringify(especialidades) : null,
         disponibilidade ? JSON.stringify(disponibilidade) : null,
         bio ?? null,
+        cidade ?? null,
         registroVerificadoAuto,
         req.user.id
       ]
@@ -257,28 +258,16 @@ router.post('/me/verificar-registro', authRequired, requireTipo('profissional'),
 );
 
 /**
- * GET /api/profissionais/profissoes — taxonomia canônica de profissões.
- *
- * O frontend usa essa lista para montar o seletor de "profissão" do cadastro
- * e da edição de perfil, garantindo que o valor gravado em
- * `profissionais_detalhes.profissao` seja sempre um id canônico reconhecido
- * pelo motor de matching.
- *
- * Precisa vir ANTES de `GET /:id` — senão "/profissoes" cai no `:id`.
- */
-router.get('/profissoes', (req, res) => {
-  res.json({ profissoes: PROFISSOES });
-});
-
-/**
  * GET /api/profissionais/:id — perfil público
  * Inclui estatísticas de avaliação (média e total) do schema do main
  * (colunas id_profissional, id_contratante, id_vaga, nota).
  */
 router.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
+  // INTERMEDIAÇÃO: telefone NUNCA é exposto em perfil público.
+  // Toda comunicação é feita pelo sistema (chat interno + notificações).
   const user = await db.get(
-    `SELECT id, nome, telefone, criado_em FROM users WHERE id = ? AND tipo_usuario = 'profissional'`,
+    `SELECT id, nome, criado_em FROM users WHERE id = ? AND tipo_usuario = 'profissional'`,
     [id]
   );
   if (!user) return res.status(404).json({ error: 'Profissional não encontrado' });

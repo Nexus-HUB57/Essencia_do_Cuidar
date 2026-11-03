@@ -2,14 +2,14 @@
 # Smoke test — Sistema de Matching Vagas x Profissional (Sprint 2 / M1-fix)
 #
 # Cobre:
-#   - taxonomia de profissões (GET /api/profissionais/profissoes)
+#   - taxonomia de profissões (GET /api/profissoes)
 #   - GET /api/vagas/:id/recomendar  (contratante → profissionais)
 #   - GET /api/profissionais/me/recomendar (profissional → vagas)
 #   - o critério de profession realmente pontua (regressão do bug do Sprint 1)
 #   - exclusão de quem já se candidatou
 #   - filtros minScore / limite
 #   - autorização (dono da vaga, tipo de usuário, token ausente)
-#   - persistência de profissao/regiao em PUT /api/profissionais/me
+#   - persistência de profissao/cidade em PUT /api/profissionais/me
 #   - filtros expandidos de listagem (M4)
 #
 # Uso: BASE=http://localhost:4000 ./scripts/smoke-test-matching.sh
@@ -73,7 +73,7 @@ assert_true "$(echo "$HC" | grep -q '"reachable":true' && echo 1 || echo 0)" "ba
 # ── 1. Taxonomia de profissões ───────────────────────────────────────────
 echo ""
 echo "[1] Taxonomia de profissões"
-PROFISSOES=$(http_body "$BASE/api/profissionais/profissoes")
+PROFISSOES=$(http_body "$BASE/api/profissoes")
 N_PROF=$(echo "$PROFISSOES" | json "len(d['profissoes'])")
 assert_true "$([ "${N_PROF:-0}" -ge 10 ] && echo 1 || echo 0)" "lista traz $N_PROF profissões"
 assert_true "$(echo "$PROFISSOES" | grep -q '"cuidador"' && echo 1 || echo 0)" "inclui 'cuidador'"
@@ -139,7 +139,7 @@ echo "[7] Match exato de profissão ranqueia primeiro"
 TOPO=$(echo "$REC" | json "d['recomendacoes'][0]['profissional']['profissao'] if d['recomendacoes'] else ''")
 VAGA_PROF=$(http_body "$BASE/api/vagas/1" | json "d['vaga']['profissional_desejado']")
 echo "  vaga pede: $VAGA_PROF | topo: $TOPO"
-assert_eq "cuidador" "$TOPO" "topo é o profissional com a profissão da vaga"
+assert_eq "cuidador_idosos" "$TOPO" "topo é o profissional com a profissão da vaga"
 
 # ── 8. Recomendações para o profissional ──────────────────────────────────
 echo ""
@@ -157,7 +157,7 @@ echo "[9] Profissional que já se candidatou não é recomendado"
 # controlado: criar uma vaga nova, candidatar e checar que ela some da lista.
 VAGA_NOVA=$(http_body -X POST "$BASE/api/vagas" \
   -H "Authorization: Bearer $TOKEN_C" -H "Content-Type: application/json" \
-  -d '{"complexidade":"baixa","servico_descricao":"Teste de smoke do matching automatico","profissional_desejado":"Fisioterapeuta","regiao":"Zona Oeste - SP","jornada_horario":"10h-12h","remuneracao_tipo":"hora","remuneracao_valor":100}')
+  -d '{"complexidade":"baixa","servico_descricao":"Teste de smoke do matching automatico","profissional_desejado":"Fisioterapeuta","cidade":"São Paulo","carga_horaria":"10h-12h","jornada_horario":"10h-12h","remuneracao_tipo":"hora","remuneracao_valor":100}')
 VAGA_TESTE_ID=$(echo "$VAGA_NOVA" | json "d['vaga']['id']")
 assert_true "$([ -n "$VAGA_TESTE_ID" ] && echo 1 || echo 0)" "vaga de teste criada (id $VAGA_TESTE_ID)"
 
@@ -199,16 +199,16 @@ echo ""
 echo "[12] PUT /api/profissionais/me persiste profissão e região"
 SAVE=$(http_body -X PUT "$BASE/api/profissionais/me" \
   -H "Authorization: Bearer $TOKEN_P" -H "Content-Type: application/json" \
-  -d '{"profissao":"fisioterapeuta","regiao":"Zona Oeste - SP"}')
+  -d '{"profissao":"fisioterapeuta","cidade":"São Paulo"}')
 PROF_SALVA=$(echo "$SAVE" | json "d['detalhes'].get('profissao','')")
-REG_SALVA=$(echo "$SAVE" | json "d['detalhes'].get('regiao','')")
+REG_SALVA=$(echo "$SAVE" | json "d['detalhes'].get('cidade','')")
 assert_eq "fisioterapeuta" "$PROF_SALVA" "profissão persistida"
-assert_eq "Zona Oeste - SP" "$REG_SALVA" "região persistida"
+assert_eq "São Paulo" "$REG_SALVA" "cidade persistida"
 
 # O perfil público também expõe os campos
 PUB=$(http_body "$BASE/api/profissionais/4")
 assert_true "$(echo "$PUB" | grep -q '"profissao"' && echo 1 || echo 0)" "perfil público inclui 'profissao'"
-assert_true "$(echo "$PUB" | grep -q '"regiao"' && echo 1 || echo 0)" "perfil público inclui 'regiao'"
+assert_true "$(echo "$PUB" | grep -q '"cidade"' && echo 1 || echo 0)" "perfil público inclui 'cidade'"
 
 # ── 13. Validação de profissão inválida ──────────────────────────────────
 echo ""

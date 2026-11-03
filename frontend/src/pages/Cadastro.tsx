@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
 import Wizard from '../components/Wizard';
@@ -40,11 +40,20 @@ export default function Cadastro() {
   const [form, setForm] = useState({
     nome: '', email: '', senha: '', telefone: '',
     tipo_registro: '', registro_conselho: '', uf: '',
-    profissao: '', regiao: '',
+    profissao: '', cidade: '',
     especialidades: [] as string[], disponibilidade: [] as string[], bio: ''
   });
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // UFs vindas do backend (com fallback local). As profissões vêm do hook
+  // useProfissoes, que já tem fallback próprio.
+  const [ufs, setUfs] = useState(UFS);
+  useEffect(() => {
+    api.get('/profissoes').then(({ data }) => {
+      if (data.ufs?.length) setUfs(data.ufs);
+    }).catch(() => {/* fallback mantém */});
+  }, []);
 
   const steps = tipo === 'profissional'
     ? [
@@ -84,7 +93,7 @@ export default function Cadastro() {
           registro_conselho: form.registro_conselho,
           uf: form.uf,
           profissao: form.profissao || undefined,
-          regiao: form.regiao || undefined,
+          cidade: form.cidade || undefined,
           especialidades: form.especialidades,
           disponibilidade: form.disponibilidade,
           bio: form.bio
@@ -184,11 +193,11 @@ export default function Cadastro() {
                 </select>
               </div>
               <div>
-                <label className="label">{t('matching.perfil.regiao')}</label>
-                <input className="input" value={form.regiao}
-                  onChange={(e) => setForm({ ...form, regiao: e.target.value })}
-                  placeholder={t('matching.perfil.regiaoPlaceholder')} />
-                <p className="text-[10px] text-slate-400 mt-1">{t('matching.perfil.regiaoHint')}</p>
+                <label className="label">{t('matching.perfil.cidade')}</label>
+                <input className="input" value={form.cidade}
+                  onChange={(e) => setForm({ ...form, cidade: e.target.value })}
+                  placeholder={t('matching.perfil.cidadePlaceholder')} />
+                <p className="text-[10px] text-slate-400 mt-1">{t('matching.perfil.cidadeHint')}</p>
               </div>
               <div>
                 <label className="label">Especialidades</label>

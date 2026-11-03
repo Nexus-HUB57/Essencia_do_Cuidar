@@ -201,11 +201,11 @@
     },
     "perfil": {
       "profissao": "Profissão",
-      "regiao": "Região de atuação",
-      "regiaoPlaceholder": "Ex.: Zona Sul - SP",
-      "regiaoHint": "Onde você atende. Só profissionais da mesma região são recomendados.",
       "selectProfissao": "Selecione",
-      "completeProfile": "Complete seu perfil para melhorar as recomendações"
+      "completeProfile": "Complete seu perfil para melhorar as recomendações",
+      "cidade": "Cidade de atuação",
+      "cidadePlaceholder": "Ex.: São Paulo",
+      "cidadeHint": "Onde você atende. Só profissionais da mesma cidade/UF são recomendados."
     }
   }
 }

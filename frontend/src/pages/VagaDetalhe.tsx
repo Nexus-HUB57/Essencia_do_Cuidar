@@ -221,7 +221,7 @@ export default function VagaDetalhe() {
                             <p className="font-semibold truncate">{p.nome}</p>
                             <p className="text-xs text-slate-500">
                               {p.profissao ? rotuloProfissao(p.profissao) : '—'}
-                              {p.regiao ? ` • 📍 ${p.regiao}` : ''}
+                              {p.cidade ? ` • 📍 ${p.cidade}` : ''}
                             </p>
                           </div>
                           {p.total_avaliacoes > 0 && (

@@ -13,7 +13,7 @@ interface ProfDetalhes {
   registro_verificado: 0 | 1 | 2;
   registro_verificado_em?: string | null;
   profissao?: string | null;
-  regiao?: string | null;
+  cidade?: string | null;
   diploma_nome_original: string | null;
   diploma_verificado: 0 | 1;
   especialidades: string[];
@@ -148,36 +148,20 @@ export default function ProfissionalPerfil() {
                 ? t("profissionais.anosPlataforma", { count: anosNaPlataforma })
                 : t("profissionais.novoPlataforma")}
             </p>
-            {(detalhes?.profissao || detalhes?.regiao) && (
+            {(detalhes?.profissao || detalhes?.cidade) && (
               <p className="text-sm text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                 {detalhes?.profissao && (
                   <span className="badge-blue">{rotuloProfissao(detalhes.profissao)}</span>
                 )}
-                {detalhes?.regiao && <span>📍 {detalhes.regiao}</span>}
+                {detalhes?.cidade && <span>📍 {detalhes.cidade}</span>}
               </p>
             )}
           </div>
           <div className="flex items-center gap-2">
             <FavoritarBotao tipo="profissional" id={Number(id)} size="md" />
-            {user.telefone && (
-              <a
-                href={`https://wa.me/55${user.telefone.replace(/\D/g, '')}`}
-                target="_blank" rel="noopener"
-                className="btn-secondary text-sm"
-              >
-                📱 WhatsApp
-              </a>
-            )}
           </div>
-          {user.telefone && (
-            <a
-              href={`https://wa.me/55${user.telefone.replace(/\D/g, "")}`}
-              target="_blank" rel="noopener"
-              className="btn-secondary text-sm"
-            >
-              {t("profissionais.whatsapp")}
-            </a>
-          )}
+          {/* INTERMEDIAÇÃO: telefone e WhatsApp NUNCA são exibidos.
+              Toda comunicação é intermediada pelo sistema (chat interno + notificações). */}
         </div>
       </div>
 

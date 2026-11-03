@@ -101,5 +101,73 @@ resolve bug da Ana
 ## 8. Onde pedir ajuda
 
 - Issues no GitHub: https://github.com/Nexus-HUB57/Essencia_do_Cuidar/issues
-- README.md tem overview técnico e endpoints da API
-- DEPLOY.md tem guia de deploy (Netlify + Render)
+- README.md tem overview técnico e 38+ endpoints documentados
+- DEPLOY.md tem guia de deploy (Netlify + Render + Docker + k8s + cron)
+- CHANGELOG.md tem histórico das PRs #17, #18, #19
+- `/api/docs` no backend rodando tem Swagger UI interativo
+- `/api/openapi.json` para importar em Postman/Insomnia
+
+## 9. Arquitetura atual (pós-PR #19)
+
+Backend tem 12 services (em `backend/src/services/`):
+
+| Service                    | Função                                                  |
+|----------------------------|---------------------------------------------------------|
+| `netlify.js`                | Webhook netlify.ai (best-effort)                        |
+| `registroValidator.js`     | Validação estrutural de CRM/COREN/CREFITO/CRP/CRN       |
+| `matching.js`               | **M1** — Algoritmo de score de matching (322 linhas)    |
+| `event-bus.js`              | **W4/W5** — Eventos Socket.IO centralizados            |
+| `auth-advanced.js`          | **A1/A2** — Refresh tokens + jti blacklist (210 linhas) |
+| `profissoes.js`             | **M2/M3** — 8 profissões canônicas + 27 UFs            |
+| `candidatura-cleanup.js`   | **M9** — Expiração automática de candidaturas          |
+| `webhook-retry.js`          | **N1** — Retry de webhooks com falha                   |
+| `search-fts.js`             | **M10** — FTS5 SQLite + tsvector PG                     |
+| `alerting.js`               | **Item 10** — Alertas 503 + Slack                       |
+| `cron-internal.js`          | **Item 3** — Cron jobs internos (opt-in)                |
+| `openapi.js`                | **P10** — Spec OpenAPI 3.0 + Swagger UI                |
+| `stripe.js`                 | Feature 3 — Stripe Connect + Pix + idempotência (S2)    |
+| `push.js`                   | Feature 4 — Web Push (VAPID)                           |
+| `registros.js`               | Auxiliar para validação de registros                   |
+
+Tabelas no schema (17):
+
+```
+users (com is_admin, suspended_at, suspended_reason)
+profissionais_detalhes (com registro_verificado, especialidades, etc.)
+vagas (com regiao_uf, complexidade CHECK baixa|media)
+candidaturas (com atualizada_em, UNIQUE id_vaga+id_profissional)
+mensagens
+webhook_logs (com stripe_event_id para idempotência)
+avaliacoes (UNIQUE id_contratante+id_vaga)
+verificacao_registros
+pagamentos (Stripe Connect + Pix)
+stripe_connect (contas Express)
+push_subscriptions (VAPID)
+admin_audit
+reports
+favoritos (B5 — UNIQUE id_user+tipo+id_recurso)
+vaga_visualizacoes (B2 — contador de views)
+candidatura_status_log (M11 — auditoria de transições)
+token_blacklist (A2 — revogação de tokens JWT)
+```
+
+Variáveis de ambiente: ver `backend/.env.example` para a lista completa.
+A maioria tem defaults funcionais — só `JWT_SECRET` é obrigatório em produção.
+
+Endpoints da API: 38+ — ver `README.md` (seção "🔌 Endpoints da API") ou
+`/api/docs` no backend rodando para explorar interativamente.
+
+Eventos Socket.IO (8 no total): ver `README.md` (seção WebSocket).
+
+## 10. Antes de enviar PR
+
+- [ ] `npm --prefix backend run seed` não quebra (schema ok)
+- [ ] `npm --prefix frontend run build` sem erros de tipo
+- [ ] Backend inicia: `env -u DATABASE_URL npm --prefix backend run dev`
+- [ ] Testes E2E: `BASE=http://localhost:4000 bash scripts/smoke-test.sh`
+- [ ] Ver `/api/health` retorna 200
+- [ ] Ver `/api/docs` retorna 200 (Swagger UI)
+- [ ] Ver `/api/openapi.json` retorna JSON válido
+
+Se mexeu em schemas, rodar `node --check` em todos os arquivos novos/modificados.
+
