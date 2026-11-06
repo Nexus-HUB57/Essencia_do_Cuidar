@@ -205,6 +205,8 @@ export interface MatchingVagaRecomendada {
   profissional_desejado: string;
   complexidade: "baixa" | "media";
   regiao?: string | null;
+  cidade?: string | null;
+  carga_horaria?: string | null;
   remuneracao_valor?: number | null;
   remuneracao_tipo?: "plantao" | "hora" | null;
   tipo_contrato?: "PJ" | "CLT" | null;

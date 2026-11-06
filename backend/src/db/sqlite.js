@@ -19,7 +19,15 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-const dbPath = path.join(DATA_DIR, 'essencia.db');
+// SQLITE_PATH permite apontar para outro arquivo (usado nos testes de
+// integração para isolar o banco de desenvolvimento).
+const dbPath = process.env.SQLITE_PATH
+  ? path.resolve(process.env.SQLITE_PATH)
+  : path.join(DATA_DIR, 'essencia.db');
+if (process.env.SQLITE_PATH) {
+  const dir = path.dirname(dbPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');

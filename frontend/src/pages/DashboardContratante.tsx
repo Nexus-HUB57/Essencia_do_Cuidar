@@ -6,6 +6,7 @@ import api from '../utils/api';
 import type { Vaga } from '../types';
 import Chat from '../components/Chat';
 import PaymentModal from '../components/PaymentModal';
+import ProtocolosPanel from '../components/ProtocolosPanel';
 
 interface Candidato {
   id: number;
@@ -55,7 +56,7 @@ const PROFISSIONAIS_OPCOES = [
 export default function DashboardContratante() {
   const { user } = useAuth();
   const toast = useToast();
-  const [tab, setTab] = useState<'vagas' | 'nova' | 'historico'>('vagas');
+  const [tab, setTab] = useState<'vagas' | 'nova' | 'historico' | 'protocolos'>('vagas');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);
@@ -345,6 +346,7 @@ export default function DashboardContratante() {
         {[
           { k: 'vagas', l: `📋 Minhas vagas (${vagas.length})` },
           { k: 'nova', l: '➕ Publicar vaga' },
+          { k: 'protocolos', l: '🛡️ Protocolos' },
           { k: 'historico', l: `📚 Histórico (${historico.length})` }
         ].map((t) => (
           <button
@@ -507,6 +509,11 @@ export default function DashboardContratante() {
             <button onClick={publicar} className="btn-primary">Publicar vaga</button>
           </div>
         </div>
+      )}
+
+      {/* ABA: PROTOCOLOS DE CUSTÓDIA (PCP/PCM/PDC) */}
+      {tab === 'protocolos' && (
+        <ProtocolosPanel />
       )}
 
       {/* ABA: HISTÓRICO DE CONTRATAÇÕES */}

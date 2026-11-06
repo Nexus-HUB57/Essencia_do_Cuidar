@@ -28,26 +28,42 @@
 import { verificarRegistro } from "./conselhos/index.js";
 
 /**
- * Regex por conselho. Cada entrada aceita o número COM ou SEM o prefixo do
- * conselho, e — onde há ambiguidade histórica de ordem — aceita as duas
- * variantes (o formulário de cadastro sugere "123456-SP", a documentação
- * usa "COREN-SP 123456").
+ * Regex por conselho. Cada entrada produz um objeto RegExp que
+ * valida o NUMERO (sem o prefixo do conselho). Aceitamos variacoes
+ * comuns: separadores espaco/hifen, com/sem UF.
+ *
+ * IMPORTANTE — estes padroes foram alinhados com `services/registros.js`
+ * (FORMATS) e com o placeholder do frontend ("Ex: 123456-SP ou 06/12345").
+ * Antes desta unificacao os dois validadores discordavam: o frontend
+ * pedia "123456-SP" e so passava pelo fallback, enquanto este modulo
+ * exigia "COREN-SP-123456". Agora ambos aceitam o mesmo conjunto.
  *
  * Fontes dos formatos:
- *   - COREN: UF + 4-6 digitos (ex: "COREN-SP 123456" ou "SP-123456")
+ *   - COREN: <UF> + 4-6 digitos (ex: "SP 123456" ou "SP-123456")
+ *             OU digitos-UF canonico (ex: "123456-SP")
+ *             OU com prefixo (ex: "COREN-SP-123456")
  *   - CRM:   4-6 digitos + "/" + UF (ex: "123456/SP")
- *   - CREFITO: 4-6 digitos + "-" + letra (ex: "CREFITO-12345-F")
+ *             OU digitos-UF canonico (ex: "123456-SP")
+ *   - CREFITO: 4-6 digitos + "-" + letra (ex: "12345-F")
+ *             OU digitos/UF canonico (ex: "123456/SP-3")
  *   - CRP:   2 digitos + "/" + 4-5 digitos (ex: "06/12345")
  *   - CRN:   4-6 digitos + "/" + UF (ex: "12345/RJ")
+ *             OU digitos-UF canonico (ex: "1234-SP")
  */
 const REGEX_POR_CONSELHO = {
-  COREN: /^(?:COREN[-\s]?)?(?:([A-Z]{2})[-\s]?(\d{4,6})|(\d{4,6})[-\s]?([A-Z]{2}))$/i,
-  CRM:   /^(?:CRM[-\s]?)?(\d{4,6})[\/\-\s]([A-Z]{2})$/i,
-  CREFITO: /^(?:CREFITO[-\s]?)?(?:(\d{4,6})[-\s]?([A-Z])|(\d{4,6})[\/\-]([A-Z]{2})(-\d+)?)$/i,
-  CRP:   /^(?:CRP[-\s]?)?(\d{2})[\/\-\s](\d{4,5})$/i,
-  CRN:   /^(?:CRN[-\s]?)?(\d{4,6})[\/\-\s]([A-Z]{2})$/i
+  COREN: /^(?:COREN[-\s]?([A-Z]{2})[-\s]?(\d{4,6})|([A-Z]{2})[-\s](\d{4,6})|(\d{3,6})[-\s]([A-Z]{2}))$/i,
+  CRM:   /^(?:\d{4,6})[\/\-\s]([A-Z]{2})$/i,
+  CREFITO: /^(?:CREFITO[-\s]?(\d{4,6})[-\s]?([A-Z])|(\d{4,7})[\/\-]([A-Z]{2})(?:[-\s]?(\d+))?)$/i,
+  CRP:   /^(\d{1,2})[\/\-\s](\d{3,6})$/i,
+  CRN:   /^(?:\d{3,6})[\/\-\s]([A-Z]{2})$/i
 };
 
+/**
+ * Normaliza o numero para o formato canonico antes de salvar.
+ * - Remove espacos duplicados
+ * - Coloca prefixo do conselho em maiusculas
+ * - Mantem case original do resto
+ */
 /** Exemplos usados nas mensagens de erro (espelham o README). */
 const EXEMPLOS = {
   COREN: 'COREN-SP 123456',
@@ -58,20 +74,15 @@ const EXEMPLOS = {
   OUTRO: 'qualquer identificação'
 };
 
-/**
- * Normaliza o numero para o formato canonico antes de salvar.
- * - Remove espacos duplicados
- * - Coloca prefixo do conselho em maiusculas
- * - Mantem case original do resto
- */
 function normalize(tipo, numero) {
   if (!numero) return null;
   const trimmed = String(numero).trim().replace(/\s+/g, " ");
   if (tipo && REGEX_POR_CONSELHO[tipo.toUpperCase()]) {
     // Garante que o prefixo do conselho (quando houver) fique em maiusculas
-    // SEM alterar o separador. A versão anterior inseria um espaço aqui e
-    // transformava "COREN-SP 123456" em "COREN -SP 123456" — o que quebrava
-    // o próprio regex do conselho e impedia o cadastro de um registro válido.
+    // SEM alterar o separador. A versão anterior substituía "COREN" por
+    // "COREN " e transformava "COREN-SP 123456" em "COREN -SP 123456" — o
+    // que quebrava o próprio regex do conselho e impedia o cadastro de um
+    // registro no formato documentado.
     return trimmed.replace(
       new RegExp(`^${tipo}(?=[-\\s]|$)`, "i"),
       tipo.toUpperCase()

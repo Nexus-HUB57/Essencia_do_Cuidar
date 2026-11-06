@@ -6,6 +6,7 @@ import api from '../utils/api';
 import type { Vaga, Candidatura, ProfissionalDetalhes, MatchingVagasResponse } from '../types';
 import Chat from '../components/Chat';
 import OnboardingConnectModal from '../components/OnboardingConnectModal';
+import ProtocolosPanel from '../components/ProtocolosPanel';
 import { useProfissoes } from '../hooks/useProfissoes';
 import {
   SeloScore,
@@ -14,27 +15,19 @@ import {
   VazioRecomendacoes
 } from '../components/Recomendacoes';
 
-const DISPONIBILIDADE_OPCOES = [
-  { v: 'manha', l: 'Manhã' },
-  { v: 'tarde', l: 'Tarde' },
-  { v: 'noite', l: 'Noite' },
-  { v: '12h', l: '12h' },
-  { v: '24h', l: '24h' }
-];
-
 export default function DashboardProfissional() {
   const { user, refreshUser } = useAuth();
   const { t } = useTranslation();
   const { rotulo: rotuloProfissao, opcoes: opcoesProfissao } = useProfissoes();
-  const [tab, setTab] = useState<'buscar' | 'recomendadas' | 'candidaturas' | 'favoritos' | 'perfil'>('buscar');
+  const [tab, setTab] = useState<'buscar' | 'recomendadas' | 'candidaturas' | 'favoritos' | 'perfil' | 'protocolos'>('buscar');
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [cands, setCands] = useState<Candidatura[]>([]);
   const [favoritas, setFavoritas] = useState<Vaga[]>([]);
   const [detalhes, setDetalhes] = useState<ProfissionalDetalhes | null>(null);
-  const [recomendadas, setRecomendadas] = useState<MatchingVagasResponse['recomendacoes']>([]);
   const [loading, setLoading] = useState(false);
   const [chatCom, setChatCom] = useState<{ id: number; nome: string } | null>(null);
   const [showConnect, setShowConnect] = useState(false);
+  const [recomendadas, setRecomendadas] = useState<MatchingVagasResponse['recomendacoes']>([]);
 
   // Edição do perfil (dados que alimentam o matching)
   const [formPerfil, setFormPerfil] = useState({
@@ -73,6 +66,20 @@ export default function DashboardProfissional() {
     } catch {}
   }
 
+  /** Carrega as vagas recomendadas para o perfil do profissional. */
+  async function carregarRecomendadas() {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/profissionais/me/recomendar');
+      setRecomendadas(data.recomendacoes || []);
+    } catch (err) {
+      console.error(getErrorMessage(err));
+      setRecomendadas([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   /** Salva os dados que alimentam o matching (profissão, região, disponibilidade). */
   async function salvarPerfil() {
     setSalvando(true);
@@ -86,7 +93,6 @@ export default function DashboardProfissional() {
       });
       setDetalhes(data.detalhes);
       setPerfilSalvo(true);
-      // Recarrega as recomendações — o perfil acabou de mudar.
       if (tab === 'recomendadas') carregarRecomendadas();
     } catch (err) {
       setPerfilErro(getErrorMessage(err));
@@ -105,18 +111,6 @@ export default function DashboardProfissional() {
       setVagas(data.vagas);
     } catch (err) {
       console.error(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
-  async function carregarRecomendadas() {
-    setLoading(true);
-    try {
-      const { data } = await api.get('/profissionais/me/recomendar');
-      setRecomendadas(data.recomendacoes || []);
-    } catch (err) {
-      console.error(getErrorMessage(err));
-      setRecomendadas([]);
     } finally {
       setLoading(false);
     }
@@ -147,10 +141,10 @@ export default function DashboardProfissional() {
   async function candidatar(vagaId: number) {
     try {
       await api.post('/candidaturas', { id_vaga: vagaId });
-      alert('Candidatura enviada! Acompanhe na aba "Minhas candidaturas".');
       // A vaga sai da lista de recomendações (o backend não recomenda quem
       // já se candidatou) — recarrega para manter a UI consistente.
       if (tab === 'recomendadas') carregarRecomendadas();
+      alert('Candidatura enviada! Acompanhe na aba "Minhas candidaturas".');
     } catch (err) {
       alert(getErrorMessage(err));
     }
@@ -179,6 +173,7 @@ export default function DashboardProfissional() {
           { k: 'buscar', l: '🔍 Buscar vagas' },
           { k: 'recomendadas', l: '✨ Recomendadas' },
           { k: 'candidaturas', l: '📋 Minhas candidaturas' },
+          { k: 'protocolos', l: '🛡️ Protocolos' },
           { k: 'favoritos', l: '❤️ Favoritas' },
           { k: 'perfil', l: '👤 Meu perfil' }
         ].map((t) => (
@@ -291,7 +286,7 @@ export default function DashboardProfissional() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 text-xs text-slate-500 mt-3">
-                      {v.regiao && <span>📍 {v.regiao}</span>}
+                      {(v.regiao || v.cidade) && <span>📍 {v.regiao || v.cidade}</span>}
                       {v.jornada_horario && <span>🕐 {v.jornada_horario}</span>}
                       {v.remuneracao_valor && (
                         <span className="font-bold text-emerald-600">
@@ -358,6 +353,11 @@ export default function DashboardProfissional() {
             </div>
           )}
         </div>
+      )}
+
+      {/* TAB: PROTOCOLOS (PCP/PCM/PDC) */}
+      {tab === 'protocolos' && (
+        <ProtocolosPanel />
       )}
 
       {/* TAB: FAVORITOS */}
@@ -427,16 +427,16 @@ export default function DashboardProfissional() {
               {(detalhes.especialidades as string[]).join(', ') || '—'}
             </div>
             <div>
+              <span className="text-slate-400">Disponibilidade:</span>{' '}
+              {(detalhes.disponibilidade as string[]).join(', ') || '—'}
+            </div>
+            <div>
               <span className="text-slate-400">{t('matching.perfil.profissao')}:</span>{' '}
               {detalhes.profissao ? rotuloProfissao(detalhes.profissao) : '—'}
             </div>
             <div>
               <span className="text-slate-400">{t('matching.perfil.regiao')}:</span>{' '}
               {detalhes.regiao || '—'}
-            </div>
-            <div>
-              <span className="text-slate-400">Disponibilidade:</span>{' '}
-              {(detalhes.disponibilidade as string[]).join(', ') || '—'}
             </div>
           </div>
 
@@ -468,34 +468,6 @@ export default function DashboardProfissional() {
                   onChange={(e) => setFormPerfil({ ...formPerfil, regiao: e.target.value })}
                   placeholder={t('matching.perfil.regiaoPlaceholder')}
                 />
-              </div>
-
-              <div>
-                <label className="label">Disponibilidade</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {DISPONIBILIDADE_OPCOES.map((d) => {
-                    const ativo = formPerfil.disponibilidade.includes(d.v);
-                    return (
-                      <button
-                        key={d.v}
-                        type="button"
-                        onClick={() => setFormPerfil({
-                          ...formPerfil,
-                          disponibilidade: ativo
-                            ? formPerfil.disponibilidade.filter((x) => x !== d.v)
-                            : [...formPerfil.disponibilidade, d.v]
-                        })}
-                        className={`px-3 py-1 rounded-full text-xs border ${
-                          ativo
-                            ? 'bg-emerald-500 text-white border-emerald-500'
-                            : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600'
-                        }`}
-                      >
-                        {d.l}
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
               <div className="flex items-center gap-2 pt-1">

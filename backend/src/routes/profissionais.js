@@ -137,7 +137,8 @@ router.put('/me', authRequired, requireTipo('profissional'),
       );
     }
 
-    const detalhes = await db.get('SELECT * FROM profissionais_detalhes WHERE id_user = ?', [req.user.id]);
+    const { buscarDetalhes } = await import('../utils/profissional.js');
+    const detalhes = await buscarDetalhes(req.user.id);
     res.json({ detalhes });
   }
 );
@@ -157,7 +158,8 @@ router.post('/me/diploma', authRequired, requireTipo('profissional'),
         WHERE id_user = ?`,
       [url, req.file.originalname, req.user.id]
     );
-    const detalhes = await db.get('SELECT * FROM profissionais_detalhes WHERE id_user = ?', [req.user.id]);
+    const { buscarDetalhes } = await import('../utils/profissional.js');
+    const detalhes = await buscarDetalhes(req.user.id);
     res.json({ detalhes });
   }
 );
@@ -277,11 +279,8 @@ router.get('/:id', async (req, res) => {
     [id]
   );
   if (!user) return res.status(404).json({ error: 'Profissional não encontrado' });
-  const detalhes = await db.get('SELECT * FROM profissionais_detalhes WHERE id_user = ?', [id]);
-  if (detalhes) {
-    try { detalhes.especialidades = JSON.parse(detalhes.especialidades || '[]'); } catch { detalhes.especialidades = []; }
-    try { detalhes.disponibilidade = JSON.parse(detalhes.disponibilidade || '[]'); } catch { detalhes.disponibilidade = []; }
-  }
+  const { buscarDetalhes } = await import('../utils/profissional.js');
+  const detalhes = await buscarDetalhes(id);
 
   // Estatísticas de avaliação (schema do main: id_profissional, id_contratante, id_vaga, nota)
   const stats = await db.get(
