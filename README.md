@@ -74,6 +74,9 @@ expandida com 4 Sprints de melhorias + 12 itens de robustez pós-merge.
 - `services/alerting.js` — emite alertas JSON estruturado (Loki/Datadog compat)
 - Integração no `/api/health` — 503 dispara alerta `db_down`
 - Persiste em `data/alerts.log` + envia para Slack se `SLACK_WEBHOOK_URL` setada
+- **Envia por email** se `ALERT_EMAIL_TO` + SMTP (`SMTP_URL` ou `SMTP_HOST`)
+  estiverem setados — assunto e corpo em texto e HTML. O envio é tolerante a
+  falha: SMTP fora do ar não impede o alerta de ser logado nem enviado ao Slack
 - Throttle 5min por tipo (não spamma)
 - `GET /api/admin/alerts` — lista alertas recentes (default 50, max 200)
 - `POST /api/admin/alerts/test` — dispara alerta de teste
@@ -108,6 +111,16 @@ AUTH_UPLOADS=true
 ENABLE_INTERNAL_CRON=false
 # Alerting
 SLACK_WEBHOOK_URL=
+# Alerting por email (opcional) — sem estas vars, o alerta é só logado.
+# Formato 1 (URL completa):
+ALERT_EMAIL_TO=alertas@essenciadocuidar.com.br
+ALERT_EMAIL_FROM=alerts@essenciadocuidar.com.br
+SMTP_URL=smtp://usuario:senha@smtp.provedor.com:587
+# Formato 2 (variáveis discretas) — use SMTP_HOST ou SMTP_URL, não os dois:
+# SMTP_HOST=smtp.provedor.com
+# SMTP_PORT=587
+# SMTP_USER=usuario
+# SMTP_PASS=senha
 # Matching (M7)
 AUTO_CLOSE_ON_ACCEPT=true
 # Robustez (M8/M9)
@@ -150,7 +163,7 @@ médicos) para cuidado domiciliar com confiança, empatia e segurança.
 - ✅ **Mobile-first** (testado em viewport pequeno)
 - ✅ **Internacionalização** (pt-BR, es, en) com switcher
 - ✅ **OpenAPI/Swagger docs** em `/api/docs` (P10)
-- ✅ **Alertas 503 + Slack** + monitoramento de webhooks (Item 10)
+- ✅ **Alertas 503 + Slack + email (SMTP)** + monitoramento de webhooks (Item 10)
 - ✅ **Busca textual FTS5/tsvector** (M10)
 - ⚠️ **Não aceita** vagas de alta complexidade/UTI (regra de negócio)
 
@@ -669,7 +682,7 @@ Para instalar: abra no Chrome mobile, banner aparecerá automaticamente.
 - [x] Painel administrativo (moderação, stats, users, verificações, pagamentos)
 - [x] Internacionalização (pt-BR, es, en) com react-i18next
 
-### Matching automático (branch `feat/matching-sprint-2`)
+### Matching automático (entregue — PR #27, mergeado em 03/11)
 
 - [x] **Motor de matching reescrito** (`backend/src/services/matching.js`) — a
       versão anterior comparava a profissão da vaga com as *especialidades* do
@@ -719,7 +732,7 @@ em `/api/i18n/:locale` para sincronizar.
 npm --prefix backend run seed && node backend/src/index.js
 
 BASE=http://localhost:4000 bash scripts/smoke-test.sh          # 38/38
-BASE=http://localhost:4000 bash scripts/smoke-test-v2.sh       # 28/28
+BASE=http://localhost:4000 bash scripts/smoke-test-v2.sh       # 30/30
 BASE=http://localhost:4000 bash scripts/smoke-test-matching.sh # 39/39
 ```
 
@@ -730,8 +743,17 @@ demos e testes podem referenciar ids fixos.
 ```bash
 bash scripts/validate-e2e.sh
 ```
-Sobe a API, roda as três suítes, faz o typecheck e o build do frontend, e
+Sobe a API, roda as três suítes, reencoda o banco (as suítes gravam
+usuários `Smoke` no banco de desenvolvimento — sem o reseed eles apareceriam
+como recomendados no matching), faz o typecheck e o build do frontend, e
 por fim checa que uma entrada inválida não derruba o servidor.
+
+Resultado atual: **107 asserções** (38 + 30 + 39) + `tsc` + `build`.
+
+### Testes unitários
+```bash
+npm --prefix backend test          # vitest — 137 testes
+```
 
 ---
 

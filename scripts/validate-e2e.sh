@@ -44,6 +44,15 @@ for s in smoke-test.sh smoke-test-v2.sh smoke-test-matching.sh; do
                     || { bad "$s — $p passed, $f failed (exit $code)"; grep -E "✗" "/tmp/val-$s.out" | sed 's/\x1b\[[0-9;]*m//g'; }
 done
 
+step "3b. Limpeza — banco de volta ao estado de demo"
+# As suítes de smoke gravam no mesmo banco de desenvolvimento (usuários
+# "Smoke", vagas "Smoke Test"...). Sem este reseed, quem abre a API logo
+# depois da validação vê esses registros fantasma — inclusive no ranking do
+# matching, com um "Smoke Prof" recommendations na lista do contratante.
+( cd backend && npm run seed > /tmp/val-reseed.log 2>&1 ) \
+  && ok "banco reencodado (registros de teste removidos)" \
+  || bad "reseed falhou (veja /tmp/val-reseed.log)"
+
 step "4. Frontend — typecheck e build"
 ( cd frontend && npx tsc --noEmit > /tmp/val-tsc.log 2>&1 ) \
   && ok "tsc --noEmit sem erros" \
