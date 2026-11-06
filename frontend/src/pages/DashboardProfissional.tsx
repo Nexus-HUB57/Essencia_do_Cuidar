@@ -232,7 +232,7 @@ export default function DashboardProfissional() {
                   </div>
                   <p className="text-sm text-slate-500 mt-2 line-clamp-2">{v.servico_descricao}</p>
                   <div className="flex flex-wrap gap-2 text-xs text-slate-500 mt-3">
-                    {v.regiao && <span>📍 {v.regiao}</span>}
+                    {(v.regiao || v.cidade) && <span>📍 {v.regiao || v.cidade}</span>}
                     {v.jornada_horario && <span>🕐 {v.jornada_horario}</span>}
                     {v.remuneracao_valor && (
                       <span className="font-bold text-emerald-600">
@@ -293,7 +293,7 @@ export default function DashboardProfissional() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 text-xs text-slate-500 mt-3">
-                      {v.regiao && <span>📍 {v.regiao}</span>}
+                      {(v.regiao || v.cidade) && <span>📍 {v.regiao || v.cidade}</span>}
                       {v.jornada_horario && <span>🕐 {v.jornada_horario}</span>}
                       {v.remuneracao_valor && (
                         <span className="font-bold text-emerald-600">
@@ -388,7 +388,7 @@ export default function DashboardProfissional() {
                   </div>
                   <p className="text-sm text-slate-500 line-clamp-2 mt-1">{v.servico_descricao}</p>
                   <div className="flex flex-wrap gap-2 text-xs text-slate-500 mt-2">
-                    {v.regiao && <span>📍 {v.regiao}</span>}
+                    {(v.regiao || v.cidade) && <span>📍 {v.regiao || v.cidade}</span>}
                     {v.remuneracao_valor && (
                       <span className="font-semibold text-emerald-600">
                         💰 R$ {v.remuneracao_valor}/{v.remuneracao_tipo === 'hora' ? 'h' : 'plantão'}
