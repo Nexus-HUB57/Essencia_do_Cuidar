@@ -6,10 +6,11 @@
  *   POST /api/push/unsubscribe  → remove subscription
  */
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import { authRequired } from '../middleware/auth.js';
 import { saveSubscription, removeSubscription, getPublicKey, isEnabled } from '../services/push.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 router.get('/key', (req, res) => {
   res.json({ enabled: isEnabled(), publicKey: getPublicKey() });
@@ -17,7 +18,14 @@ router.get('/key', (req, res) => {
 
 router.post('/subscribe', authRequired, async (req, res) => {
   const sub = req.body;
-  if (!sub?.endpoint) return res.status(400).json({ error: 'Subscription inválida' });
+  // Valida o envelope inteiro aqui. saveSubscription() LANCA quando falta
+  // keys.p256dh/keys.auth, e sem try/catch no handler essa excecao virava
+  // unhandledRejection — o Node encerrava o processo e o backend saia do ar
+  // com um unico request. Agora que o erro e tratado, mesmo assim o certo e
+  // devolver 400 em vez de 500.
+  if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) {
+    return res.status(400).json({ error: 'Subscription inválida' });
+  }
   await saveSubscription(req.user.id, sub);
   res.json({ ok: true });
 });

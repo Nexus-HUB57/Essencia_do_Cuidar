@@ -18,6 +18,7 @@
  *   GET  /api/admin/pagamentos                     → todos os pagamentos
  */
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import db from '../db/driver.js';
 import { authRequired, requireAdmin } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
@@ -27,7 +28,7 @@ import { listarAlertas, emitirAlerta } from '../services/alerting.js';
 import { statsProtocolos } from '../services/protocolos.js';
 import { rodarProtocolosCleanup } from '../services/protocolos-cleanup.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 router.use(authRequired, requireAdmin);
 

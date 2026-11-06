@@ -1,8 +1,9 @@
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import db from '../db/driver.js';
 import { authRequired } from '../middleware/auth.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 /**
  * POST /api/favoritos

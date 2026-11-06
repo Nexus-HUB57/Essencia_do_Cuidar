@@ -31,7 +31,7 @@ import protocolosRouter from './routes/protocolos.js';
 import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
 import { listarProfissoes, UFS_VALIDAS } from './services/profissoes.js';
 import { getOpenApiSpec, getSwaggerUIHtml } from './services/openapi.js';
-import { wrapRouter } from './middleware/async.js';
+import { asyncHandler } from './middleware/async.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -148,7 +148,7 @@ if (!AUTH_UPLOADS) {
   }, express.static(uploadsDir));
 }
 
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', asyncHandler(async (req, res) => {
   const ts = new Date().toISOString();
   // Tenta uma query leve no DB para confirmar que o driver está vivo.
   // Falha no DB → retorna 503 (Service Unavailable) para healthchecks
@@ -180,7 +180,7 @@ app.get('/api/health', async (req, res) => {
       error: dbError
     }
   });
-});
+}));
 
 /**
  * M2/M3 — Endpoint público que lista profissões suportadas e UFs válidas.
@@ -223,22 +223,18 @@ app.post('/api/webhooks/mercadopago', express.json({ limit: '1mb' }), async (req
   }
 });
 
-// Os handlers das rotas são `async`. O Express 4 não captura rejeições de
-// Promise — elas viravam unhandledRejection e derrubavam o processo inteiro
-// (Node >= 15 aborta por padrão). wrapRouter converte qualquer erro async em
-// next(err), que o error handler abaixo transforma em 500 sem derrubar a API.
-app.use('/api/profissionais', wrapRouter(profissionaisRouter));
-app.use('/api/vagas', wrapRouter(vagasRouter));
-app.use('/api/candidaturas', wrapRouter(candidaturasRouter));
-app.use('/api/mensagens', wrapRouter(mensagensRouter));
-app.use('/api/pagamentos', wrapRouter(pagamentosRouter));
-app.use('/api/push', wrapRouter(pushRouter));
-app.use('/api/admin', wrapRouter(adminRouter));
-app.use('/api/i18n', wrapRouter(i18nRouter));
-app.use('/api/avaliacoes', wrapRouter(avaliacoesRouter));
-app.use('/api/favoritos', wrapRouter(favoritosRouter));
-app.use('/api/notificacoes', wrapRouter(notificacoesRouter));
-app.use('/api/protocolos', wrapRouter(protocolosRouter));
+app.use('/api/profissionais', profissionaisRouter);
+app.use('/api/vagas', vagasRouter);
+app.use('/api/candidaturas', candidaturasRouter);
+app.use('/api/mensagens', mensagensRouter);
+app.use('/api/pagamentos', pagamentosRouter);
+app.use('/api/push', pushRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/i18n', i18nRouter);
+app.use('/api/avaliacoes', avaliacoesRouter);
+app.use('/api/favoritos', favoritosRouter);
+app.use('/api/notificacoes', notificacoesRouter);
+app.use('/api/protocolos', protocolosRouter);
 
 // SPA fallback
 const distPath = path.resolve(__dirname, '../../frontend/dist');
@@ -256,8 +252,10 @@ app.use((err, req, res, _next) => {
   // P3 — Loga erro internamente, mas em produção NÃO expõe detalhe ao cliente
   console.error('[erro]', err);
   const isProd = process.env.NODE_ENV === 'production';
-  res.status(500).json({
-    error: 'Erro interno do servidor',
+  const isFk = /FOREIGN KEY|23503/.test(String(err?.code || '') + String(err?.message || ''));
+  if (res.headersSent) return;
+  res.status(isFk ? 400 : 500).json({
+    error: isFk ? 'Referência inválida (id não encontrado)' : 'Erro interno do servidor',
     detalhe: isProd ? undefined : err.message
   });
 });

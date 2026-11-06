@@ -1,4 +1,5 @@
 import express from 'express';
+import { createRouter } from '../middleware/async.js';
 import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
@@ -9,7 +10,7 @@ import {
   notificarCandidaturaStatus
 } from '../services/event-bus.js';
 
-const router = express.Router();
+const router = createRouter(express);
 
 const candidaturaSchema = {
   id_vaga:  { required: true, type: 'integer', min: 1 },

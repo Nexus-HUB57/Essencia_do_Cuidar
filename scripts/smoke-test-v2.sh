@@ -240,6 +240,27 @@ CODE=$(http_code -X POST "$BASE/api/auth/login" -H "Content-Type: application/js
   -d '{"email":"admin@demo.com","senha":"errada"}')
 assert_eq 401 "$CODE" "senha errada retorna 401"
 
+# 24. Regressão: exceção em handler async NÃO pode derrubar o processo
+# POST /api/push/subscribe sem `keys` fazia saveSubscription() lançar.
+# Sem try/catch no handler, o Express 4 não capturava a rejeição e o Node
+# terminava o processo (unhandledRejection) — o backend saía do ar.
+echo ""
+echo "[24] Regressão: exceção em handler async não derruba o servidor"
+CODE=$(http_code -X POST "$BASE/api/push/subscribe" \
+  -H "Authorization: Bearer $PROF_TOKEN" -H "Content-Type: application/json" \
+  -d '{"endpoint":"https://fake.push.service/sem-keys"}')
+assert_eq 400 "$CODE" "subscribe sem keys retorna 400 (não 500)"
+
+# O ponto real é o servidor continuar de pé depois da exceção.
+HEALTH=$(http_body "$BASE/api/health")
+if echo "$HEALTH" | grep -q '"ok":true'; then
+  echo -e "  ${GREEN}✓${NC} servidor continua respondendo após a exceção"
+  PASS=$((PASS+1))
+else
+  echo -e "  ${RED}✗${NC} servidor NÃO responde após a exceção: $HEALTH"
+  FAIL=$((FAIL+1))
+fi
+
 # Resumo
 echo ""
 echo "============================================================"

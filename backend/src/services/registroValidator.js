@@ -58,12 +58,6 @@ const REGEX_POR_CONSELHO = {
   CRN:   /^(?:\d{3,6})[\/\-\s]([A-Z]{2})$/i
 };
 
-/**
- * Normaliza o numero para o formato canonico antes de salvar.
- * - Remove espacos duplicados
- * - Coloca prefixo do conselho em maiusculas
- * - Mantem case original do resto
- */
 /** Exemplos usados nas mensagens de erro (espelham o README). */
 const EXEMPLOS = {
   COREN: 'COREN-SP 123456',
@@ -74,15 +68,18 @@ const EXEMPLOS = {
   OUTRO: 'qualquer identificação'
 };
 
+/**
+ * Normaliza o numero para o formato canonico antes de salvar.
+ * - Remove espacos duplicados
+ * - Coloca prefixo do conselho em maiusculas
+ * - Mantem case original do resto
+ */
 function normalize(tipo, numero) {
   if (!numero) return null;
   const trimmed = String(numero).trim().replace(/\s+/g, " ");
   if (tipo && REGEX_POR_CONSELHO[tipo.toUpperCase()]) {
     // Garante que o prefixo do conselho (quando houver) fique em maiusculas
-    // SEM alterar o separador. A versão anterior substituía "COREN" por
-    // "COREN " e transformava "COREN-SP 123456" em "COREN -SP 123456" — o
-    // que quebrava o próprio regex do conselho e impedia o cadastro de um
-    // registro no formato documentado.
+    // sem alterar o separador: "COREN-SP" deve continuar "COREN-SP".
     return trimmed.replace(
       new RegExp(`^${tipo}(?=[-\\s]|$)`, "i"),
       tipo.toUpperCase()

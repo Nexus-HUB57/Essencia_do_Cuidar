@@ -83,6 +83,10 @@ export interface Vaga {
   remuneracao_tipo?: "plantao" | "hora" | null;
   remuneracao_valor?: number | null;
   regiao?: string | null;
+  /** A vaga pode ter só a cidade (e não a região). O matching usa `cidade`
+   *  como fallback de `regiao` — sem isso a tela mostrava o local vazio. */
+  cidade?: string | null;
+  carga_horaria?: string | null;
   status: "ativa" | "pausada" | "fechada";
   criado_em: string;
   contratante_nome?: string;
