@@ -89,6 +89,8 @@ export async function initSchema() {
       registro_conselho TEXT,
       tipo_registro TEXT,
       registro_verificado INTEGER NOT NULL DEFAULT 0,
+      profissao TEXT,
+      regiao TEXT,
       especialidades TEXT NOT NULL DEFAULT '[]',
       disponibilidade TEXT NOT NULL DEFAULT '[]',
       bio TEXT,
@@ -138,6 +140,22 @@ export async function initSchema() {
       criado_em TEXT NOT NULL DEFAULT (now()::text)
     );
 
+    CREATE TABLE IF NOT EXISTS favoritos (
+      id SERIAL PRIMARY KEY,
+      id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga','profissional')),
+      id_recurso INTEGER NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      UNIQUE(id_user, tipo, id_recurso)
+    );
+
+    CREATE TABLE IF NOT EXISTS vaga_visualizacoes (
+      id SERIAL PRIMARY KEY,
+      id_vaga INTEGER NOT NULL REFERENCES vagas(id) ON DELETE CASCADE,
+      id_user INTEGER,
+      criado_em TEXT NOT NULL DEFAULT (now()::text)
+    );
+
     CREATE TABLE IF NOT EXISTS webhook_logs (
       id SERIAL PRIMARY KEY,
       tipo TEXT NOT NULL,
@@ -162,6 +180,8 @@ export async function initSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
     CREATE INDEX IF NOT EXISTS idx_av_contratante ON avaliacoes(id_contratante);
+    CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
+    CREATE INDEX IF NOT EXISTS idx_visualizacoes_vaga ON vaga_visualizacoes(id_vaga);
 
     CREATE TABLE IF NOT EXISTS verificacao_registros (
       id SERIAL PRIMARY KEY,
@@ -392,6 +412,17 @@ export async function initSchema() {
     await pool.query(`ALTER TABLE profissionais_detalhes ADD COLUMN cidade TEXT`);
   } catch (e) {
     if (!/already exists/i.test(String(e.message))) throw e;
+  }
+
+  // M1-fix — Matching: profissão canônica e região de atuação do profissional.
+  // Sem `profissao` o matcher não tem contra o que comparar com o
+  // `profissional_desejado` da vaga (o `tipo_registro` é o conselho, não a profissão).
+  for (const col of ['profissao', 'regiao']) {
+    try {
+      await pool.query(`ALTER TABLE profissionais_detalhes ADD COLUMN ${col} TEXT`);
+    } catch (e) {
+      if (!/already exists/i.test(String(e.message))) throw e;
+    }
   }
 
   console.log('[db:postgres] schema inicializado');

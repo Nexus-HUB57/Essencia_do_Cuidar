@@ -1,16 +1,27 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
-import type { Vaga } from '../types';
+import type { Vaga, MatchingProfissionaisResponse } from '../types';
 import FavoritarBotao from '../components/FavoritarBotao';
+import Estrelas from '../components/Estrelas';
+import { useProfissoes } from '../hooks/useProfissoes';
+import {
+  SeloScore,
+  ListaMotivos,
+  CabecalhoRecomendacoes,
+  VazioRecomendacoes
+} from '../components/Recomendacoes';
 
 export default function VagaDetalhe() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const toast = useToast();
   const navigate = useNavigate();
+  const { rotulo: rotuloProfissao } = useProfissoes();
   const [vaga, setVaga] = useState<Vaga | null>(null);
   const [visualizacoes, setVisualizacoes] = useState(0);
   const [erro, setErro] = useState('');
@@ -18,6 +29,8 @@ export default function VagaDetalhe() {
   const [candidatar, setCandidatar] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [sucesso, setSucesso] = useState('');
+  const [recomendados, setRecomendados] = useState<MatchingProfissionaisResponse['recomendacoes']>([]);
+  const [carregandoRecomendados, setCarregandoRecomendados] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -32,6 +45,27 @@ export default function VagaDetalhe() {
       }
     })();
   }, [id]);
+
+  // Recomendações: só o dono da vaga vê os profissionais sugeridos.
+  const ehDono = user?.tipo_usuario === 'contratante' && user.id === vaga?.id_contratante;
+
+  useEffect(() => {
+    if (!ehDono) return;
+    let cancelado = false;
+    (async () => {
+      setCarregandoRecomendados(true);
+      try {
+        const { data } = await api.get(`/vagas/${id}/recomendar`);
+        if (!cancelado) setRecomendados(data.recomendacoes || []);
+      } catch (err) {
+        console.error(getErrorMessage(err));
+        if (!cancelado) setRecomendados([]);
+      } finally {
+        if (!cancelado) setCarregandoRecomendados(false);
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [id, ehDono]);
 
   async function enviarCandidatura() {
     setErro('');
@@ -158,6 +192,77 @@ export default function VagaDetalhe() {
           <p className="text-slate-400 text-xs mb-1">Descrição do serviço</p>
           <p className="text-sm text-slate-700 leading-relaxed">{vaga.servico_descricao}</p>
         </div>
+
+        {ehDono && (
+          <div className="mt-8 border-t border-slate-100 pt-6">
+            <CabecalhoRecomendacoes
+              titulo={t('matching.recommendedProfessionals')}
+              subtitulo={t('matching.subtitle')}
+              total={recomendados.length}
+            />
+
+            {carregandoRecomendados ? (
+              <p className="text-center text-slate-400 py-8">{t('matching.loading')}</p>
+            ) : recomendados.length === 0 ? (
+              <VazioRecomendacoes
+                mensagem={t('matching.noRecommendations')}
+                dica={t('matching.noRecommendationsHint')}
+              />
+            ) : (
+              <div className="space-y-3">
+                {recomendados.map((r) => {
+                  const p = r.profissional;
+                  return (
+                    <div key={p.id} className="border border-slate-200 dark:border-slate-700 rounded-xl p-3 flex gap-3">
+                      <SeloScore score={r.score} nivel={r.nivel} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate">{p.nome}</p>
+                            <p className="text-xs text-slate-500">
+                              {p.profissao ? rotuloProfissao(p.profissao) : '—'}
+                              {p.regiao ? ` • 📍 ${p.regiao}` : ''}
+                            </p>
+                          </div>
+                          {p.total_avaliacoes > 0 && (
+                            <Estrelas value={p.media_avaliacao} size="sm" showNumber={false} />
+                          )}
+                        </div>
+
+                        {p.registro_verificado === 1 && (
+                          <span className="badge-green text-[10px] mt-1 inline-block">
+                            ✓ {t('perfil.verified')}
+                          </span>
+                        )}
+
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400 mt-2">
+                          {t('matching.why')}
+                        </p>
+                        <ListaMotivos motivos={r.motivosDetalhados} />
+
+                        <div className="flex gap-2 mt-2">
+                          <Link to={`/profissional/${p.id}`} className="btn-ghost text-xs flex-1 text-center">
+                            {t('matching.viewProfile')}
+                          </Link>
+                          {p.telefone && (
+                            <a
+                              href={`https://wa.me/55${p.telefone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener"
+                              className="btn-secondary text-xs flex-1 text-center"
+                            >
+                              📱 WhatsApp
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {user?.tipo_usuario === 'profissional' && (
           <div className="mt-8 border-t border-slate-100 pt-6">
