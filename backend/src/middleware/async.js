@@ -1,14 +1,20 @@
 /**
  * Wrapper de handlers async.
  *
- * O Express 4 NÃO captura rejeições de Promise em handlers async. Quando um
- * handler `async` lança (ex.: constraint violada no banco), a exceção vira
- * uma "unhandled rejection" e a requisição fica pendurada até o cliente
- * desistir (timeout) — sem nunca chegar ao error handler.
+ * O Express 4 NAO captura rejeicoes de Promise em handlers async. Quando um
+ * handler `async` lanca (ex.: `saveSubscription` levantando 'Subscription
+ * invalida', ou constraint violada no banco), a excecao vira uma
+ * "unhandled rejection" e o processo Node morre — no Node >= 15 o default de
+ * unhandledRejection e terminar o processo.
+ *
+ * Com isso, UM request autenticado derrubava o backend inteiro:
+ *   POST /api/push/subscribe  {"endpoint":"https://..."}   (sem `keys`)
+ *   -> saveSubscription() lanca -> sem try/catch -> unhandledRejection
+ *   -> processo encerrado (HTTP 000, servico fora do ar)
  *
  * `asyncHandler` converte o handler em um wrapper que faz o `catch(next)`,
- * encaminhando o erro para o middleware de erro do Express, que devolve um
- * JSON 500 correto.
+ * encaminhando o erro para o error handler do Express, que devolve um
+ * JSON 500 correto em vez de matar o servico.
  */
 export function asyncHandler(fn) {
   return function wrapped(req, res, next) {
@@ -22,11 +28,11 @@ export function asyncHandler(fn) {
 }
 
 /**
- * Cria um Router com wrapping automático de handlers.
+ * Cria um Router com wrapping automatico de handlers.
  *
- * Uso:  const router = createRouter();   // em vez de express.Router()
+ * Uso:  const router = createRouter(express);   // em vez de express.Router()
  * Todos os handlers (sync ou async) passam por asyncHandler, garantindo que
- * exceções sempre cheguem ao error handler.
+ * excecoes sempre cheguem ao error handler.
  */
 export function createRouter(express) {
   const router = express.Router();
@@ -40,7 +46,7 @@ export function createRouter(express) {
     };
   }
 
-  // `use` também aceita handlers; envolvemos apenas os que são funções.
+  // `use` tambem aceita handlers; envolvemos apenas os que sao funcoes.
   const originalUse = router.use.bind(router);
   router.use = function autoWrappedUse(...args) {
     const wrapped = args.map((a) => (typeof a === 'function' ? asyncHandler(a) : a));
