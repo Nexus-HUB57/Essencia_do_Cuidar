@@ -38,19 +38,30 @@ export function createRouter(express) {
   const router = express.Router();
   const METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'all'];
 
+  /**
+   * O Express identifica um error handler pela ARIDADE (4 argumentos:
+   * err, req, res, next). Envolver um handler de 4 args em asyncHandler — que
+   * devolve uma funcao de 3 args — faria o Express tratar o error handler
+   * como middleware comum, e ele nunca receberia os erros.
+   *
+   * Erros de rota (4 args) sao preservados como estao.
+   */
+  const isErrorHandler = (fn) => typeof fn === 'function' && fn.length >= 4;
+
+  const wrap = (handlers) =>
+    handlers.map((h) => (typeof h === 'function' && !isErrorHandler(h) ? asyncHandler(h) : h));
+
   for (const method of METHODS) {
     const original = router[method].bind(router);
     router[method] = function autoWrapped(path, ...handlers) {
-      const wrapped = handlers.map((h) => (typeof h === 'function' ? asyncHandler(h) : h));
-      return original(path, ...wrapped);
+      return original(path, ...wrap(handlers));
     };
   }
 
   // `use` tambem aceita handlers; envolvemos apenas os que sao funcoes.
   const originalUse = router.use.bind(router);
   router.use = function autoWrappedUse(...args) {
-    const wrapped = args.map((a) => (typeof a === 'function' ? asyncHandler(a) : a));
-    return originalUse(...wrapped);
+    return originalUse(...wrap(args));
   };
 
   return router;
