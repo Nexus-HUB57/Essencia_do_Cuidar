@@ -22,6 +22,7 @@ import i18nRouter from './routes/i18n.js';
 import avaliacoesRouter from './routes/avaliacoes.js';
 import favoritosRouter from './routes/favoritos.js';
 import notificacoesRouter from './routes/notificacoes.js';
+import ragRouter from './routes/rag.js';
 import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -96,6 +97,7 @@ app.use('/api/i18n', i18nRouter);
 app.use('/api/avaliacoes', avaliacoesRouter);
 app.use('/api/favoritos', favoritosRouter);
 app.use('/api/notificacoes', notificacoesRouter);
+app.use('/api/rag', ragRouter);
 
 // SPA fallback
 const distPath = path.resolve(__dirname, '../../frontend/dist');
@@ -156,3 +158,22 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`[essencia-do-cuidar] CORS liberado para ${FRONTEND_URL}`);
   console.log(`[essencia-do-cuidar] DB driver: ${db.driver}`);
 });
+
+// Indexa o RAG em background (não bloqueia o boot). Falha não derruba o servidor.
+if (process.env.RAG_AUTO_INDEX !== 'false') {
+  (async () => {
+    try {
+      const { reindexar } = await import('./services/rag/indexer.js');
+      const { get } = await import('./db/driver.js');
+      const existing = await get('SELECT COUNT(*) AS n FROM rag_chunks');
+      if ((existing?.n || 0) > 0) {
+        console.log(`[rag] índice já existe (${existing.n} chunks). Use POST /api/rag/indexar para reindexar.`);
+        return;
+      }
+      const stats = await reindexar();
+      console.log(`[rag] pronto: ${stats.documentos} docs, ${stats.chunks} chunks`);
+    } catch (err) {
+      console.warn('[rag] auto-index falhou (API segue funcionando):', err.message?.slice(0, 120));
+    }
+  })();
+}

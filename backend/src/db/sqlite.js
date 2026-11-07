@@ -144,6 +144,30 @@ export function initSchema() {
       FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS rag_documentos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      doc_id TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      titulo TEXT NOT NULL,
+      fonte TEXT,
+      ref_id INTEGER,
+      conteudo TEXT NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(doc_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS rag_chunks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      doc_id TEXT NOT NULL,
+      chunk_index INTEGER NOT NULL,
+      conteudo TEXT NOT NULL,
+      embedding TEXT NOT NULL,
+      tokens INTEGER NOT NULL DEFAULT 0,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(doc_id, chunk_index),
+      FOREIGN KEY (doc_id) REFERENCES rag_documentos(doc_id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS webhook_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tipo TEXT NOT NULL,
@@ -173,6 +197,8 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_av_contratante ON avaliacoes(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
     CREATE INDEX IF NOT EXISTS idx_visualizacoes_vaga ON vaga_visualizacoes(id_vaga);
+    CREATE INDEX IF NOT EXISTS idx_rag_chunks_doc ON rag_chunks(doc_id);
+    CREATE INDEX IF NOT EXISTS idx_rag_docs_tipo ON rag_documentos(tipo);
 
     -- Feature 2: verificação de registros (campos adicionais)
     CREATE TABLE IF NOT EXISTS verificacao_registros (
