@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation, Trans } from 'react-i18next';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
@@ -55,6 +56,7 @@ const PROFISSIONAIS_OPCOES = [
 
 export default function DashboardContratante() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const toast = useToast();
   const [tab, setTab] = useState<'vagas' | 'nova' | 'historico' | 'protocolos'>('vagas');
   const [vagas, setVagas] = useState<Vaga[]>([]);
@@ -159,7 +161,7 @@ export default function DashboardContratante() {
         regiao_uf: form.regiao_uf || undefined
       };
       await api.post('/vagas', payload);
-      setSucesso('Vaga publicada com sucesso!');
+      setSucesso(t('contractor.published'));
       setForm({
         paciente_sexo: '', paciente_idade: '', paciente_diagnostico: '',
         complexidade: 'baixa', servico_descricao: '', profissional_desejado: '',
@@ -177,9 +179,9 @@ export default function DashboardContratante() {
     try {
       await api.patch(`/candidaturas/${id}`, { status_candidatura: status });
       if (vagaSel) await carregarCandidatos(vagaSel.id);
-      toast.success(status === 'aceita' ? 'Candidatura aceita!' : 'Candidatura recusada');
+      toast.success(status === 'aceita' ? t('contractor.accepted') : t('contractor.rejected'));
     } catch (err) {
-      toast.error('Erro ao atualizar', getErrorMessage(err));
+      toast.error(t('contractor.updateError'), getErrorMessage(err));
     }
   }
 
@@ -190,7 +192,7 @@ export default function DashboardContratante() {
 
   async function enviarAvaliacao() {
     if (!avalModal || !avalNota) {
-      toast.warning('Selecione uma nota de 1 a 5 estrelas');
+      toast.warning(t('contractor.selectRating'));
       return;
     }
     try {
@@ -200,12 +202,12 @@ export default function DashboardContratante() {
         nota: avalNota,
         comentario: avalComent || undefined
       });
-      toast.success('Avaliação enviada!', 'Obrigado pelo seu feedback.');
+      toast.success(t('contractor.reviewSent'), t('contractor.thanksFeedback'));
       setAvalModal(null);
       setAvalNota(0);
       setAvalComent('');
     } catch (err) {
-      toast.error('Erro ao avaliar', getErrorMessage(err));
+      toast.error(t('contractor.reviewError'), getErrorMessage(err));
     }
   }
 
@@ -338,16 +340,16 @@ export default function DashboardContratante() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Olá, {user.nome.split(' ')[0]} 👋</h1>
-        <p className="text-slate-500 text-sm">Gerencie suas vagas e candidatos</p>
+        <h1 className="text-2xl font-bold">{t('dashboard.hello', { name: user.nome.split(' ')[0] })}</h1>
+        <p className="text-slate-500 text-sm">{t('contractor.subtitle')}</p>
       </div>
 
       <div className="flex gap-1 border-b border-slate-200 mb-6">
         {[
-          { k: 'vagas', l: `📋 Minhas vagas (${vagas.length})` },
-          { k: 'nova', l: '➕ Publicar vaga' },
-          { k: 'protocolos', l: '🛡️ Protocolos' },
-          { k: 'historico', l: `📚 Histórico (${historico.length})` }
+          { k: 'vagas', l: t('contractor.tabs.myJobs', { count: vagas.length }) },
+          { k: 'nova', l: t('contractor.tabs.newJob') },
+          { k: 'protocolos', l: t('contractor.tabs.protocolos') },
+          { k: 'historico', l: t('contractor.tabs.history', { count: historico.length }) }
         ].map((t) => (
           <button
             key={t.k}
@@ -363,7 +365,7 @@ export default function DashboardContratante() {
         loading ? <p className="text-center py-12 text-slate-400">Carregando...</p> :
         vagas.length === 0 ? (
           <div className="card text-center py-12 text-slate-500">
-            Você ainda não publicou vagas. Clique em <strong>Publicar vaga</strong> acima.
+            <Trans i18nKey="contractor.noJobs" components={{ strong: <strong /> }} />
           </div>
         ) : (
           <div className="space-y-3">

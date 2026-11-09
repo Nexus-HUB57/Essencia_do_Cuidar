@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function Chat({ outroId, outroNome, onClose }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [msgs, setMsgs] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState('');
@@ -130,7 +132,7 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
         >
           <input
             className="input flex-1"
-            placeholder="Digite uma mensagem..."
+            placeholder={t('chat.placeholder')}
             value={texto}
             onChange={(e) => handleTextoChange(e.target.value)}
           />

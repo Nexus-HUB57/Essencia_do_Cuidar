@@ -163,26 +163,26 @@ export default function DashboardProfissional() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Olá, {user.nome.split(' ')[0]} 👋</h1>
-          <p className="text-slate-500 text-sm">Encontre vagas compatíveis com seu perfil</p>
+          <h1 className="text-2xl font-bold">{t('dashboard.hello', { name: user.nome.split(' ')[0] })}</h1>
+          <p className="text-slate-500 text-sm">{t('dashboard.findCompatibleJobs')}</p>
         </div>
         {detalhes?.diploma_verificado === 1 && (
-          <span className="badge-green">✓ Diploma verificado</span>
+          <span className="badge-green">{t('dashboard.diplomaVerified')}</span>
         )}
         <button onClick={() => setShowConnect(true)} className="text-xs text-serenity-600 hover:underline">
-          💳 Conectar conta de pagamento (Stripe)
+          {t('dashboard.connectPayment')}
         </button>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200 mb-6">
         {[
-          { k: 'buscar', l: '🔍 Buscar vagas' },
-          { k: 'recomendadas', l: '✨ Recomendadas' },
-          { k: 'candidaturas', l: '📋 Minhas candidaturas' },
-          { k: 'protocolos', l: '🛡️ Protocolos' },
-          { k: 'favoritos', l: '❤️ Favoritas' },
-          { k: 'perfil', l: '👤 Meu perfil' }
+          { k: 'buscar', l: t('dashboard.tabs.buscar') },
+          { k: 'recomendadas', l: t('dashboard.tabs.recomendadas') },
+          { k: 'candidaturas', l: t('dashboard.tabs.candidaturas') },
+          { k: 'protocolos', l: t('dashboard.tabs.protocolos') },
+          { k: 'favoritos', l: t('dashboard.tabs.favoritas') },
+          { k: 'perfil', l: t('dashboard.tabs.perfil') }
         ].map((t) => (
           <button
             key={t.k}
@@ -205,12 +205,12 @@ export default function DashboardProfissional() {
             <div className="grid sm:grid-cols-4 gap-2">
               <input className="input" placeholder="Profissional" value={fProf} onChange={(e) => setFProf(e.target.value)} />
               <select className="input" value={fCx} onChange={(e) => setFCx(e.target.value)}>
-                <option value="">Complexidade</option>
+                <option value="">{t('dashboard.complexity')}</option>
                 <option value="baixa">Baixa</option>
                 <option value="media">Média</option>
               </select>
               <input className="input" placeholder="Região" value={fReg} onChange={(e) => setFReg(e.target.value)} />
-              <button onClick={carregarVagas} className="btn-primary">Filtrar</button>
+              <button onClick={carregarVagas} className="btn-primary">{t('dashboard.filter')}</button>
             </div>
           </div>
 
@@ -241,9 +241,9 @@ export default function DashboardProfissional() {
                     )}
                   </div>
                   <div className="mt-4 flex gap-2">
-                    <Link to={`/vagas/${v.id}`} className="btn-ghost flex-1 text-center text-sm">Ver detalhes</Link>
+                    <Link to={`/vagas/${v.id}`} className="btn-ghost flex-1 text-center text-sm">{t('dashboard.viewDetails')}</Link>
                     <button onClick={() => candidatar(v.id)} className="btn-primary flex-1 text-sm">
-                      Candidatar-se
+                      {t('dashboard.apply')}
                     </button>
                   </div>
                 </div>
