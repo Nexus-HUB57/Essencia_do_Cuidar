@@ -89,7 +89,9 @@
     "copyFailed": "Could not copy the link",
     "publishedBy": "Posted by",
     "shareJob": "Share job",
-    "wantToApply": "I want to apply"
+    "wantToApply": "I want to apply",
+    "perHour": "Hour",
+    "perShift": "Shift"
   },
   "candidate": {
     "status": {
@@ -159,14 +161,16 @@
     "releaseNow": "Release now",
     "pnpReview": "⚖️ PNP under administrative review (needs a decision)",
     "refundFull": "Full refund",
-    "refundPartial": "Partial refund"
+    "refundPartial": "Partial refund",
+    "noVerifications": "No pending verifications 🎉"
   },
   "notifications": {
     "title": "Notifications",
     "enablePush": "Enable push notifications",
     "enabled": "Notifications enabled",
     "permissionDenied": "Permission denied by browser",
-    "pushNotConfigured": "🔕 Push (VAPID not configured on the server)"
+    "pushNotConfigured": "🔕 Push (VAPID not configured on the server)",
+    "empty": "No notifications."
   },
   "matching": {
     "title": "Automatic matching",
@@ -300,12 +304,17 @@
     "reviewSent": "Review sent!",
     "thanksFeedback": "Thanks for your feedback.",
     "updateError": "Error updating",
-    "reviewError": "Error reviewing"
+    "reviewError": "Error reviewing",
+    "noHires": "No completed hires yet."
   },
   "chat": {
-    "placeholder": "Type a message..."
+    "placeholder": "Type a message...",
+    "empty": "No messages yet. Start the conversation!"
   },
   "profile": {
     "noReviews": "No reviews yet. This professional is new to the platform."
+  },
+  "publicVagas": {
+    "noActive": "No active jobs at the moment."
   }
 }

@@ -417,8 +417,8 @@ export default function DashboardContratante() {
                 <label className="label">Complexidade*</label>
                 <select className="input" value={form.complexidade}
                   onChange={(e) => setForm({ ...form, complexidade: e.target.value as any })}>
-                  <option value="baixa">Baixa</option>
-                  <option value="media">Média</option>
+                  <option value="baixa">{t('vaga.low')}</option>
+                  <option value="media">{t('vaga.medium')}</option>
                 </select>
                 <p className="text-[10px] text-slate-400 mt-1">Não aceitamos alta complexidade/UTI.</p>
               </div>
@@ -477,8 +477,8 @@ export default function DashboardContratante() {
                 <select className="input" value={form.remuneracao_tipo}
                   onChange={(e) => setForm({ ...form, remuneracao_tipo: e.target.value as any })}>
                   <option value="">Selecione</option>
-                  <option value="hora">Hora</option>
-                  <option value="plantao">Plantão</option>
+                  <option value="hora">{t('vaga.perHour')}</option>
+                  <option value="plantao">{t('vaga.perShift')}</option>
                 </select>
               </div>
               <div>
@@ -523,7 +523,7 @@ export default function DashboardContratante() {
         loading ? <p className="text-center py-12 text-slate-400">Carregando histórico...</p> :
         historico.length === 0 ? (
           <div className="card text-center py-12 text-slate-500">
-            <p className="mb-1">Nenhuma contratação concluída ainda.</p>
+            <p className="mb-1">{t('contractor.noHires')}</p>
             <p className="text-xs">Vagas fechadas com profissional aceito aparecerão aqui.</p>
           </div>
         ) : (

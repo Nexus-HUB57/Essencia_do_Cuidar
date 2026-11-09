@@ -108,7 +108,7 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
           {msgs.length === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-8">Nenhuma mensagem ainda. Comece a conversa!</p>
+            <p className="text-center text-slate-400 text-sm py-8">{t('chat.empty')}</p>
           ) : msgs.map((m) => {
             const minha = m.id_remetente === user?.id;
             return (

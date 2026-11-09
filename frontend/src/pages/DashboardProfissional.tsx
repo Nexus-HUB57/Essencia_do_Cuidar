@@ -206,8 +206,8 @@ export default function DashboardProfissional() {
               <input className="input" placeholder="Profissional" value={fProf} onChange={(e) => setFProf(e.target.value)} />
               <select className="input" value={fCx} onChange={(e) => setFCx(e.target.value)}>
                 <option value="">{t('dashboard.complexity')}</option>
-                <option value="baixa">Baixa</option>
-                <option value="media">Média</option>
+                <option value="baixa">{t('vaga.low')}</option>
+                <option value="media">{t('vaga.medium')}</option>
               </select>
               <input className="input" placeholder="Região" value={fReg} onChange={(e) => setFReg(e.target.value)} />
               <button onClick={carregarVagas} className="btn-primary">{t('dashboard.filter')}</button>
@@ -218,7 +218,7 @@ export default function DashboardProfissional() {
             <p className="text-center text-slate-400 py-12">Carregando vagas...</p>
           ) : vagas.length === 0 ? (
             <div className="card text-center py-12 text-slate-500">
-              Nenhuma vaga encontrada com esses filtros.
+              {t('dashboard.noJobsFound')}
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-4">

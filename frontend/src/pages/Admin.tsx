@@ -340,7 +340,7 @@ export default function Admin() {
       {!loading && tab === 'verificacoes' && (
         <div className="space-y-2">
           {verificacoes.length === 0 ? (
-            <div className="card text-center py-8 text-slate-500">Nenhuma verificação pendente 🎉</div>
+            <div className="card text-center py-8 text-slate-500">{t('admin.noVerifications')}</div>
           ) : verificacoes.map((v) => (
             <div key={v.id} className="card flex items-center justify-between flex-wrap gap-2">
               <div>
