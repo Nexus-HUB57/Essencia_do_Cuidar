@@ -22,6 +22,11 @@ red()    { echo -e "  \033[0;31m✗\033[0m $1"; FAIL=$((FAIL+1)); }
 yellow() { echo -e "  \033[1;33m⚠\033[0m $1"; WARN=$((WARN+1)); }
 info()   { echo -e "  \033[0;34mℹ\033[0m $1"; }
 
+# O script usa caminhos relativos ao repo (netlify.toml, frontend/...). Sem
+# este cd, rodando de fora da raiz o TOML não era encontrado e a validação
+# falhava (ou era pulada) silenciosamente.
+cd "$ROOT_DIR"
+
 echo "============================================================"
 echo "  Essência do Cuidar — Validação pré-deploy Netlify"
 echo "============================================================"
@@ -49,33 +54,70 @@ echo ""
 
 python3 << 'PYEOF' || red "netlify.toml inválido"
 import sys
+
 try:
     import tomllib
-    with open('netlify.toml', 'rb') as f:
-        d = tomllib.load(f)
-    print('  \033[0;32m✓\033[0m netlify.toml é TOML válido')
-    b = d.get('build', {})
-    print(f'  \033[0;32m✓\033[0m base={b.get("base")}, publish={b.get("publish")}, command={b.get("command")}')
-    env = d.get('build', {}).get('environment', {})
-    print(f'  \033[0;32m✓\033[0m NODE_VERSION={env.get("NODE_VERSION")}, VITE_API_URL={env.get("VITE_API_URL")}')
-    redirects = d.get('redirects', [])
-    print(f'  \033[0;32m✓\033[0m {len(redirects)} redirects:')
-    for r in redirects:
-        print(f'    {r.get("from")} → {r.get("to")} (status={r.get("status")}, force={r.get("force")})')
-    headers = d.get('headers', [])
-    print(f'  \033[0;32m✓\033[0m {len(headers)} header rules')
-    # Verifica redirects obrigatórios
-    has_api = any(r.get('from') == '/api/*' for r in redirects)
-    has_uploads = any(r.get('from') == '/uploads/*' for r in redirects)
-    has_socketio = any(r.get('from') == '/socket.io/*' for r in redirects)
-    has_spa = any(r.get('from') == '/*' and r.get('to') == '/index.html' for r in redirects)
-    print(f'  {"\033[0;32m✓\033[0m" if has_api else "\033[0;31m✗\033[0m"} proxy /api/*')
-    print(f'  {"\033[0;32m✓\033[0m" if has_uploads else "\033[0;31m✗\033[0m"} proxy /uploads/*')
-    print(f'  {"\033[0;32m✓\033[0m" if has_socketio else "\033[0;31m✗\033[0m"} proxy /socket.io/*')
-    print(f'  {"\033[0;32m✓\033[0m" if has_spa else "\033[0;31m✗\033[0m"} SPA fallback /*')
 except ImportError:
     print('  \033[1;33m⚠\033[0m tomllib indisponível (Python < 3.11) — pulando validação TOML')
     sys.exit(0)
+
+# Cores em variáveis: backslash dentro da expressão de um f-string é
+# SyntaxError em todas as versões do Python suportadas.
+OK = '\033[0;32m✓\033[0m'
+NG = '\033[0;31m✗\033[0m'
+
+falhas = []
+
+def check(cond, msg):
+    print(f'  {OK if cond else NG} {msg}')
+    if not cond:
+        falhas.append(msg)
+
+try:
+    with open('netlify.toml', 'rb') as f:
+        d = tomllib.load(f)
+except Exception as e:
+    print(f'  {NG} netlify.toml não pôde ser lido: {e}')
+    sys.exit(1)
+
+print(f'  {OK} netlify.toml é TOML válido')
+b = d.get('build', {})
+print(f'  {OK} base={b.get("base")}, publish={b.get("publish")}, command={b.get("command")}')
+env = b.get('build', {}).get('environment', {})
+print(f'  {OK} NODE_VERSION={env.get("NODE_VERSION")}, VITE_API_URL={env.get("VITE_API_URL")}')
+
+redirects = d.get('redirects', [])
+print(f'  {OK} {len(redirects)} redirects:')
+for r in redirects:
+    print(f'    {r.get("from")} → {r.get("to")} (status={r.get("status")}, force={r.get("force")})')
+
+headers = d.get('headers', [])
+print(f'  {OK} {len(headers)} header rules')
+
+# Posição de cada regra — o catch-all "/*" precisa vir DEPOIS das específicas,
+# senão ele engole /api/*, /uploads/* e /socket.io/*.
+pos = {}
+for i, r in enumerate(redirects):
+    pos.setdefault(r.get('from'), i)
+
+check(pos.get('/api/*') is not None, 'proxy /api/*')
+check(pos.get('/uploads/*') is not None, 'proxy /uploads/*')
+check(pos.get('/socket.io/*') is not None, 'proxy /socket.io/*')
+check(
+    any(r.get('from') == '/*' and r.get('to') == '/index.html' for r in redirects),
+    'SPA fallback /*'
+)
+
+catch_all = pos.get('/*')
+if catch_all is not None:
+    for especifica in ('/api/*', '/uploads/*', '/socket.io/*'):
+        i = pos.get(especifica)
+        if i is not None:
+            check(i < catch_all, f'ordem: {especifica} vem antes do catch-all /*')
+
+if falhas:
+    print(f'  {NG} {len(falhas)} verificação(ões) de redirect falharam')
+    sys.exit(1)
 PYEOF
 
 # ───────────────────────────────────────────────────────────────────

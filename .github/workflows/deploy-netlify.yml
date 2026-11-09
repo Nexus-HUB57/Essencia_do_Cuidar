@@ -103,6 +103,15 @@ jobs:
           echo "✅ build íntegro"
           du -sh dist
 
+      # Gate de configuração do Netlify: netlify.toml precisa ser TOML válido e
+      # as regras /api/*, /uploads/* e /socket.io/* precisam vir ANTES do
+      # catch-all /* — senão o catch-all engole o proxy e a API morre.
+      # O script também reconstrói o frontend, então leva o mesmo VITE_API_URL.
+      - name: Validação pré-deploy (netlify.toml + redirects + PWA)
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL || '/api' }}
+        run: bash scripts/netlify-pre-deploy-check.sh
+
       # Deploy via Netlify CLI — tenta com token, fallback para anônimo (limpa env)
       - name: Deploy na Netlify
         if: github.event_name == 'push'
