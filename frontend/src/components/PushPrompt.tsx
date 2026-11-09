@@ -89,7 +89,7 @@ export default function PushPrompt() {
   if (!enabled) {
     return (
       <div className="text-[11px] text-slate-400 italic">
-        🔕 Push (VAPID não configurado no servidor)
+        {t('notifications.pushNotConfigured')}
       </div>
     );
   }

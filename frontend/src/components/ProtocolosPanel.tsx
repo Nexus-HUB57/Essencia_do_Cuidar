@@ -19,6 +19,7 @@
  *     * Histórico de transições (clique para expandir)
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
@@ -127,6 +128,7 @@ const PN_CRITERIOS = [
 
 export default function ProtocolosPanel() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const toast = useToast();
   const [protocolos, setProtocolos] = useState<Protocolo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -173,7 +175,7 @@ export default function ProtocolosPanel() {
   }
 
   async function aceitarPCM(pcmId: number) {
-    if (!confirm('Aceitar este matching? Será gerado um PDC (Protocolo de Débito de Custódia) para o contratante pagar.')) return;
+    if (!confirm(t('protocolos.confirmAccept'))) return;
     try {
       const { data } = await api.post(`/protocolos/${pcmId}/aceitar`);
       toast.success('✓ Matching aceito! Aguardando pagamento da custódia pelo contratante.');
@@ -270,7 +272,7 @@ export default function ProtocolosPanel() {
   if (protocolos.length === 0) {
     return (
       <div className="card text-center py-8 text-slate-500">
-        Nenhum protocolo ainda. {isProfissional ? 'Quando um contratante aceitar sua candidatura, o matching aparecerá aqui.' : 'Quando você aceitar uma candidatura, o PCP será criado automaticamente.'}
+        {isProfissional ? t('protocolos.emptyProfissional') : t('protocolos.emptyContratante')}
       </div>
     );
   }
@@ -357,7 +359,7 @@ export default function ProtocolosPanel() {
 
       {relevantes.length === 0 ? (
         <div className="card text-center py-6 text-slate-500 text-sm">
-          Nenhum protocolo ativo no momento.
+          {t('protocolos.noProtocolActive')}
         </div>
       ) : relevantes.map(p => (
         <div key={p.id} className="card p-3">
@@ -389,7 +391,7 @@ export default function ProtocolosPanel() {
             {/* Profissional: PCM enviado → Aceitar / Recusar */}
             {isProfissional && p.tipo === 'PCM' && p.status === 'enviado' && (
               <>
-                <button onClick={() => aceitarPCM(p.id)} className="btn-primary text-xs">✓ Aceitar matching</button>
+                <button onClick={() => aceitarPCM(p.id)} className="btn-primary text-xs">{t('protocolos.acceptMatching')}</button>
                 <button onClick={() => recusarPCM(p.id)} className="btn-ghost text-xs">Recusar</button>
                 {p.expira_em && (
                   <span className="text-[10px] text-slate-500 self-center ml-2">

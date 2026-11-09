@@ -278,7 +278,7 @@ export default function ProfissionalPerfil() {
       {/* Empty state se não há avaliações */}
       {stats && stats.total === 0 && (
         <div className="card mt-4 text-center py-8 text-slate-500 text-sm">
-          Ainda sem avaliações. Este profissional é novo na plataforma.
+          {t('profile.noReviews')}
         </div>
       )}
 

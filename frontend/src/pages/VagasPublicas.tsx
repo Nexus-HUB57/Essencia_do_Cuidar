@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import api, { getErrorMessage } from '../utils/api';
 import type { Vaga } from '../types';
 import FavoritarBotao from '../components/FavoritarBotao';
 
 export default function VagasPublicas() {
+  const { t } = useTranslation();
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
@@ -47,8 +49,8 @@ export default function VagasPublicas() {
             value={filtros.profissional} onChange={(e) => setFiltros({ ...filtros, profissional: e.target.value })} />
           <select className="input" value={filtros.complexidade} onChange={(e) => setFiltros({ ...filtros, complexidade: e.target.value })}>
             <option value="">Complexidade</option>
-            <option value="baixa">Baixa</option>
-            <option value="media">Média</option>
+            <option value="baixa">{t('vaga.low')}</option>
+            <option value="media">{t('vaga.medium')}</option>
           </select>
           <input className="input" placeholder="Região (ex: Zona Sul)"
             value={filtros.regiao} onChange={(e) => setFiltros({ ...filtros, regiao: e.target.value })} />
@@ -66,7 +68,7 @@ export default function VagasPublicas() {
         <p className="text-rose-500 text-center py-12">{erro}</p>
       ) : vagas.length === 0 ? (
         <div className="card text-center py-12 text-slate-500">
-          Nenhuma vaga ativa no momento.
+          {t('publicVagas.noActive')}
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
@@ -78,7 +80,7 @@ export default function VagasPublicas() {
                     {v.profissional_desejado}
                   </h3>
                   <span className={v.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
-                    {v.complexidade === 'media' ? 'Média' : 'Baixa'}
+                    {v.complexidade === 'media' ? t('vaga.medium') : t('vaga.low')}
                   </span>
                 </div>
                 <p className="text-sm text-slate-600 line-clamp-2 mb-3">{v.servico_descricao}</p>

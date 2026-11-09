@@ -166,7 +166,7 @@ export default function Admin() {
   }
 
   async function rodarCronManual() {
-    if (!confirm('Rodar cleanup de protocolos manualmente? (PPP + expiração + CGPP)')) return;
+    if (!confirm(t('admin.confirmCron'))) return;
     setCleanupResult('Rodando...');
     try {
       const { data } = await api.post('/admin/protocolos/cleanup');
@@ -178,7 +178,7 @@ export default function Admin() {
   }
 
   async function liberarManual(id: number) {
-    if (!confirm(`Liberar pagamento do protocolo #${id} imediatamente? (ignora 72h do CGPP)`)) return;
+    if (!confirm(t('admin.confirmRelease', { id }))) return;
     try {
       await api.post(`/protocolos/${id}/liberar`);
       alert('✅ Pagamento liberado');
@@ -213,7 +213,7 @@ export default function Admin() {
     } catch (e) { alert(getErrorMessage(e)); }
   }
   async function toggleAdmin(u: AdminUser) {
-    if (!confirm(u.is_admin ? 'Remover privilégios de admin?' : 'Promover a admin?')) return;
+    if (!confirm(u.is_admin ? t('admin.confirmPromote') : t('admin.confirmPromote2'))) return;
     try {
       await api.post(`/admin/users/${u.id}/admin`, { is_admin: !u.is_admin });
       loadUsers();
@@ -340,7 +340,7 @@ export default function Admin() {
       {!loading && tab === 'verificacoes' && (
         <div className="space-y-2">
           {verificacoes.length === 0 ? (
-            <div className="card text-center py-8 text-slate-500">Nenhuma verificação pendente 🎉</div>
+            <div className="card text-center py-8 text-slate-500">{t('admin.noVerifications')}</div>
           ) : verificacoes.map((v) => (
             <div key={v.id} className="card flex items-center justify-between flex-wrap gap-2">
               <div>
@@ -447,7 +447,7 @@ export default function Admin() {
             </div>
             <button onClick={rodarCronManual}
               className="text-xs px-3 py-1.5 rounded bg-serenity-600 text-white hover:bg-serenity-700">
-              Rodar agora
+              {t('admin.runNow')}
             </button>
           </div>
           {cleanupResult && (
@@ -459,7 +459,7 @@ export default function Admin() {
           {/* PPP pendentes (contratante não respondeu em 24/48h) */}
           <div>
             <h3 className="text-sm font-semibold mb-3 text-slate-700">
-              📋 PPP pendentes (contratante ainda não fez checkout)
+              {t('admin.pppPending')}
             </h3>
             {pppPendentes.length === 0 ? (
               <div className="card text-center py-6 text-slate-500 text-sm">
@@ -489,7 +489,7 @@ export default function Admin() {
                       </span>
                       <button onClick={() => liberarManual(p.id)}
                         className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
-                        Liberar agora
+                        {t('admin.releaseNow')}
                       </button>
                     </div>
                   </div>
@@ -501,7 +501,7 @@ export default function Admin() {
           {/* PNP em análise (admin precisa decidir) */}
           <div>
             <h3 className="text-sm font-semibold mb-3 text-slate-700">
-              ⚖️ PNP em análise administrativa (precisa de decisão)
+              {t('admin.pnpReview')}
             </h3>
             {pnpEmAnalise.length === 0 ? (
               <div className="card text-center py-6 text-slate-500 text-sm">
@@ -525,11 +525,11 @@ export default function Admin() {
                       <div className="flex flex-col gap-1">
                         <button onClick={() => resolverPNP(p.id, 'reembolso_total')}
                           className="text-[10px] px-2 py-0.5 rounded bg-rose-50 text-rose-700">
-                          Reembolso total
+                          {t('admin.refundFull')}
                         </button>
                         <button onClick={() => resolverPNP(p.id, 'reembolso_parcial')}
                           className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700">
-                          Reembolso parcial
+                          {t('admin.refundPartial')}
                         </button>
                         <button onClick={() => resolverPNP(p.id, 'liberar_profissional')}
                           className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">

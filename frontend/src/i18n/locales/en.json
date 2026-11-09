@@ -51,7 +51,9 @@
     "loginHere": "Sign in",
     "chooseProfile": "Choose your profile",
     "professional": "Health Professional",
-    "contractor": "+Health (Contractor)"
+    "contractor": "+Health (Contractor)",
+    "contractorDescription": "Families and clinics that hire.",
+    "experiencePlaceholder": "Tell us a bit about your experience..."
   },
   "vaga": {
     "title": "Job",
@@ -76,7 +78,20 @@
       "active": "Active",
       "paused": "Paused",
       "closed": "Closed"
-    }
+    },
+    "appliedSuccess": "Application sent successfully! You can track it from your dashboard.",
+    "appliedToast": "Application sent!",
+    "clientNotified": "The client will be notified.",
+    "applyError": "Error applying",
+    "shareText": "Check out this job on Essence of Care",
+    "linkCopied": "Link copied!",
+    "pasteAnywhere": "Paste it wherever you want to share",
+    "copyFailed": "Could not copy the link",
+    "publishedBy": "Posted by",
+    "shareJob": "Share job",
+    "wantToApply": "I want to apply",
+    "perHour": "Hour",
+    "perShift": "Shift"
   },
   "candidate": {
     "status": {
@@ -136,13 +151,26 @@
     "vagasAtivas": "Active jobs",
     "candidaturas": "Applications",
     "receitaTotal": "Total revenue",
-    "verificacoesPendentes": "Pending verifications"
+    "verificacoesPendentes": "Pending verifications",
+    "confirmCron": "Run the protocol cleanup manually? (PPP + expiry + CGPP)",
+    "confirmRelease": "Release payment for protocol #{{id}} immediately? (ignores the CGPP 72h)",
+    "confirmPromote": "Remove admin privileges?",
+    "confirmPromote2": "Promote to admin?",
+    "runNow": "Run now",
+    "pppPending": "📋 Pending PPP (client hasn't checked out yet)",
+    "releaseNow": "Release now",
+    "pnpReview": "⚖️ PNP under administrative review (needs a decision)",
+    "refundFull": "Full refund",
+    "refundPartial": "Partial refund",
+    "noVerifications": "No pending verifications 🎉"
   },
   "notifications": {
     "title": "Notifications",
     "enablePush": "Enable push notifications",
     "enabled": "Notifications enabled",
-    "permissionDenied": "Permission denied by browser"
+    "permissionDenied": "Permission denied by browser",
+    "pushNotConfigured": "🔕 Push (VAPID not configured on the server)",
+    "empty": "No notifications."
   },
   "matching": {
     "title": "Automatic matching",
@@ -207,5 +235,86 @@
       "selectProfissao": "Select",
       "completeProfile": "Complete your profile to improve recommendations"
     }
+  },
+  "footer": {
+    "tagline": "Caring with love is our essence.",
+    "byline": "By {{name}} — Campinas region",
+    "families": "For Families",
+    "findProfessionals": "Find professionals",
+    "publishJob": "Post a job",
+    "openJobs": "See open jobs",
+    "howItWorks": "How it works",
+    "professionals": "For Professionals",
+    "registerCv": "Register your CV",
+    "findJobs": "Find jobs",
+    "uploadDiploma": "Upload diploma",
+    "credentialCheck": "Credential verification",
+    "contact": "Contact",
+    "location": "Campinas region",
+    "copyright": "© {{year}} Essence of Care. Humanized, professional and caring."
+  },
+  "dashboard": {
+    "hello": "Hello, {{name}} 👋",
+    "findCompatibleJobs": "Find jobs that match your profile",
+    "diplomaVerified": "✓ Verified diploma",
+    "connectPayment": "💳 Connect your payment account (Stripe)",
+    "pushNotConfigured": "🔕 Push (VAPID not configured on the server)",
+    "filter": "Filter",
+    "viewDetails": "View details",
+    "apply": "Apply now",
+    "complexity": "Complexity",
+    "noApplications": "You haven't applied to any job yet.",
+    "noFavorites": "You haven't favorited any job yet. Click the 🤍 on a job to save it.",
+    "noJobsFound": "No jobs found with these filters.",
+    "tabs": {
+      "buscar": "🔍 Find jobs",
+      "recomendadas": "✨ Recommended",
+      "candidaturas": "📋 My applications",
+      "protocolos": "🛡️ Protocols",
+      "favoritas": "❤️ Favorites",
+      "perfil": "👤 My profile"
+    }
+  },
+  "protocolos": {
+    "title": "Protocols",
+    "empty": "No protocol yet. When a client accepts your application, the matching will show up here.",
+    "accepted": "Accepted",
+    "chat": "Chat",
+    "pushNotConfigured": "🔕 Push (VAPID not configured on the server)",
+    "noProtocolActive": "No active protocol right now.",
+    "acceptMatching": "✓ Accept matching",
+    "rejectMatching": "✕ Reject",
+    "confirmAccept": "Accept this matching? A PDC (Custody Debit Protocol) will be generated for the client to pay.",
+    "emptyProfissional": "No protocol yet. When a client accepts your application, the matching will show up here.",
+    "emptyContratante": "No protocol yet. When you accept an application, the PCP will be created automatically."
+  },
+  "contractor": {
+    "subtitle": "Manage your jobs and candidates",
+    "tabs": {
+      "myJobs": "📋 My jobs ({{count}})",
+      "newJob": "➕ Post a job",
+      "protocolos": "🛡️ Protocols",
+      "history": "📚 History ({{count}})"
+    },
+    "noJobs": "You haven't posted any job yet. Click <strong>Post a job</strong> above.",
+    "published": "Job published successfully!",
+    "accepted": "Application accepted!",
+    "rejected": "Application rejected",
+    "selectRating": "Select a rating from 1 to 5 stars",
+    "reviewSent": "Review sent!",
+    "thanksFeedback": "Thanks for your feedback.",
+    "updateError": "Error updating",
+    "reviewError": "Error reviewing",
+    "noHires": "No completed hires yet."
+  },
+  "chat": {
+    "placeholder": "Type a message...",
+    "empty": "No messages yet. Start the conversation!"
+  },
+  "profile": {
+    "noReviews": "No reviews yet. This professional is new to the platform."
+  },
+  "publicVagas": {
+    "noActive": "No active jobs at the moment."
   }
 }

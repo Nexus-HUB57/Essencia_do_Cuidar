@@ -51,7 +51,9 @@
     "loginHere": "Inicia sesión",
     "chooseProfile": "Elige tu perfil",
     "professional": "Profesional de la Salud",
-    "contractor": "+Salud (Contratante)"
+    "contractor": "+Salud (Contratante)",
+    "contractorDescription": "Familias y clínicas que contratan.",
+    "experiencePlaceholder": "Cuéntanos un poco sobre tu experiencia..."
   },
   "vaga": {
     "title": "Vacante",
@@ -76,7 +78,20 @@
       "active": "Activa",
       "paused": "Pausada",
       "closed": "Cerrada"
-    }
+    },
+    "appliedSuccess": "¡Postulación enviada con éxito! Puedes seguirla desde tu dashboard.",
+    "appliedToast": "¡Postulación enviada!",
+    "clientNotified": "Se notificará al cliente.",
+    "applyError": "Error al postularte",
+    "shareText": "Mira este trabajo en Esencia del Cuidar",
+    "linkCopied": "¡Enlace copiado!",
+    "pasteAnywhere": "Pégalo donde quieras compartir",
+    "copyFailed": "No se pudo copiar el enlace",
+    "publishedBy": "Publicado por",
+    "shareJob": "Compartir trabajo",
+    "wantToApply": "Quiero postularme",
+    "perHour": "Hora",
+    "perShift": "Turno"
   },
   "candidate": {
     "status": {
@@ -136,13 +151,26 @@
     "vagasAtivas": "Vacantes activas",
     "candidaturas": "Candidaturas",
     "receitaTotal": "Ingresos totales",
-    "verificacoesPendentes": "Verificaciones pendientes"
+    "verificacoesPendentes": "Verificaciones pendientes",
+    "confirmCron": "¿Ejecutar la limpieza de protocolos manualmente? (PPP + caducidad + CGPP)",
+    "confirmRelease": "¿Liberar el pago del protocolo #{{id}} inmediatamente? (ignora las 72h del CGPP)",
+    "confirmPromote": "¿Quitar los privilegios de admin?",
+    "confirmPromote2": "¿Promover a admin?",
+    "runNow": "Ejecutar ahora",
+    "pppPending": "📋 PPP pendientes (el cliente aún no ha hecho checkout)",
+    "releaseNow": "Liberar ahora",
+    "pnpReview": "⚖️ PNP en revisión administrativa (necesita una decisión)",
+    "refundFull": "Reembolso total",
+    "refundPartial": "Reembolso parcial",
+    "noVerifications": "Sin verificaciones pendientes 🎉"
   },
   "notifications": {
     "title": "Notificaciones",
     "enablePush": "Activar notificaciones push",
     "enabled": "Notificaciones activadas",
-    "permissionDenied": "Permiso denegado por el navegador"
+    "permissionDenied": "Permiso denegado por el navegador",
+    "pushNotConfigured": "🔕 Push (VAPID no configurado en el servidor)",
+    "empty": "Sin notificaciones."
   },
   "matching": {
     "title": "Matching automático",
@@ -207,5 +235,86 @@
       "selectProfissao": "Selecciona",
       "completeProfile": "Completa tu perfil para mejorar las recomendaciones"
     }
+  },
+  "footer": {
+    "tagline": "Cuidar con amor es nuestra esencia.",
+    "byline": "Por {{name}} — región de Campinas",
+    "families": "Para Familias",
+    "findProfessionals": "Buscar profesionales",
+    "publishJob": "Publicar trabajo",
+    "openJobs": "Ver trabajos abiertos",
+    "howItWorks": "Cómo funciona",
+    "professionals": "Para Profesionales",
+    "registerCv": "Registrar currículum",
+    "findJobs": "Encontrar trabajos",
+    "uploadDiploma": "Subir diploma",
+    "credentialCheck": "Verificación de registro",
+    "contact": "Contacto",
+    "location": "región de Campinas",
+    "copyright": "© {{year}} Esencia del Cuidar. Cuidado humanizado, profesional y atento."
+  },
+  "dashboard": {
+    "hello": "Hola, {{name}} 👋",
+    "findCompatibleJobs": "Encuentra trabajos compatibles con tu perfil",
+    "diplomaVerified": "✓ Diploma verificado",
+    "connectPayment": "💳 Conectar cuenta de pago (Stripe)",
+    "pushNotConfigured": "🔕 Push (VAPID no configurado en el servidor)",
+    "filter": "Filtrar",
+    "viewDetails": "Ver detalles",
+    "apply": "Postularme",
+    "complexity": "Complejidad",
+    "noApplications": "Todavía no te has postulado a ningún trabajo.",
+    "noFavorites": "Todavía no has guardado ningún trabajo. Haz clic en 🤍 en un trabajo para guardarlo.",
+    "noJobsFound": "No se encontraron trabajos con estos filtros.",
+    "tabs": {
+      "buscar": "🔍 Buscar trabajos",
+      "recomendadas": "✨ Recomendados",
+      "candidaturas": "📋 Mis postulaciones",
+      "protocolos": "🛡️ Protocolos",
+      "favoritas": "❤️ Favoritos",
+      "perfil": "👤 Mi perfil"
+    }
+  },
+  "protocolos": {
+    "title": "Protocolos",
+    "empty": "Todavía no hay ningún protocolo. Cuando un cliente acepte tu postulación, el matching aparecerá aquí.",
+    "accepted": "Aceptada",
+    "chat": "Chat",
+    "pushNotConfigured": "🔕 Push (VAPID no configurado en el servidor)",
+    "noProtocolActive": "Ningún protocolo activo en este momento.",
+    "acceptMatching": "✓ Aceptar matching",
+    "rejectMatching": "✕ Rechazar",
+    "confirmAccept": "¿Aceptar este matching? Se generará un PDC (Protocolo de Débito de Custodia) para que el cliente lo pague.",
+    "emptyProfissional": "Todavía no hay ningún protocolo. Cuando un cliente acepte tu postulación, el matching aparecerá aquí.",
+    "emptyContratante": "Todavía no hay ningún protocolo. Cuando aceptes una postulación, el PCP se creará automáticamente."
+  },
+  "contractor": {
+    "subtitle": "Gestiona tus trabajos y candidatos",
+    "tabs": {
+      "myJobs": "📋 Mis trabajos ({{count}})",
+      "newJob": "➕ Publicar trabajo",
+      "protocolos": "🛡️ Protocolos",
+      "history": "📚 Historial ({{count}})"
+    },
+    "noJobs": "Todavía no has publicado ningún trabajo. Haz clic en <strong>Publicar trabajo</strong> arriba.",
+    "published": "¡Trabajo publicado con éxito!",
+    "accepted": "¡Postulación aceptada!",
+    "rejected": "Postulación rechazada",
+    "selectRating": "Selecciona una nota del 1 al 5",
+    "reviewSent": "¡Evaluación enviada!",
+    "thanksFeedback": "Gracias por tus comentarios.",
+    "updateError": "Error al actualizar",
+    "reviewError": "Error al evaluar",
+    "noHires": "Todavía no hay contrataciones completadas."
+  },
+  "chat": {
+    "placeholder": "Escribe un mensaje...",
+    "empty": "Todavía no hay mensajes. ¡Inicia la conversación!"
+  },
+  "profile": {
+    "noReviews": "Aún sin reseñas. Este profesional es nuevo en la plataforma."
+  },
+  "publicVagas": {
+    "noActive": "No hay trabajos activos por ahora."
   }
 }

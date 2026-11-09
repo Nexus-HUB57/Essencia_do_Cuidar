@@ -105,7 +105,7 @@ export default function Cadastro() {
           {step === 0 && (
             <div className="grid sm:grid-cols-2 gap-3">
               {[
-                { v: 'contratante', i: '🏠', t: t('auth.contractor'), d: 'Famílias e clínicas que contratam.' },
+                { v: 'contratante', i: '🏠', t: t('auth.contractor'), d: t('auth.contractorDescription') },
                 { v: 'profissional', i: '🩺', t: t('auth.professional'), d: 'Cuidadores, enfermeiros, fisioterapeutas...' }
               ].map((o) => (
                 <button key={o.v} onClick={() => setTipo(o.v as any)}
@@ -222,7 +222,7 @@ export default function Cadastro() {
               <div>
                 <label className="label">Bio</label>
                 <textarea className="input min-h-[80px]" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })}
-                  placeholder="Conte um pouco sobre sua experiência..." />
+                  placeholder={t('auth.experiencePlaceholder')} />
               </div>
             </div>
           )}

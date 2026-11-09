@@ -72,13 +72,13 @@ export default function VagaDetalhe() {
     setSucesso('');
     try {
       await api.post('/candidaturas', { id_vaga: Number(id), mensagem });
-      setSucesso('Candidatura enviada com sucesso! Você pode acompanhar pelo seu dashboard.');
+      setSucesso(t('vaga.appliedSuccess'));
       setCandidatar(false);
-      toast.success('Candidatura enviada!', 'O contratante será notificado.');
+      toast.success(t('vaga.appliedToast'), t('vaga.clientNotified'));
     } catch (err) {
       const msg = getErrorMessage(err);
       setErro(msg);
-      toast.error('Erro ao candidatar-se', msg);
+      toast.error(t('vaga.applyError'), msg);
     }
   }
 
@@ -88,16 +88,16 @@ export default function VagaDetalhe() {
       try {
         await navigator.share({
           title: `Vaga: ${vaga?.profissional_desejado}`,
-          text: `Confira esta vaga na Essência do Cuidar`,
+          text: t('vaga.shareText'),
           url: link
         });
       } catch {}
     } else {
       try {
         await navigator.clipboard.writeText(link);
-        toast.success('Link copiado!', 'Cole onde quiser compartilhar');
+        toast.success(t('vaga.linkCopied'), t('vaga.pasteAnywhere'));
       } catch {
-        toast.warning('Não foi possível copiar o link');
+        toast.warning(t('vaga.copyFailed'));
       }
     }
   }
@@ -115,7 +115,7 @@ export default function VagaDetalhe() {
           <div>
             <h1 className="text-2xl font-bold">{vaga.profissional_desejado}</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Publicada por <strong>{vaga.contratante_nome}</strong>
+              {t('vaga.publishedBy')} <strong>{vaga.contratante_nome}</strong>
             </p>
             <p className="text-xs text-slate-400 mt-1">👁️ {visualizacoes} {visualizacoes === 1 ? 'visualização' : 'visualizações'}</p>
           </div>
@@ -123,7 +123,7 @@ export default function VagaDetalhe() {
             <button
               onClick={compartilhar}
               className="text-sm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
-              title="Compartilhar vaga"
+              title={t('vaga.shareJob')}
             >
               🔗 Compartilhar
             </button>
@@ -278,7 +278,7 @@ export default function VagaDetalhe() {
             )}
             {!candidatar ? (
               <button onClick={() => setCandidatar(true)} className="btn-primary w-full sm:w-auto">
-                Quero me candidatar
+                {t('vaga.wantToApply')}
               </button>
             ) : (
               <div className="space-y-3">

@@ -51,7 +51,9 @@
     "loginHere": "Faça login",
     "chooseProfile": "Escolha seu perfil",
     "professional": "Profissional da Saúde",
-    "contractor": "+Saúde (Contratante)"
+    "contractor": "+Saúde (Contratante)",
+    "contractorDescription": "Famílias e clínicas que contratam.",
+    "experiencePlaceholder": "Conte um pouco sobre sua experiência..."
   },
   "vaga": {
     "title": "Vaga",
@@ -76,7 +78,20 @@
       "active": "Ativa",
       "paused": "Pausada",
       "closed": "Fechada"
-    }
+    },
+    "appliedSuccess": "Candidatura enviada com sucesso! Você pode acompanhar pelo seu dashboard.",
+    "appliedToast": "Candidatura enviada!",
+    "clientNotified": "O contratante será notificado.",
+    "applyError": "Erro ao candidatar-se",
+    "shareText": "Confira esta vaga na Essência do Cuidar",
+    "linkCopied": "Link copiado!",
+    "pasteAnywhere": "Cole onde quiser compartilhar",
+    "copyFailed": "Não foi possível copiar o link",
+    "publishedBy": "Publicada por",
+    "shareJob": "Compartilhar vaga",
+    "wantToApply": "Quero me candidatar",
+    "perHour": "Hora",
+    "perShift": "Plantão"
   },
   "candidate": {
     "status": {
@@ -136,13 +151,26 @@
     "vagasAtivas": "Vagas ativas",
     "candidaturas": "Candidaturas",
     "receitaTotal": "Receita total",
-    "verificacoesPendentes": "Verificações pendentes"
+    "verificacoesPendentes": "Verificações pendentes",
+    "confirmCron": "Rodar cleanup de protocolos manualmente? (PPP + expiração + CGPP)",
+    "confirmRelease": "Liberar pagamento do protocolo #{{id}} imediatamente? (ignora 72h do CGPP)",
+    "confirmPromote": "Remover privilégios de admin?",
+    "confirmPromote2": "Promover a admin?",
+    "runNow": "Rodar agora",
+    "pppPending": "📋 PPP pendentes (contratante ainda não fez checkout)",
+    "releaseNow": "Liberar agora",
+    "pnpReview": "⚖️ PNP em análise administrativa (precisa de decisão)",
+    "refundFull": "Reembolso total",
+    "refundPartial": "Reembolso parcial",
+    "noVerifications": "Nenhuma verificação pendente 🎉"
   },
   "notifications": {
     "title": "Notificações",
     "enablePush": "Ativar notificações push",
     "enabled": "Notificações ativadas",
-    "permissionDenied": "Permissão negada pelo navegador"
+    "permissionDenied": "Permissão negada pelo navegador",
+    "pushNotConfigured": "🔕 Push (VAPID não configurado no servidor)",
+    "empty": "Nenhuma notificação."
   },
   "matching": {
     "title": "Matching automático",
@@ -207,5 +235,86 @@
       "selectProfissao": "Selecione",
       "completeProfile": "Complete seu perfil para melhorar as recomendações"
     }
+  },
+  "footer": {
+    "tagline": "Cuidar com amor é a nossa essência.",
+    "byline": "Por {{name}} — Campinas e região",
+    "families": "Para Famílias",
+    "findProfessionals": "Buscar profissionais",
+    "publishJob": "Publicar vaga",
+    "openJobs": "Ver vagas abertas",
+    "howItWorks": "Como funciona",
+    "professionals": "Para Profissionais",
+    "registerCv": "Cadastrar currículo",
+    "findJobs": "Encontrar vagas",
+    "uploadDiploma": "Upload de diploma",
+    "credentialCheck": "Verificação de registro",
+    "contact": "Contato",
+    "location": "Campinas e região",
+    "copyright": "© {{year}} Essência do Cuidar. Cuidado humanizado, profissional e atencioso."
+  },
+  "dashboard": {
+    "hello": "Olá, {{name}} 👋",
+    "findCompatibleJobs": "Encontre vagas compatíveis com seu perfil",
+    "diplomaVerified": "✓ Diploma verificado",
+    "connectPayment": "💳 Conectar conta de pagamento (Stripe)",
+    "pushNotConfigured": "🔕 Push (VAPID não configurado no servidor)",
+    "filter": "Filtrar",
+    "viewDetails": "Ver detalhes",
+    "apply": "Candidatar-se",
+    "complexity": "Complexidade",
+    "noApplications": "Você ainda não se candidatou a nenhuma vaga.",
+    "noFavorites": "Você ainda não favoritou nenhuma vaga. Clique no 🤍 em uma vaga para salvar.",
+    "noJobsFound": "Nenhuma vaga encontrada com esses filtros.",
+    "tabs": {
+      "buscar": "🔍 Buscar vagas",
+      "recomendadas": "✨ Recomendadas",
+      "candidaturas": "📋 Minhas candidaturas",
+      "protocolos": "🛡️ Protocolos",
+      "favoritas": "❤️ Favoritas",
+      "perfil": "👤 Meu perfil"
+    }
+  },
+  "protocolos": {
+    "title": "Protocolos",
+    "empty": "Nenhum protocolo ainda. Quando um contratante aceitar sua candidatura, o matching aparecerá aqui.",
+    "accepted": "Aceita",
+    "chat": "Chat",
+    "pushNotConfigured": "🔕 Push (VAPID não configurado no servidor)",
+    "noProtocolActive": "Nenhum protocolo ativo no momento.",
+    "acceptMatching": "✓ Aceitar matching",
+    "rejectMatching": "✕ Recusar",
+    "confirmAccept": "Aceitar este matching? Será gerado um PDC (Protocolo de Débito de Custódia) para o contratante pagar.",
+    "emptyProfissional": "Nenhum protocolo ainda. Quando um contratante aceitar sua candidatura, o matching aparecerá aqui.",
+    "emptyContratante": "Nenhum protocolo ainda. Quando você aceitar uma candidatura, o PCP será criado automaticamente."
+  },
+  "contractor": {
+    "subtitle": "Gerencie suas vagas e candidatos",
+    "tabs": {
+      "myJobs": "📋 Minhas vagas ({{count}})",
+      "newJob": "➕ Publicar vaga",
+      "protocolos": "🛡️ Protocolos",
+      "history": "📚 Histórico ({{count}})"
+    },
+    "noJobs": "Você ainda não publicou vagas. Clique em <strong>Publicar vaga</strong> acima.",
+    "published": "Vaga publicada com sucesso!",
+    "accepted": "Candidatura aceita!",
+    "rejected": "Candidatura recusada",
+    "selectRating": "Selecione uma nota de 1 a 5 estrelas",
+    "reviewSent": "Avaliação enviada!",
+    "thanksFeedback": "Obrigado pelo seu feedback.",
+    "updateError": "Erro ao atualizar",
+    "reviewError": "Erro ao avaliar",
+    "noHires": "Nenhuma contratação concluída ainda."
+  },
+  "chat": {
+    "placeholder": "Digite uma mensagem...",
+    "empty": "Nenhuma mensagem ainda. Comece a conversa!"
+  },
+  "profile": {
+    "noReviews": "Ainda sem avaliações. Este profissional é novo na plataforma."
+  },
+  "publicVagas": {
+    "noActive": "Nenhuma vaga ativa no momento."
   }
 }

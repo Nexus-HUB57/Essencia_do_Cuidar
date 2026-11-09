@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function Chat({ outroId, outroNome, onClose }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [msgs, setMsgs] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState('');
@@ -106,7 +108,7 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
           {msgs.length === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-8">Nenhuma mensagem ainda. Comece a conversa!</p>
+            <p className="text-center text-slate-400 text-sm py-8">{t('chat.empty')}</p>
           ) : msgs.map((m) => {
             const minha = m.id_remetente === user?.id;
             return (
@@ -130,7 +132,7 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
         >
           <input
             className="input flex-1"
-            placeholder="Digite uma mensagem..."
+            placeholder={t('chat.placeholder')}
             value={texto}
             onChange={(e) => handleTextoChange(e.target.value)}
           />

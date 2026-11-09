@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { useMatchingEvents } from '../hooks/useMatchingEvents';
@@ -25,6 +26,7 @@ function tempoRelativo(dateStr: string): string {
 }
 
 export default function SinoNotificacoes() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [aberto, setAberto] = useState(false);
@@ -123,7 +125,7 @@ export default function SinoNotificacoes() {
           {loading ? (
             <p className="text-center text-slate-400 text-sm py-8">Carregando...</p>
           ) : items.length === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-8">Nenhuma notificação.</p>
+            <p className="text-center text-slate-400 text-sm py-8">{t('notifications.empty')}</p>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-slate-700">
               {items.map((item) => (
