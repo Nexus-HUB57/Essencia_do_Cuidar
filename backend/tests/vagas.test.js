@@ -42,6 +42,102 @@ describe('GET /api/vagas', () => {
   });
 });
 
+/**
+ * Regressão dos filtros de listagem.
+ *
+ * O #26 reduziu `GET /api/vagas` a 2 filtros (cidade + carga horaria), mas
+ * o frontend continuou enviando `profissional`, `complexidade`, `regiao` e
+ * `remuneracaoMin` (DashboardProfissional e VagasPublicas). Resultado: os
+ * campos de filtro apareciam na UI e não filhavam nada — a resposta vinha
+ * com a lista inteira. Estes testes travam o comportamento.
+ */
+describe('GET /api/vagas — filtros de listagem (regressão #26)', () => {
+  beforeEach(async () => {
+    await resetDb();
+    const c = await createUser({ tipo_usuario: 'contratante' });
+    await createVaga(c.id, {
+      profissional_desejado: 'Fisioterapeuta',
+      complexidade: 'media',
+      remuneracao_valor: 120,
+      tipo_contrato: 'CLT',
+      jornada_escala: 'Seg a Sex',
+      regiao: 'São Paulo - SP',
+      cidade: 'São Paulo'
+    });
+    await createVaga(c.id, {
+      profissional_desejado: 'Cuidador de Idosos',
+      complexidade: 'baixa',
+      remuneracao_valor: 40,
+      tipo_contrato: 'PJ',
+      jornada_escala: '12x36',
+      regiao: 'Campinas - SP',
+      cidade: 'Campinas'
+    });
+  });
+
+  it('filtra por profissional (campo que a UI envia)', async () => {
+    const r = await (await api()).get('/api/vagas?profissional=Fisioterapeuta');
+    expect(r.status).toBe(200);
+    expect(r.body.total).toBe(1);
+    expect(r.body.vagas[0].profissional_desejado).toBe('Fisioterapeuta');
+  });
+
+  it('filtra por complexité (campo que a UI envia)', async () => {
+    const r = await (await api()).get('/api/vagas?complexidade=baixa');
+    expect(r.status).toBe(200);
+    expect(r.body.total).toBe(1);
+    expect(r.body.vagas[0].complexidade).toBe('baixa');
+  });
+
+  it('filtra por região (campo que a UI envia)', async () => {
+    const r = await (await api()).get('/api/vagas?regiao=Campinas');
+    expect(r.status).toBe(200);
+    expect(r.body.total).toBe(1);
+    expect(r.body.vagas[0].cidade).toBe('Campinas');
+  });
+
+  it('filtra por remuneração mínima (campo que a UI envia)', async () => {
+    const r = await (await api()).get('/api/vagas?remuneracaoMin=100');
+    expect(r.status).toBe(200);
+    expect(r.body.total).toBe(1);
+    expect(r.body.vagas[0].remuneracao_valor).toBe(120);
+  });
+
+  it('filtra por tipo de contrato e jornada', async () => {
+    const r1 = await (await api()).get('/api/vagas?tipoContrato=CLT');
+    expect(r1.body.total).toBe(1);
+    expect(r1.body.vagas[0].tipo_contrato).toBe('CLT');
+
+    const r2 = await (await api()).get('/api/vagas?jornadaEscala=12x36');
+    expect(r2.body.total).toBe(1);
+    expect(r2.body.vagas[0].jornada_escala).toBe('12x36');
+  });
+
+  it('o filtro de profession é taxonomia-aware (Fisioterapia acha Fisioterapeuta)', async () => {
+    const r = await (await api()).get('/api/vagas?profissional=Fisioterapia');
+    expect(r.status).toBe(200);
+    expect(r.body.total).toBe(1);
+    expect(r.body.vagas[0].profissional_desejado).toBe('Fisioterapeuta');
+  });
+
+  it('combina filtros (AND) entre os dois conjuntos de filtros', async () => {
+    const r = await (await api()).get(
+      '/api/vagas?profissional=Cuidador&complexidade=baixa&cidade=Campinas'
+    );
+    expect(r.status).toBe(200);
+    expect(r.body.total).toBe(1);
+    expect(r.body.vagas[0].profissional_desejado).toBe('Cuidador de Idosos');
+  });
+
+  it('anuncia todos os filtros aceitos em filtros_disponiveis', async () => {
+    const r = await (await api()).get('/api/vagas');
+    const disponiveis = r.body.filtros_disponiveis;
+    for (const f of ['cidade', 'cargaHoraria', 'profissional', 'complexidade', 'regiao', 'remuneracaoMin']) {
+      expect(disponiveis).toContain(f);
+    }
+  });
+});
+
 describe('GET /api/vagas/:id', () => {
   beforeEach(async () => { await resetDb(); });
 

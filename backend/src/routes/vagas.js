@@ -5,9 +5,42 @@ import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyNetlify } from '../services/netlify.js';
-import { recomendarParaVaga } from '../services/matching.js';
+import { recomendarParaVaga, resolverProfissao } from '../services/matching.js';
 import { notificarVagaStatus } from '../services/event-bus.js';
 import { buscarVagas, isFtsEnabled } from '../services/search-fts.js';
+import { PROFISSOES } from '../services/profissoes.js';
+
+/**
+ * Grafias que devem casar com cada profissão canônica quando o usuário
+ * filtra a listagem de vagas.
+ *
+ * Derivado de `PROFISSOES[].sinonimos` (fonte única de verdade) + alguns
+ * radicais extras que aparecem em `vagas.profissional_desejado` (texto
+ * livre) mas não constam como sinônimo literal na taxonomia.
+ */
+const RADICAIS_EXTRAS = {
+  cuidador: ['cuidador', 'cuidadora', 'acompanhante', 'idosos', 'geriatria', 'alzheimer'],
+  fisioterapeuta: ['fisioterapeuta', 'fisioterapia', 'fisio'],
+  enfermeiro: ['enfermeiro', 'enfermeira', 'enfermagem'],
+  tecnico_enfermagem: ['tecnico de enfermagem', 'tecnica de enfermagem', 'auxiliar de enfermagem', 'tecnico_enfermagem'],
+  psicologo: ['psicologo', 'psicologa', 'psicologia', 'psicoterapia'],
+  terapeuta_ocupacional: ['terapeuta ocupacional', 'ocupacional', 'terapia ocupacional'],
+  fonoaudiologo: ['fonoaudiologo', 'fonologia'],
+  nutricionista: ['nutricionista', 'nutricao', 'nutrição'],
+  medico: ['medico', 'medica', 'medicina'],
+  dentista: ['dentista', 'odontologo', 'odontologia']
+};
+
+const PADROES_PROFISSAO = (() => {
+  const out = {};
+  for (const p of PROFISSOES) {
+    const extras = RADICAIS_EXTRAS[p.id] || [];
+    const todos = new Set([...(p.sinonimos || []), ...extras]);
+    // Só entram padrões com 4+ caracteres — "to" casaria com "Todo".
+    out[p.id] = Array.from(todos).filter(s => s && s.length >= 4);
+  }
+  return out;
+})();
 
 const router = createRouter(express);
 
@@ -31,16 +64,34 @@ const vagaSchema = {
 
 /**
  * GET /api/vagas
- * Matching simplificado — apenas 2 filtros: cidade + carga_horaria
- * Outros filtros (profissional, complexidade, etc) foram removidos.
- * Paginação e ordenação mantidas.
+ *
+ * Listagem de vagas ativas com filtros combináveis.
+ *
+ * Filtros do matching simplificado (Sprint 2 / #26): `cidade`,
+ * `cargaHoraria`.
+ *
+ * Filtros de listagem (restaurados): `profissional`, `complexidade`,
+ * `regiao`, `remuneracaoMin`, `tipoContrato`, `remuneracaoTipo`,
+ * `jornadaEscala`. O frontend (DashboardProfissional e VagasPublicas) já
+ * enviava parte deles desde antes do #26 — quando foram removidos do
+ * backend, os campos de filtro continuaram na UI mas passaram a ser
+ * ignorados, e a resposta trazia a lista inteira.
+ *
+ * Todos os filtros são somados (AND). Paginação e ordenação mantidas.
  */
 router.get('/', async (req, res) => {
-  const { cidade, cargaHoraria, ordenar, limite, offset } = req.query;
+  const {
+    // Filtros do matching simplificado (Sprint 2 / #26)
+    cidade, cargaHoraria,
+    // Filtros de listagem clássicos (restaurados — o frontend já os enviava)
+    profissional, complexidade, regiao, remuneracaoMin,
+    tipoContrato, remuneracaoTipo, jornadaEscala,
+    ordenar, limite, offset
+  } = req.query;
   const filters = ["v.status = 'ativa'"];
   const params = [];
 
-  // ÚNICOS 2 FILTROS DE MATCHING: cidade + carga_horaria
+  // ── Filtros do matching simplificado (cidade + carga horaria) ──────────
   if (cidade) {
     filters.push('v.cidade LIKE ?');
     params.push(`%${cidade}%`);
@@ -48,6 +99,60 @@ router.get('/', async (req, res) => {
   if (cargaHoraria) {
     filters.push('v.carga_horaria LIKE ?');
     params.push(`%${cargaHoraria}%`);
+  }
+
+  // ── Filtros de listagem ────────────────────────────────────────────────
+  // Estes filtros JÁ ERAM enviados pelo frontend (DashboardProfissional e
+  // VagasPublicas montam `params.profissional`, `params.complexidade`,
+  // `params.regiao` e `params.remuneracaoMin`), mas o #26 os removeu do
+  // backend quando o matching foi reduzido a 2 filtros. O resultado era
+  // uma UI com 4 campos de filtro que não filravam nada — a resposta vinha
+  // com a lista inteira. Aqui eles voltam, somados (não substituindo) aos
+  // filtros novos.
+  if (profissional) {
+    // Filtro por profissão é taxonomia-aware: `profissional_desejado` é
+    // texto livre ("Cuidador de Idosos", "Fisioterapeuta", "Fisioterapia"…),
+    // então um LIKE literal não encontra "Fisioterapia" quando o usuário
+    // procura "Fisioterapeuta". Usamos a mesma canonicalização do motor de
+    // matching (services/matching.js → resolverProfissao) para casar
+    // sinônimos e radicais, e caímos no LIKE quando o texto não pertence
+    // à taxonomia (ex.: "Auxiliar de enfermagem domiciliar").
+    const idProf = resolverProfissao(profissional);
+    const padroes = idProf ? PADROES_PROFISSAO[idProf] : null;
+    if (padroes && padroes.length > 0) {
+      // Casamento por taxonomia: um OR de LIKE sobre as grafias aceitas
+      // para aquele id, cobrindo as variantes que aparecem em `vagas`.
+      const ORs = padroes.map(() => 'v.profissional_desejado LIKE ?').join(' OR ');
+      filters.push(`(${ORs})`);
+      for (const p of padroes) params.push(`%${p}%`);
+    } else {
+      filters.push('v.profissional_desejado LIKE ?');
+      params.push(`%${profissional}%`);
+    }
+  }
+  if (complexidade) {
+    filters.push('v.complexidade = ?');
+    params.push(complexidade);
+  }
+  if (regiao) {
+    filters.push('(v.regiao LIKE ? OR v.cidade LIKE ?)');
+    params.push(`%${regiao}%`, `%${regiao}%`);
+  }
+  if (remuneracaoMin) {
+    filters.push('v.remuneracao_valor >= ?');
+    params.push(Number(remuneracaoMin));
+  }
+  if (tipoContrato) {
+    filters.push('v.tipo_contrato = ?');
+    params.push(tipoContrato);
+  }
+  if (remuneracaoTipo) {
+    filters.push('v.remuneracao_tipo = ?');
+    params.push(remuneracaoTipo);
+  }
+  if (jornadaEscala) {
+    filters.push('v.jornada_escala LIKE ?');
+    params.push(`%${jornadaEscala}%`);
   }
 
   const where = 'WHERE ' + filters.join(' AND ');
@@ -80,7 +185,11 @@ router.get('/', async (req, res) => {
     total: total?.n || 0,
     limite: limit,
     offset: off,
-    filtros_disponiveis: ['cidade', 'cargaHoraria']
+    filtros_disponiveis: [
+      'cidade', 'cargaHoraria',
+      'profissional', 'complexidade', 'regiao', 'remuneracaoMin',
+      'tipoContrato', 'remuneracaoTipo', 'jornadaEscala'
+    ]
   });
 });
 
