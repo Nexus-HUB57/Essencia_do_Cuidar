@@ -39,8 +39,8 @@ export default function VagasPublicas() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
-      <h1 className="text-2xl md:text-3xl font-bold mb-1">Vagas abertas</h1>
-      <p className="text-slate-500 mb-6">Encontre oportunidades de cuidado domiciliar</p>
+      <h1 className="text-2xl md:text-3xl font-bold mb-1">{t('publicVagas.title2')}</h1>
+      <p className="text-slate-500 mb-6">{t('publicVagas.title')}</p>
 
       {/* Filtros */}
       <div className="card mb-6">
@@ -48,7 +48,7 @@ export default function VagasPublicas() {
           <input className="input" placeholder="Profissional (ex: Cuidador)"
             value={filtros.profissional} onChange={(e) => setFiltros({ ...filtros, profissional: e.target.value })} />
           <select className="input" value={filtros.complexidade} onChange={(e) => setFiltros({ ...filtros, complexidade: e.target.value })}>
-            <option value="">Complexidade</option>
+            <option value="">{t('vaga.complexity')}</option>
             <option value="baixa">{t('vaga.low')}</option>
             <option value="media">{t('vaga.medium')}</option>
           </select>
@@ -57,13 +57,13 @@ export default function VagasPublicas() {
           <div className="flex gap-2">
             <input className="input" type="number" placeholder="R$ mín." value={filtros.remMin}
               onChange={(e) => setFiltros({ ...filtros, remMin: e.target.value })} />
-            <button onClick={carregar} className="btn-primary shrink-0">Filtrar</button>
+            <button onClick={carregar} className="btn-primary shrink-0">{t('publicVagas.filter')}</button>
           </div>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-slate-400 text-center py-12">Carregando vagas...</p>
+        <p className="text-slate-400 text-center py-12">{t('common.loadingJobs')}</p>
       ) : erro ? (
         <p className="text-rose-500 text-center py-12">{erro}</p>
       ) : vagas.length === 0 ? (

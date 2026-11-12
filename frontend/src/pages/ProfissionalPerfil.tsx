@@ -49,7 +49,7 @@ interface Aval {
 }
 
 const DISP_LABEL: Record<string, string> = {
-  manha: "Manhã", tarde: "Tarde", noite: "Noite", "12h": "Turno 12h", "24h": "Plantão 24h"
+  manha: "manha", tarde: "tarde", noite: "noite", "12h": "12h", "24h": "24h"
 };
 
 export default function ProfissionalPerfil() {
@@ -170,15 +170,15 @@ export default function ProfissionalPerfil() {
         <div className="grid grid-cols-3 gap-3 mt-4">
           <div className="card text-center py-4">
             <p className="text-2xl font-bold text-serenity-600">{profStats.vagas_concluidas}</p>
-            <p className="text-xs text-slate-500 mt-1">Atendimentos concluídos</p>
+            <p className="text-xs text-slate-500 mt-1">{t('profile.completedServices')}</p>
           </div>
           <div className="card text-center py-4">
             <p className="text-2xl font-bold text-emerald-600">{profStats.vagas_aceitas}</p>
-            <p className="text-xs text-slate-500 mt-1">Vagas aceitas</p>
+            <p className="text-xs text-slate-500 mt-1">{t('profile.acceptedJobs')}</p>
           </div>
           <div className="card text-center py-4">
             <p className="text-2xl font-bold text-amber-600">{profStats.total_candidaturas}</p>
-            <p className="text-xs text-slate-500 mt-1">Candidaturas totais</p>
+            <p className="text-xs text-slate-500 mt-1">{t('profile.totalApplications')}</p>
           </div>
         </div>
       )}
@@ -212,7 +212,7 @@ export default function ProfissionalPerfil() {
           {detalhes?.disponibilidade && detalhes.disponibilidade.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {detalhes.disponibilidade.map((d) => (
-                <span key={d} className="badge-green">{DISP_LABEL[d] || d}</span>
+                <span key={d} className="badge-green">{t(`disponibilidade.${DISP_LABEL[d] || d}`)}</span>
               ))}
             </div>
           ) : (
@@ -225,7 +225,7 @@ export default function ProfissionalPerfil() {
       {stats && stats.total > 0 && (
         <div className="card mt-4">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <h2 className="font-semibold">Avaliações</h2>
+            <h2 className="font-semibold">{t('profile.reviews')}</h2>
             <Estrelas value={stats.media} total={stats.total} size="lg" />
           </div>
           {/* Distribuição */}

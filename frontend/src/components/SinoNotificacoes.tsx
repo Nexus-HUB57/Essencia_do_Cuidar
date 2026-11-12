@@ -123,7 +123,7 @@ export default function SinoNotificacoes() {
             )}
           </div>
           {loading ? (
-            <p className="text-center text-slate-400 text-sm py-8">Carregando...</p>
+            <p className="text-center text-slate-400 text-sm py-8">{t('common.loading')}</p>
           ) : items.length === 0 ? (
             <p className="text-center text-slate-400 text-sm py-8">{t('notifications.empty')}</p>
           ) : (

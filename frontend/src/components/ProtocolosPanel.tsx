@@ -178,7 +178,7 @@ export default function ProtocolosPanel() {
     if (!confirm(t('protocolos.confirmAccept'))) return;
     try {
       const { data } = await api.post(`/protocolos/${pcmId}/aceitar`);
-      toast.success('✓ Matching aceito! Aguardando pagamento da custódia pelo contratante.');
+      toast.success(t('protocolos.matchingAccepted'));
       loadProtocolos();
     } catch (e) { toast.error(getErrorMessage(e)); }
   }
@@ -206,7 +206,7 @@ export default function ProtocolosPanel() {
         toast.info('Pix gerado! Escaneie o QR code para pagar.');
       } else {
         // Mock — confirma imediato
-        toast.success('✓ Pagamento em custódia confirmado! Profissional notificado com a garantia.');
+        toast.success(t('protocolos.custodyConfirmed'));
         loadProtocolos();
       }
     } catch (e) { toast.error(getErrorMessage(e)); }
@@ -231,7 +231,7 @@ export default function ProtocolosPanel() {
     try {
       const { data } = await api.post(`/protocolos/${pdcId}/checkout`, { nota, comentario });
       if (data.checkout_completo) {
-        toast.success('✓ Checkout completo! Pagamento será liberado em até 72h.');
+        toast.success(t('protocolos.checkoutComplete'));
       } else {
         toast.success('✓ Seu checkout registrado. Aguardando a outra parte.');
       }
@@ -267,7 +267,7 @@ export default function ProtocolosPanel() {
     } catch (e) { toast.error(getErrorMessage(e)); }
   }
 
-  if (loading) return <p className="text-center text-slate-400 py-8">Carregando protocolos...</p>;
+  if (loading) return <p className="text-center text-slate-400 py-8">{t('common.loadingProtocols')}</p>;
 
   if (protocolos.length === 0) {
     return (
@@ -307,8 +307,8 @@ export default function ProtocolosPanel() {
         <div className="card p-4 bg-rose-50 border-rose-200">
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
-              <p className="font-semibold text-sm text-rose-700">⚠️ Recusar pagamento — Protocolo #{pnpModal}</p>
-              <p className="text-xs text-slate-600">Escolha o motivo da recusa (Protocolo de Não Pagamento):</p>
+              <p className="font-semibold text-sm text-rose-700">{t('protocolos.rejectPayment')} — Protocolo #{pnpModal}</p>
+              <p className="text-xs text-slate-600">{t('protocolos.rejectionReason')}</p>
             </div>
             <button onClick={() => setPnpModal(null)} className="text-xs text-slate-500 hover:text-rose-500">✕ Fechar</button>
           </div>
@@ -352,7 +352,7 @@ export default function ProtocolosPanel() {
                 placeholder="Descreva o que aconteceu..."
               />
             </div>
-            <button onClick={() => enviarPNP(pnpModal)} className="btn-primary text-xs">Enviar recusa</button>
+            <button onClick={() => enviarPNP(pnpModal)} className="btn-primary text-xs">{t('protocolos.sendRejection')}</button>
           </div>
         </div>
       )}
@@ -423,7 +423,7 @@ export default function ProtocolosPanel() {
             {/* Contratante: PDC em checkout_profissional → pode recusar (PNP) */}
             {isContratante && p.tipo === 'PDC' && ['checkout_profissional', 'checkout_pendente', 'checkout_completo'].includes(p.status) && (
               <button onClick={() => abrirPNP(p.id)} className="btn-ghost text-xs text-rose-600">
-                ⚠️ Recusar pagamento (PNP)
+                {t('protocolos.rejectPayment')}
               </button>
             )}
 
@@ -437,12 +437,12 @@ export default function ProtocolosPanel() {
             {/* Liberado */}
             {p.tipo === 'PDC' && p.status === 'liberado' && (
               <span className="text-xs text-emerald-700 font-semibold self-center">
-                💰 Pagamento liberado!
+                {t('protocolos.paymentReleased')}
               </span>
             )}
             {p.tipo === 'PDC' && p.status === 'liberado_parcial' && (
               <span className="text-xs text-emerald-700 font-semibold self-center">
-                💰 Pagamento parcial liberado
+                {t('protocolos.partialReleased')}
               </span>
             )}
 
@@ -466,7 +466,7 @@ export default function ProtocolosPanel() {
               {/* Info do plantão (apenas se pago — intermediação) */}
               {p.tipo === 'PDC' && ['em_custodia', 'checkout_pendente', 'checkout_profissional', 'checkout_contratante', 'checkout_completo', 'liberado', 'liberado_parcial'].includes(p.status) && (
                 <div className="bg-serenity-50 p-2 rounded text-xs">
-                  <p className="font-semibold text-serenity-700 mb-1">📋 Plantão</p>
+                  <p className="font-semibold text-serenity-700 mb-1">{t('protocolos.shift')}</p>
                   <p className="text-slate-600">
                     {p.vaga_regiao || '—'} • {p.vaga_horario || '—'} • {p.vaga_escala || '—'}
                   </p>
@@ -490,7 +490,7 @@ export default function ProtocolosPanel() {
               {/* Histórico de transições */}
               {historico.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold mb-1">Histórico (auditoria):</p>
+                  <p className="text-xs font-semibold mb-1">{t('protocolos.auditHistory')}</p>
                   <div className="text-xs text-slate-600 max-h-32 overflow-y-auto">
                     {historico.map(h => (
                       <div key={h.id} className="ml-2 flex items-start gap-1">

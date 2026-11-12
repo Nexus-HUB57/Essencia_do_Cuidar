@@ -11,9 +11,9 @@ const ESPECIALIDADES_OPCOES = [
   'Geriatria', 'Fisioterapia', 'Psicologia', 'Acompanhamento Familiar', 'Nutrição'
 ];
 const DISPONIBILIDADE_OPCOES = [
-  { v: 'manha', l: 'Manhã' },
-  { v: 'tarde', l: 'Tarde' },
-  { v: 'noite', l: 'Noite' },
+  { v: 'manha', l: 'manha' },
+  { v: 'tarde', l: 'tarde' },
+  { v: 'noite', l: 'noite' },
   { v: '12h', l: '12h' },
   { v: '24h', l: '24h' }
 ];
@@ -106,7 +106,7 @@ export default function Cadastro() {
             <div className="grid sm:grid-cols-2 gap-3">
               {[
                 { v: 'contratante', i: '🏠', t: t('auth.contractor'), d: t('auth.contractorDescription') },
-                { v: 'profissional', i: '🩺', t: t('auth.professional'), d: 'Cuidadores, enfermeiros, fisioterapeutas...' }
+                { v: 'profissional', i: '🩺', t: t('auth.professional'), d: t('auth.professionalDescription') }
               ].map((o) => (
                 <button key={o.v} onClick={() => setTipo(o.v as any)}
                   className={`p-4 rounded-xl border-2 text-left transition ${
@@ -190,7 +190,7 @@ export default function Cadastro() {
                 <p className="text-[10px] text-slate-400 mt-1">{t('matching.perfil.regiaoHint')}</p>
               </div>
               <div>
-                <label className="label">Especialidades</label>
+                <label className="label">{t('perfil.especialidades')}</label>
                 <div className="flex flex-wrap gap-1.5">
                   {ESPECIALIDADES_OPCOES.map((e) => (
                     <button key={e} type="button" onClick={() => toggleList('especialidades', e)}
@@ -199,13 +199,13 @@ export default function Cadastro() {
                           ? 'bg-serenity-500 text-white border-serenity-500'
                           : 'bg-white text-slate-600 border-slate-200'
                       }`}>
-                      {e}
+                      {t(`especialidades.${e}`)}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="label">Disponibilidade</label>
+                <label className="label">{t('perfil.disponibilidade')}</label>
                 <div className="flex flex-wrap gap-1.5">
                   {DISPONIBILIDADE_OPCOES.map((d) => (
                     <button key={d.v} type="button" onClick={() => toggleList('disponibilidade', d.v)}
@@ -214,7 +214,7 @@ export default function Cadastro() {
                           ? 'bg-emerald-500 text-white border-emerald-500'
                           : 'bg-white text-slate-600 border-slate-200'
                       }`}>
-                      {d.l}
+                      {t(`disponibilidade.${d.l}`)}
                     </button>
                   ))}
                 </div>

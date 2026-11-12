@@ -16,9 +16,9 @@ import {
 } from '../components/Recomendacoes';
 
 const DISPONIBILIDADE_OPCOES = [
-  { v: 'manha', l: 'Manhã' },
-  { v: 'tarde', l: 'Tarde' },
-  { v: 'noite', l: 'Noite' },
+  { v: 'manha', l: 'manha' },
+  { v: 'tarde', l: 'tarde' },
+  { v: 'noite', l: 'noite' },
   { v: '12h', l: '12h' },
   { v: '24h', l: '24h' }
 ];
@@ -148,7 +148,7 @@ export default function DashboardProfissional() {
   async function candidatar(vagaId: number) {
     try {
       await api.post('/candidaturas', { id_vaga: vagaId });
-      alert('Candidatura enviada! Acompanhe na aba "Minhas candidaturas".');
+      alert(t('dashboard.applicationSent'));
       // A vaga sai da lista de recomendações (o backend não recomenda quem
       // já se candidatou) — recarrega para manter a UI consistente.
       if (tab === 'recomendadas') carregarRecomendadas();
@@ -215,7 +215,7 @@ export default function DashboardProfissional() {
           </div>
 
           {loading ? (
-            <p className="text-center text-slate-400 py-12">Carregando vagas...</p>
+            <p className="text-center text-slate-400 py-12">{t('common.loadingJobs')}</p>
           ) : vagas.length === 0 ? (
             <div className="card text-center py-12 text-slate-500">
               {t('dashboard.noJobsFound')}
@@ -325,10 +325,10 @@ export default function DashboardProfissional() {
       {tab === 'candidaturas' && (
         <div>
           {loading ? (
-            <p className="text-center text-slate-400 py-12">Carregando...</p>
+            <p className="text-center text-slate-400 py-12">{t('common.loading')}</p>
           ) : cands.length === 0 ? (
             <div className="card text-center py-12 text-slate-500">
-              Você ainda não se candidatou a nenhuma vaga.
+              {t('dashboard.noApplications')}
             </div>
           ) : (
             <div className="space-y-3">
@@ -340,7 +340,7 @@ export default function DashboardProfissional() {
                       {c.regiao || '—'} • {c.contratante_nome}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">
-                      Enviada em {new Date(c.criado_em + 'Z').toLocaleString('pt-BR')}
+                      {t('contractor.sendOn', { date: new Date(c.criado_em + 'Z').toLocaleString() })}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -371,7 +371,7 @@ export default function DashboardProfissional() {
       {tab === 'favoritos' && (
         <div>
           {loading ? (
-            <p className="text-center text-slate-400 py-12">Carregando...</p>
+            <p className="text-center text-slate-400 py-12">{t('common.loading')}</p>
           ) : favoritas.length === 0 ? (
             <div className="card text-center py-12 text-slate-500">
               Você ainda não favoritou nenhuma vaga. Clique no 🤍 em uma vaga para salvar.
@@ -410,27 +410,27 @@ export default function DashboardProfissional() {
       {tab === 'perfil' && detalhes && (
         <div className="card max-w-2xl">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">Resumo do perfil</h2>
+            <h2 className="font-semibold">{t('dashboard.summary')}</h2>
             <Link to={`/profissional/${user.id}`} className="btn-ghost text-xs">
-              👁️ Ver perfil público
+              {t('dashboard.viewPublicProfile')}
             </Link>
           </div>
           <div className="space-y-3 text-sm">
-            <div><span className="text-slate-400">Nome:</span> {user.nome}</div>
-            <div><span className="text-slate-400">E-mail:</span> {user.email}</div>
-            <div><span className="text-slate-400">Telefone:</span> {user.telefone || '—'}</div>
+            <div><span className="text-slate-400">{t('profissionais.nome')}</span> {user.nome}</div>
+            <div><span className="text-slate-400">{t('profissionais.email')}</span> {user.email}</div>
+            <div><span className="text-slate-400">{t('profissionais.telefone')}</span> {user.telefone || '—'}</div>
             <div>
-              <span className="text-slate-400">Registro:</span>{' '}
+              <span className="text-slate-400">{t('dashboard.registroLabel')}</span>{' '}
               {detalhes.registro_conselho ? `${detalhes.tipo_registro} ${detalhes.registro_conselho}` : '—'}
-              {detalhes.registro_verificado === 1 && <span className="badge-green ml-2">Verificado</span>}
+              {detalhes.registro_verificado === 1 && <span className="badge-green ml-2">{t('perfil.verified')}</span>}
             </div>
             <div>
-              <span className="text-slate-400">Diploma:</span>{' '}
-              {detalhes.diploma_nome_original || 'não enviado'}
-              {detalhes.diploma_verificado === 1 && <span className="badge-green ml-2">Verificado</span>}
+              <span className="text-slate-400">{t('dashboard.diplomaLabel')}</span>{' '}
+              {detalhes.diploma_nome_original || t('contractor.notSent')}
+              {detalhes.diploma_verificado === 1 && <span className="badge-green ml-2">{t('perfil.verified')}</span>}
             </div>
             <div>
-              <span className="text-slate-400">Especialidades:</span>{' '}
+              <span className="text-slate-400">{t('perfil.especialidades')}:</span>{' '}
               {(detalhes.especialidades as string[]).join(', ') || '—'}
             </div>
             <div>
@@ -442,7 +442,7 @@ export default function DashboardProfissional() {
               {detalhes.regiao || '—'}
             </div>
             <div>
-              <span className="text-slate-400">Disponibilidade:</span>{' '}
+              <span className="text-slate-400">{t('perfil.disponibilidade')}:</span>{' '}
               {(detalhes.disponibilidade as string[]).join(', ') || '—'}
             </div>
           </div>
@@ -478,7 +478,7 @@ export default function DashboardProfissional() {
               </div>
 
               <div>
-                <label className="label">Disponibilidade</label>
+                <label className="label">{t('perfil.disponibilidade')}</label>
                 <div className="flex flex-wrap gap-1.5">
                   {DISPONIBILIDADE_OPCOES.map((d) => {
                     const ativo = formPerfil.disponibilidade.includes(d.v);
@@ -498,7 +498,7 @@ export default function DashboardProfissional() {
                             : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600'
                         }`}
                       >
-                        {d.l}
+                        {t(`disponibilidade.${d.l}`)}
                       </button>
                     );
                   })}

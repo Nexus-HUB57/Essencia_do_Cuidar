@@ -181,7 +181,7 @@ export default function Admin() {
     if (!confirm(t('admin.confirmRelease', { id }))) return;
     try {
       await api.post(`/protocolos/${id}/liberar`);
-      alert('✅ Pagamento liberado');
+      alert(t('admin.paymentReleased'));
       loadProtocolos();
     } catch (e) { alert(getErrorMessage(e)); }
   }
@@ -346,7 +346,7 @@ export default function Admin() {
               <div>
                 <p className="font-semibold text-sm">{v.profissional_nome}</p>
                 <p className="text-xs text-slate-500">{v.tipo_registro} {v.numero_registro} {v.uf ? `(${v.uf})` : ''}</p>
-                {v.diploma_url && <a href={v.diploma_url} target="_blank" rel="noopener" className="text-[10px] text-serenity-600 underline">ver diploma</a>}
+                {v.diploma_url && <a href={v.diploma_url} target="_blank" rel="noopener" className="text-[10px] text-serenity-600 underline">{t('admin.viewDiploma')}</a>}
               </div>
               <div className="flex gap-1">
                 <button onClick={() => decideVerificacao(v, 'aprovado')}
@@ -433,7 +433,7 @@ export default function Admin() {
                 <p className="text-xl font-bold text-purple-700">{BRL(protoStats.valor_em_custodia_centavos)}</p>
               </div>
               <div className="card p-3 bg-emerald-50">
-                <p className="text-xs text-slate-600">💸 Já liberado a profissionais</p>
+                <p className="text-xs text-slate-600">{t('admin.alreadyReleased')}</p>
                 <p className="text-xl font-bold text-emerald-700">{BRL(protoStats.valor_liberado_centavos)}</p>
               </div>
             </div>
@@ -505,7 +505,7 @@ export default function Admin() {
             </h3>
             {pnpEmAnalise.length === 0 ? (
               <div className="card text-center py-6 text-slate-500 text-sm">
-                Nenhum PNP em análise 🎉
+                {t('admin.noPnp')}
               </div>
             ) : (
               <div className="space-y-2">

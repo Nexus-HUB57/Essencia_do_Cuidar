@@ -102,13 +102,13 @@ export default function VagaDetalhe() {
     }
   }
 
-  if (loading) return <div className="text-center py-20 text-slate-400">Carregando...</div>;
+  if (loading) return <div className="text-center py-20 text-slate-400">{t('common.loading')}</div>;
   if (erro && !vaga) return <div className="text-center py-20 text-rose-500">{erro}</div>;
   if (!vaga) return null;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 fade-in">
-      <Link to="/vagas" className="text-serenity-600 text-sm hover:underline">← Voltar para vagas</Link>
+      <Link to="/vagas" className="text-serenity-600 text-sm hover:underline">{t('vaga.back')}</Link>
 
       <div className="card mt-4">
         <div className="flex items-start justify-between flex-wrap gap-3">
@@ -125,11 +125,11 @@ export default function VagaDetalhe() {
               className="text-sm px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
               title={t('vaga.shareJob')}
             >
-              🔗 Compartilhar
+              {t('vaga.share')}
             </button>
             <FavoritarBotao tipo="vaga" id={vaga.id} size="md" />
             <span className={vaga.complexidade === 'media' ? 'badge-amber' : 'badge-green'}>
-              Complexidade {vaga.complexidade === 'media' ? 'média' : 'baixa'}
+              {t('vaga.complexity')} {vaga.complexidade === 'media' ? t('vaga.medium').toLowerCase() : t('vaga.low').toLowerCase()}
             </span>
           </div>
         </div>
@@ -137,13 +137,13 @@ export default function VagaDetalhe() {
         <div className="mt-6 grid sm:grid-cols-2 gap-4 text-sm">
           {vaga.regiao && (
             <div>
-              <p className="text-slate-400 text-xs">Região</p>
+              <p className="text-slate-400 text-xs">{t('vaga.region')}</p>
               <p className="font-medium">📍 {vaga.regiao}</p>
             </div>
           )}
           {vaga.jornada_horario && (
             <div>
-              <p className="text-slate-400 text-xs">Horário</p>
+              <p className="text-slate-400 text-xs">{t('vaga.schedule')}</p>
               <p className="font-medium">🕐 {vaga.jornada_horario}</p>
             </div>
           )}
@@ -297,10 +297,10 @@ export default function VagaDetalhe() {
 
         {!user && (
           <div className="mt-8 border-t border-slate-100 pt-6 text-center">
-            <p className="text-sm text-slate-500 mb-3">Quer se candidatar a esta vaga?</p>
+            <p className="text-sm text-slate-500 mb-3">{t('vaga.applyQuestion')}</p>
             <div className="flex justify-center gap-2">
-              <Link to="/login" className="btn-ghost">Entrar</Link>
-              <Link to="/cadastro?tipo=profissional" className="btn-primary">Cadastrar como profissional</Link>
+              <Link to="/login" className="btn-ghost">{t('vaga.signIn')}</Link>
+              <Link to="/cadastro?tipo=profissional" className="btn-primary">{t('vaga.registerAs')}</Link>
             </div>
           </div>
         )}

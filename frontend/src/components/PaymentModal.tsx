@@ -82,7 +82,7 @@ export default function PaymentModal({ idVaga, onClose, onPaid }: Props) {
             <div className="mt-3 text-xs space-y-1">
               <p><span className="text-slate-500">{t('pagamento.txid')}:</span> <span className="font-mono">{data.pix_txid}</span></p>
               <p><span className="text-slate-500">{t('pagamento.amount')}:</span> R$ {(data.pagamento.valor_centavos / 100).toFixed(2)}</p>
-              <p><span className="text-slate-500">Profissional recebe:</span> R$ {(data.valor_profissional_centavos / 100).toFixed(2)}</p>
+              <p><span className="text-slate-500">{t('payment.professionalReceives')}</span> R$ {(data.valor_profissional_centavos / 100).toFixed(2)}</p>
             </div>
 
             {config?.mock && data.pagamento.status === 'pendente' && (

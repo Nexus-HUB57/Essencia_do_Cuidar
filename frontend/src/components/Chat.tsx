@@ -136,7 +136,7 @@ export default function Chat({ outroId, outroNome, onClose }: Props) {
             value={texto}
             onChange={(e) => handleTextoChange(e.target.value)}
           />
-          <button type="submit" className="btn-primary px-4">Enviar</button>
+          <button type="submit" className="btn-primary px-4">{t('chat.send')}</button>
         </form>
       </div>
     </div>
