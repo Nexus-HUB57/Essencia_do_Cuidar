@@ -231,14 +231,32 @@ if [ -n "${SITE_URL:-}" ]; then
   # API health (precisa backend rodando no host do proxy)
   echo ""
   echo "  API healthcheck (precisa backend rodando no host do proxy):"
-  CODE_API=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL/api/health")
+  # Guarda o corpo também: o status sozinho não distingue "não é o nosso
+  # backend" de "o backend está fora do ar".
+  #   - 200            → backend OK
+  #   - 502/504        → backend offline (Render free dorme) ou host errado
+  #   - 404 + corpo    → o host responde, mas NÃO é a nossa API: o proxy
+  #                      aponta para outro serviço (deploy errado, branch
+  #                      errada ou serviço placeholder). Erro de CONFIGURAÇÃO.
+  #   - 404 + HTML     → idem: Express serviu o 404 padrão dele
+  API_BODY=$(mktemp)
+  CODE_API=$(curl -s -o "$API_BODY" -w "%{http_code}" -m 20 "$SITE_URL/api/health")
   if [ "$CODE_API" = "200" ]; then
     green "GET /api/health → 200 (backend OK)"
   elif [ "$CODE_API" = "502" ] || [ "$CODE_API" = "504" ]; then
     yellow "GET /api/health → $CODE_API (backend offline ou host errado no netlify.toml)"
+  elif [ "$CODE_API" = "404" ]; then
+    # O host responde, mas não é a nossa API — isso é configuration bug,
+    # não indisponibilidade. Vale um aviso explícito.
+    if grep -q "Rota não encontrada" "$API_BODY" 2>/dev/null; then
+      yellow "GET /api/health → 404 (a API responde, mas sem a rota /api/health — backend em versão desatualizada)"
+    else
+      yellow "GET /api/health → 404 e o corpo NÃO é a nossa API — o host do proxy está servindo outro serviço. Confira o host em netlify.toml (bloco [[redirects]]) e se o deploy do backend saiu do branch certo."
+    fi
   else
     yellow "GET /api/health → $CODE_API (verifique proxy/redirect no netlify.toml)"
   fi
+  rm -f "$API_BODY"
 fi
 
 # ───────────────────────────────────────────────────────────────────

@@ -65,6 +65,21 @@ MAX_UPLOAD_MB    = 5
 > ⚠️ **Free tier do Render dorme.** A primeira request pode demorar ~50s.
 > Pra production use o plano pago (sempre ligado).
 
+> ⚠️ **Confirme que o serviço subiu a API certa.** O Render responde 404 em
+> qualquer rota se o build não tiver montageado as rotas (deploy de branch
+> errada, `rootDir` incorreto, ou serviço placeholder). Cheque:
+>
+> ```bash
+> curl -s https://<seu-backend>/api/health
+> # esperado: {"ok":true,"service":"essencia-do-cuidar",...}
+> ```
+>
+> Se vier `Cannot GET /api/health` (HTML), o host existe mas **não está
+> servindo esta API** — o proxy da Netlify vai repassar esse 404 para o
+> navegador. O `scripts/netlify-pre-deploy-check.sh` distingue os dois
+> casos: 502/504 é backend dormindo; 404 com corpo HTML é configuração
+> errada.
+
 ### 3. Apontar o proxy pro backend
 
 Abra `netlify.toml` na raiz do repo e troque `essencia-backend.onrender.com`
