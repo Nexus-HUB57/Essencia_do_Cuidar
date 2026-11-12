@@ -752,8 +752,20 @@ Resultado atual: **107 asserções** (38 + 30 + 39) + `tsc` + `build`.
 
 ### Testes unitários
 ```bash
-npm --prefix backend test          # vitest — 137 testes
+npm --prefix backend test          # vitest — 145 testes
 ```
+
+### Internacionalização
+Dicionário em `frontend/src/i18n/locales/` (pt-BR, es, en) — **357 chaves**
+nos três idiomas, sem fallback silencioso. Toda a interface usa `t()`:
+inclusive as páginas públicas (Landing, Como funciona) e o perfil do
+profissional.
+
+Onde o texto é **dado** e não interface, o valor gravado no banco continua
+em português (é o que o motor de matching normaliza) e o que aparece na
+tela é o rótulo traduzido — profissões via `matching.profissoes.<id>`,
+especialidades e disponibilidade via chaves próprias. Ex.: o seletor
+grava "Cuidador de Idosos" e exibe "Elder Caregiver".
 
 ---
 
