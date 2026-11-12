@@ -44,15 +44,31 @@ interface HistoricoItem {
 }
 
 const TURNOS = [
-  { v: 'manha', l: 'Manhã' },
-  { v: 'tarde', l: 'Tarde' },
-  { v: 'noite', l: 'Noite' }
+  { v: 'manha', l: 'manha' },
+  { v: 'tarde', l: 'tarde' },
+  { v: 'noite', l: 'noite' }
 ];
 
 const PROFISSIONAIS_OPCOES = [
   'Cuidador de Idosos', 'Enfermeiro', 'Técnico de Enfermagem',
   'Fisioterapeuta', 'Psicólogo', 'Terapeuta Ocupacional', 'Nutricionista', 'Médico'
 ];
+
+/**
+ * Nome canônico (português) -> id da taxonomia. O VALOR enviado ao backend
+ * precisa ser o canônico, porque é o que o motor de matching normaliza; o
+ * RÓTULO exibido é o traduzido (matching.profissoes.<id>).
+ */
+const PROFISSAO_ID: Record<string, string> = {
+  'Cuidador de Idosos': 'cuidador',
+  'Enfermeiro': 'enfermeiro',
+  'Técnico de Enfermagem': 'tecnico_enfermagem',
+  'Fisioterapeuta': 'fisioterapeuta',
+  'Psicólogo': 'psicologo',
+  'Terapeuta Ocupacional': 'terapeuta_ocupacional',
+  'Nutricionista': 'nutricionista',
+  'Médico': 'medico'
+};
 
 export default function DashboardContratante() {
   const { user } = useAuth();
@@ -137,11 +153,11 @@ export default function DashboardContratante() {
     setErro('');
     setSucesso('');
     if (!form.servico_descricao || form.servico_descricao.length < 10) {
-      setErro('Descreva o serviço (mínimo 10 caracteres).');
+      setErro(t('contractor.describeService'));
       return;
     }
     if (!form.profissional_desejado) {
-      setErro('Selecione o profissional desejado.');
+      setErro(t('contractor.selectProfessional'));
       return;
     }
     try {
@@ -274,7 +290,7 @@ export default function DashboardContratante() {
                       <h3 className="font-semibold">{c.profissional_nome}</h3>
                       <p className="text-xs text-slate-500">
                         {c.tipo_registro} {c.registro_conselho}
-                        {c.registro_verificado === 1 && <span className="badge-green ml-2 text-[10px]">✓ Verificado</span>}
+                        {c.registro_verificado === 1 && <span className="badge-green ml-2 text-[10px]">✓ {t('perfil.verified')}</span>}
                       </p>
                     </div>
                   </div>
@@ -295,17 +311,17 @@ export default function DashboardContratante() {
                 {c.bio && <p className="text-sm text-slate-600 mt-2">{c.bio}</p>}
                 {c.mensagem && (
                   <div className="mt-3 bg-serenity-50 p-3 rounded-xl text-sm text-slate-700">
-                    <span className="text-xs text-serenity-600 font-semibold">Mensagem:</span> {c.mensagem}
+                    <span className="text-xs text-serenity-600 font-semibold">{t('contractor.messageLabel')}</span> {c.mensagem}
                   </div>
                 )}
 
                 <div className="mt-4 flex gap-2 flex-wrap">
                   <Link to={`/profissional/${c.profissional_id}`} className="btn-ghost text-xs">
-                    👤 Ver perfil
+                    {t('vaga.viewProfile')}
                   </Link>
                   {(c.status_candidatura === 'pendente' || c.status_candidatura === 'visualizada') && (
                     <>
-                      <button onClick={() => setStatusCandidatura(c.id, 'aceita')} className="btn-primary text-xs">✓ Aceitar</button>
+                      <button onClick={() => setStatusCandidatura(c.id, 'aceita')} className="btn-primary text-xs">{t('vaga.accept')}</button>
                       <button onClick={() => setStatusCandidatura(c.id, 'recusada')} className="btn-ghost text-xs">Recusar</button>
                     </>
                   )}
@@ -314,7 +330,7 @@ export default function DashboardContratante() {
                       <button onClick={() => setChatCom({ id: c.profissional_id, nome: c.profissional_nome })}
                         className="btn-secondary text-xs">💬 Abrir chat</button>
                       <button onClick={() => setPagarVaga(vagaSel.id)}
-                        className="btn-primary text-xs">💰 Pagar profissional</button>
+                        className="btn-primary text-xs">{t('vaga.payProfessional')}</button>
                     </>
                   )}
                   {/* INTERMEDIAÇÃO: contato direto (WhatsApp/telefone) removido.
@@ -350,19 +366,19 @@ export default function DashboardContratante() {
           { k: 'nova', l: t('contractor.tabs.newJob') },
           { k: 'protocolos', l: t('contractor.tabs.protocolos') },
           { k: 'historico', l: t('contractor.tabs.history', { count: historico.length }) }
-        ].map((t) => (
+        ].map((aba) => (
           <button
-            key={t.k}
-            onClick={() => setTab(t.k as any)}
+            key={aba.k}
+            onClick={() => setTab(aba.k as any)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
-              tab === t.k ? 'border-serenity-500 text-serenity-600' : 'border-transparent text-slate-500'
+              tab === aba.k ? 'border-serenity-500 text-serenity-600' : 'border-transparent text-slate-500'
             }`}
-          >{t.l}</button>
+          >{aba.l}</button>
         ))}
       </div>
 
       {tab === 'vagas' && (
-        loading ? <p className="text-center py-12 text-slate-400">Carregando...</p> :
+        loading ? <p className="text-center py-12 text-slate-400">{t('common.loading')}</p> :
         vagas.length === 0 ? (
           <div className="card text-center py-12 text-slate-500">
             <Trans i18nKey="contractor.noJobs" components={{ strong: <strong /> }} />
@@ -378,7 +394,7 @@ export default function DashboardContratante() {
                     {v.regiao || '—'} • {v.jornada_horario || '—'}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
-                    Publicada em {new Date(v.criado_em + 'Z').toLocaleDateString('pt-BR')}
+                    {t('contractor.publishedOn', { date: new Date(v.criado_em + 'Z').toLocaleDateString() })}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -395,16 +411,16 @@ export default function DashboardContratante() {
 
       {tab === 'nova' && (
         <div className="card max-w-3xl">
-          <h2 className="text-lg font-semibold mb-4">Publicar nova vaga</h2>
+          <h2 className="text-lg font-semibold mb-4">{t('vaga.publishNew')}</h2>
           <div className="space-y-4">
             <div className="grid sm:grid-cols-3 gap-3">
               <div>
                 <label className="label">Sexo do paciente</label>
                 <select className="input" value={form.paciente_sexo}
                   onChange={(e) => setForm({ ...form, paciente_sexo: e.target.value as any })}>
-                  <option value="">Não informar</option>
-                  <option value="F">Feminino</option>
-                  <option value="M">Masculino</option>
+                  <option value="">{t('contractor.notInform')}</option>
+                  <option value="F">{t('contractor.female')}</option>
+                  <option value="M">{t('contractor.male')}</option>
                   <option value="Outro">Outro</option>
                 </select>
               </div>
@@ -414,29 +430,31 @@ export default function DashboardContratante() {
                   onChange={(e) => setForm({ ...form, paciente_idade: e.target.value })} />
               </div>
               <div>
-                <label className="label">Complexidade*</label>
+                <label className="label">{t('vaga.complexity')}*</label>
                 <select className="input" value={form.complexidade}
                   onChange={(e) => setForm({ ...form, complexidade: e.target.value as any })}>
                   <option value="baixa">{t('vaga.low')}</option>
                   <option value="media">{t('vaga.medium')}</option>
                 </select>
-                <p className="text-[10px] text-slate-400 mt-1">Não aceitamos alta complexidade/UTI.</p>
+                <p className="text-[10px] text-slate-400 mt-1">{t('vaga.noComplexUti')}</p>
               </div>
             </div>
 
             <div>
-              <label className="label">Diagnóstico / observações clínicas</label>
+              <label className="label">{t('vaga.diagnosisLabel')}</label>
               <input className="input" value={form.paciente_diagnostico}
                 onChange={(e) => setForm({ ...form, paciente_diagnostico: e.target.value })}
                 placeholder="Ex: Alzheimer moderado" />
             </div>
 
             <div>
-              <label className="label">Profissional desejado*</label>
+              <label className="label">{t('vaga.desiredProfessional')}</label>
               <select className="input" value={form.profissional_desejado}
                 onChange={(e) => setForm({ ...form, profissional_desejado: e.target.value })}>
                 <option value="">Selecione</option>
-                {PROFISSIONAIS_OPCOES.map((p) => <option key={p} value={p}>{p}</option>)}
+                {PROFISSIONAIS_OPCOES.map((p) => (
+                  <option key={p} value={p}>{t(`matching.profissoes.${PROFISSAO_ID[p]}`)}</option>
+                ))}
               </select>
             </div>
 
@@ -449,7 +467,7 @@ export default function DashboardContratante() {
 
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
-                <label className="label">Horário</label>
+                <label className="label">{t('vaga.schedule')}</label>
                 <input className="input" value={form.jornada_horario}
                   onChange={(e) => setForm({ ...form, jornada_horario: e.target.value })}
                   placeholder="Ex: 08h às 18h" />
@@ -473,7 +491,7 @@ export default function DashboardContratante() {
                 </select>
               </div>
               <div>
-                <label className="label">Remuneração por</label>
+                <label className="label">{t('contractor.payBy')}</label>
                 <select className="input" value={form.remuneracao_tipo}
                   onChange={(e) => setForm({ ...form, remuneracao_tipo: e.target.value as any })}>
                   <option value="">Selecione</option>
@@ -490,7 +508,7 @@ export default function DashboardContratante() {
 
             <div className="grid sm:grid-cols-3 gap-3">
               <div>
-                <label className="label">Região (texto)</label>
+                <label className="label">{t('contractor.regionText')}</label>
                 <input className="input" value={form.regiao}
                   onChange={(e) => setForm({ ...form, regiao: e.target.value })}
                   placeholder="Ex: Zona Sul - SP" />
@@ -508,7 +526,7 @@ export default function DashboardContratante() {
             {erro && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-sm">{erro}</div>}
             {sucesso && <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-3 rounded-xl text-sm">{sucesso}</div>}
 
-            <button onClick={publicar} className="btn-primary">Publicar vaga</button>
+            <button onClick={publicar} className="btn-primary">{t('vaga.publish')}</button>
           </div>
         </div>
       )}
@@ -520,11 +538,11 @@ export default function DashboardContratante() {
 
       {/* ABA: HISTÓRICO DE CONTRATAÇÕES */}
       {tab === 'historico' && (
-        loading ? <p className="text-center py-12 text-slate-400">Carregando histórico...</p> :
+        loading ? <p className="text-center py-12 text-slate-400">{t('common.loadingHistory')}</p> :
         historico.length === 0 ? (
           <div className="card text-center py-12 text-slate-500">
             <p className="mb-1">{t('contractor.noHires')}</p>
-            <p className="text-xs">Vagas fechadas com profissional aceito aparecerão aqui.</p>
+            <p className="text-xs">{t('vaga.closedWithAccepted')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -552,7 +570,7 @@ export default function DashboardContratante() {
                         </span>
                       )}
                       <span className="text-slate-400">
-                        Concluída em {new Date(h.criado_em + 'Z').toLocaleDateString('pt-BR')}
+                        {t('contractor.completedOn', { date: new Date(h.criado_em + 'Z').toLocaleDateString() })}
                       </span>
                     </div>
                   </div>

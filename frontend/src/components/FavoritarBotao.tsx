@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function FavoritarBotao({ tipo, id, size = 'md', showLabel = false, onChange }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const toast = useToast();
   const [favoritado, setFavoritado] = useState(false);
@@ -31,7 +33,7 @@ export default function FavoritarBotao({ tipo, id, size = 'md', showLabel = fals
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
-      toast.warning('Entre na sua conta para favoritar');
+      toast.warning(t('favorites.loginRequired'));
       return;
     }
     setLoading(true);
@@ -40,12 +42,12 @@ export default function FavoritarBotao({ tipo, id, size = 'md', showLabel = fals
       setFavoritado(data.favoritado);
       onChange?.(data.favoritado);
       if (data.favoritado) {
-        toast.success('Salvo!', 'Adicionado aos seus favoritos');
+        toast.success(t('favorites.saved'), t('favorites.added'));
       } else {
-        toast.info('Removido dos favoritos');
+        toast.info(t('favorites.removed'));
       }
     } catch (err: any) {
-      toast.error('Erro', err?.response?.data?.error || 'Tente novamente');
+      toast.error(t('favorites.error'), err?.response?.data?.error || t('favorites.tryAgain'));
     } finally {
       setLoading(false);
     }
@@ -61,8 +63,8 @@ export default function FavoritarBotao({ tipo, id, size = 'md', showLabel = fals
           ? 'text-rose-500 hover:text-rose-600'
           : 'text-slate-300 hover:text-rose-400'
       } ${loading ? 'opacity-50' : ''}`}
-      title={favoritado ? 'Remover dos favoritos' : 'Favoritar'}
-      aria-label={favoritado ? 'Remover dos favoritos' : 'Favoritar'}
+      title={favoritado ? t('favorites.remove') : t('favorites.add')}
+      aria-label={favoritado ? t('favorites.remove') : t('favorites.add')}
     >
       {favoritado ? '❤️' : '🤍'}
       {showLabel && (
