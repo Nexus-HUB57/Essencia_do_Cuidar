@@ -436,6 +436,39 @@ function historicoTier(n) {
 }
 
 /**
+ * SQL que conta os ATENDIMENTOS CONCLUÍDOS de um profissional.
+ *
+ * Antes, o histórico era medido por candidaturas aceitas cuja vaga estava
+ * 'fechada'. Mas a vaga é fechada no momento em que o contratante ACEITA a
+ * candidatura (`routes/candidaturas.js`) — ou seja, antes de qualquer
+ * atendimento acontecer. Um profissional que aceitou 20 matchings e
+ * abandonou todos recebia a nota máxima de histórico, e o matching o
+ * recomendava com mais confiança justamente por isso.
+ *
+ * O sinal correto é o protocolo: um atendimento só conta como concluído
+ * quando o check-out das duas partes aconteceu (`checkout_completo`) ou o
+ * pagamento já foi liberado.
+ *
+ * O segundo termo cobre o legado: candidaturas aceitas de lineages que
+ * ainda não têm protocolo (dados anteriores ao sistema de protocolos).
+ *
+ * @param {string} alias — referência ao id do profissional na query
+ * @returns {string}
+ */
+export function sqlAtendimentosConcluidos(alias) {
+  return `
+        (SELECT COUNT(*) FROM protocolos p
+           WHERE p.id_profissional = ${alias}
+             AND p.status IN ('checkout_completo', 'liberado', 'liberado_parcial'))
+      + (SELECT COUNT(*) FROM candidaturas c
+           JOIN vagas v ON v.id = c.id_vaga
+          WHERE c.id_profissional = ${alias}
+            AND c.status_candidatura = 'aceita'
+            AND v.status = 'fechada'
+            AND NOT EXISTS (SELECT 1 FROM protocolos p2 WHERE p2.id_candidatura = c.id))`;
+}
+
+/**
  * Calcula o score de matching entre uma vaga e um profissional.
  *
  * @param {Object} vaga — linha da tabela `vagas`
@@ -632,11 +665,7 @@ export async function recomendarParaVaga(idVaga, opts = {}) {
             d.especialidades, d.disponibilidade, d.bio,
             (SELECT COALESCE(ROUND(AVG(nota), 2), 0) FROM avaliacoes WHERE id_profissional = u.id) AS media,
             (SELECT COUNT(*) FROM avaliacoes WHERE id_profissional = u.id) AS total_avaliacoes,
-            (SELECT COUNT(*) FROM candidaturas c
-               JOIN vagas v ON v.id = c.id_vaga
-              WHERE c.id_profissional = u.id
-                AND c.status_candidatura = 'aceita'
-                AND v.status = 'fechada') AS vagas_concluidas
+            ${sqlAtendimentosConcluidos('u.id')} AS vagas_concluidas
        FROM users u
        LEFT JOIN profissionais_detalhes d ON d.id_user = u.id
       WHERE u.tipo_usuario = 'profissional'
@@ -739,13 +768,8 @@ export async function recomendarParaProfissional(idProf, opts = {}) {
   );
 
   const historico = await db.get(
-    `SELECT COUNT(*) AS n
-       FROM candidaturas c
-       JOIN vagas v ON v.id = c.id_vaga
-      WHERE c.id_profissional = ?
-        AND c.status_candidatura = 'aceita'
-        AND v.status = 'fechada'`,
-    [idProf]
+    `SELECT ${sqlAtendimentosConcluidos('?')} AS n`,
+    [idProf, idProf]
   );
 
   const profissional = {

@@ -9,7 +9,7 @@ import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { validateRegistro } from '../services/registros.js';
 import { normalize, validate, verifyWithCouncil, EXEMPLOS } from '../services/registroValidator.js';
-import { recomendarParaProfissional } from '../services/matching.js';
+import { recomendarParaProfissional, sqlAtendimentosConcluidos } from '../services/matching.js';
 import { PROFISSOES } from '../services/profissoes.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -294,15 +294,18 @@ router.get('/:id', async (req, res) => {
   // Estatísticas de ATUAÇÃO — o que o perfil público exibe nos 3 cards
   // ("Atendimentos concluídos", "Vagas aceitas", "Candidaturas totais").
   // `stats.total`/`stats.media` acima são as notas; estas são os contratos.
+  //
+  // "Atendimentos concluídos" usa a mesma métrica do motor de matching:
+  // protocolos que chegaram a checkout_completo / liberado. Contar a vaga
+  // 'fechada' (que fecha no momento do aceite) rotulava como atendimento
+  // concluído um matching que ainda nem começou.
   const atuacao = await db.get(
     `SELECT
         (SELECT COUNT(*) FROM candidaturas WHERE id_profissional = ?) AS total_candidaturas,
         (SELECT COUNT(*) FROM candidaturas WHERE id_profissional = ? AND status_candidatura = 'aceita') AS aceitas,
         (SELECT COUNT(DISTINCT id_vaga) FROM candidaturas WHERE id_profissional = ? AND status_candidatura = 'aceita') AS vagas_aceitas,
-        (SELECT COUNT(*) FROM candidaturas c
-           JOIN vagas v ON v.id = c.id_vaga
-          WHERE c.id_profissional = ? AND c.status_candidatura = 'aceita' AND v.status = 'fechada') AS vagas_concluidas`,
-    [id, id, id, id]
+        ${sqlAtendimentosConcluidos('?')} AS vagas_concluidas`,
+    [id, id, id, id, id]
   );
 
   res.json({

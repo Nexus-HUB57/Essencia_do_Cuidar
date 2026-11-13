@@ -257,9 +257,11 @@ export async function recusarPagamentoPNP(pdc_id, contratante_id, dados) {
     throw new Error(`Critério inválido. Deve ser um de: ${CRITERIOS_VALIDOS.join(', ')}`);
   }
 
-  // Só pode recusar se o profissional já fez checkout (confirmou conclusão)
+  // Só pode recusar a partir da custódia ativa. 'checkout_pendente' cobre
+  // o caso de não comparecimento (o profissional nem fez o check-in) e os
+  // demais cobrem quem já fechou o plantão.
   if (pdc.status !== 'checkout_profissional' && pdc.status !== 'checkout_completo' && pdc.status !== 'checkout_pendente') {
-    throw new Error(`Não é possível recusar pagamento neste status: ${pdc.status}. Profissional deve ter confirmado o plantão primeiro.`);
+    throw new Error(`Não é possível recusar pagamento neste status: ${pdc.status}.`);
   }
 
   // Registra a recusa PNP

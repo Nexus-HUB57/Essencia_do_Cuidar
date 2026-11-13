@@ -4,10 +4,15 @@
  * Endpoints:
  *   GET  /api/pagamentos/connect/status      → status da conta Connect do profissional
  *   POST /api/pagamentos/connect/onboarding  → link para onboarding no Stripe
- *   POST /api/pagamentos                    → contratante cria pagamento para uma vaga
+ *   POST /api/pagamentos                    → contratante paga a custódia de uma vaga
  *   GET  /api/pagamentos/vaga/:id           → pagamentos de uma vaga
  *   POST /api/pagamentos/:id/confirmar      → simular confirmação (mock)
  *   POST /api/pagamentos/webhook            → webhook Stripe (eventos)
+ *
+ * Nota: `POST /api/pagamentos` delega ao protocolo de custódia (PDC) quando
+ * a vaga já tem um — é o único caminho de cobrança do sistema. Sem essa
+ * delegação, o dinheiro podia entrar por fora da custódia e nunca seria
+ * liberado ao profissional.
  */
 import express from 'express';
 import { createRouter } from '../middleware/async.js';
@@ -19,6 +24,7 @@ import {
   criarConnectAccount, criarOnboardingLink, refreshConnectStatus,
   criarPagamento, confirmarPagamento, processarWebhookStripe
 } from '../services/stripe.js';
+import { iniciarPagamentoCustodia } from '../services/protocolos.js';
 
 const router = createRouter(express);
 
@@ -55,7 +61,44 @@ router.post('/', authRequired, requireTipo('contratante'),
     if (vaga.id_contratante !== req.user.id) return res.status(403).json({ error: 'Você não é dono desta vaga' });
     if (!vaga.remuneracao_valor) return res.status(400).json({ error: 'Vaga sem remuneração definida' });
 
-    // Encontra o profissional "aceito" para essa vaga, se houver
+    // ── O caminho canônico é o protocolo de custódia ──────────────────
+    // Quando existe um PDC para esta vaga, o pagamento é por ele. Criar
+    // aqui um pagamento avulso colocava o dinheiro FORA da custódia: o
+    // profissional não conseguia fazer check-in/check-out, o protocolo
+    // nunca avançava e o pagamento nunca era liberado. Os dois caminhos
+    // agora apontam para a mesma cobrança.
+    const pdc = await db.get(
+      `SELECT * FROM protocolos
+        WHERE id_vaga = ? AND tipo = 'PDC' AND status = 'enviado'
+        ORDER BY id DESC LIMIT 1`,
+      [vaga.id]
+    );
+    if (pdc) {
+      let result;
+      try {
+        result = await iniciarPagamentoCustodia(pdc.id, req.user.id);
+      } catch (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      return res.status(201).json({
+        ...result,
+        via: 'protocolo',
+        protocolo_id: pdc.id,
+        // Aliases para manter compatibilidade com clientes que esperam o
+        // formato antigo (PaymentModal).
+        pix_qr_code: result.qr_code_base64 || null,
+        pix_txid: result.txid || null,
+        pagamento: {
+          id: pdc.id,
+          status: result.pix_flow ? 'pendente' : 'pago',
+          valor_centavos: result.valor_total_centavos
+        },
+        valor_profissional_centavos: result.valor_total_centavos
+      });
+    }
+
+    // Sem protocolo (vaga sem candidatura aceita pelo fluxo de protocolos),
+    // cai no caminho legado do Stripe.
     const cand = await db.get(
       `SELECT id_profissional FROM candidaturas
         WHERE id_vaga = ? AND status_candidatura = 'aceita' LIMIT 1`,
@@ -75,7 +118,7 @@ router.post('/', authRequired, requireTipo('contratante'),
         profissional_id: id_profissional
       }
     });
-    res.status(201).json(result);
+    res.status(201).json({ ...result, via: 'stripe' });
   }
 );
 

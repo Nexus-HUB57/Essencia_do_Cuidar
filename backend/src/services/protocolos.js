@@ -23,8 +23,19 @@
  *      - Contratante confirma execução → status 'checkout_contratante'
  *      - Ambos confirmam → status 'checkout_completo'
  *      - Avaliação opcional em ambos os checkouts (nota 1-5 + comentário)
+ *      - A nota do contratante é gravada também em `avaliacoes`, que é a
+ *        fonte de reputação lida pelo motor de matching
  *
- *   5. Liberação de pagamento ao profissional:
+ *   5. Check-in (chegada ao plantão):
+ *      - Só existe a partir da custódia ativa (status 'checkout_pendente')
+ *      - Profissional registra a chegada (timestamp + geo opcional)
+ *      - Contratante pode confirmar a presença depois do check-in do profissional
+ *      - O check-in é um ledger à parte (`protocolo_checkins`), independente
+ *        do `status` do protocolo
+ *      - O check-out do profissional pressupõe check-in; protocolos
+ *        anteriores à feature recebem um check-in implícito
+ *
+ *   6. Liberação de pagamento ao profissional:
  *      - Após checkout_completo, pagamento é liberado em até 72h
  *      - Cron job processa liberação automática (services/protocolos-cleanup.js)
  *      - Em modo live, chama Stripe transfer para a conta Connect do profissional
@@ -36,7 +47,8 @@
  *
  *   pendente → enviado → recusado → cancelado (reabre vaga)
  *   pago → reembolsado (se contratante cancelar antes do checkout)
- *   * → expirado (se passar prazo de expira_em)
+ *   pendente | enviado → expirado (só estados pré-pagamento: expirar um
+ *                       protocolo já pago destruiria a custódia)
  */
 import db from '../db/driver.js';
 import { emitirParaUsuario, logarTransicaoProtocolo } from './event-bus.js';
@@ -331,13 +343,19 @@ export async function pagarPDC(pdc_id, contratante_id) {
     [pdc.id_vaga, pdc.id_candidatura, pdc.id_contratante, pdc.id_profissional]
   );
 
-  // Muda status para 'checkout_pendente' (próxima etapa: ambos confirmam execução)
+  // Muda status para 'checkout_pendente' (próxima etapa: check-in + check-out)
+  //
+  // `expira_em = NULL`: o prazo de expiração é o prazo de RESPOSTA (o
+  // contratante pagar, o profissional aceitar). Depois que o dinheiro está
+  // em custódia, o protocolo não pode mais expirar — expirar destruiria a
+  // custódia e o profissional ficaria sem receber. A partir daqui quem
+  // governa o prazo é a CGPP (liberação em até 72h após o checkout).
   await db.run(
-    `UPDATE protocolos SET status = 'checkout_pendente'
+    `UPDATE protocolos SET status = 'checkout_pendente', expira_em = NULL
       WHERE id = ? OR (tipo IN ('PCP', 'PCM') AND id_vaga = ? AND id_candidatura = ? AND id_contratante = ? AND id_profissional = ?)`,
     [pdc_id, pdc.id_vaga, pdc.id_candidatura, pdc.id_contratante, pdc.id_profissional]
   );
-  await logarTransicaoProtocolo(pdc_id, 'em_custodia', 'checkout_pendente', contratante_id, 'Aguardando checkout bidirecional');
+  await logarTransicaoProtocolo(pdc_id, 'em_custodia', 'checkout_pendente', contratante_id, 'Aguardando check-in e checkout');
 
   // Notifica profissional: pagto garantido + TODAS as informações do plantão
   // APENAS após confirmação do Pix — antes disso, profissional não tem detalhes
@@ -377,6 +395,171 @@ export async function pagarPDC(pdc_id, contratante_id) {
 }
 
 /**
+ * Espelha o timestamp de check-in no protocolo e nos irmãos do mesmo
+ * plantão (PCP e PCM).
+ *
+ * O PCP, o PCM e o PDC são três linhas do MESMO plantão (mesma vaga, mesma
+ * candidatura, mesmos participantes) — o estado já é espelhado entre elas
+ * desde o pagamento. Sem espelhar o check-in, o profissional via o card do
+ * PDC como "Em plantão" e o card do PCM como "Aguardando check-in" para o
+ * mesmo plantão.
+ *
+ * @param {Object} pdc — linha do protocolo
+ * @param {'profissional'|'contratante'} tipo_user
+ */
+async function espelharCheckin(pdc, tipo_user) {
+  const coluna = tipo_user === 'profissional' ? 'checkin_profissional_em' : 'checkin_contratante_em';
+  await db.run(
+    `UPDATE protocolos SET ${coluna} = datetime('now')
+      WHERE id = ? OR (tipo IN ('PCP', 'PCM')
+        AND id_vaga = ? AND id_candidatura = ?
+        AND id_contratante = ? AND id_profissional = ?)`,
+    [pdc.id, pdc.id_vaga, pdc.id_candidatura, pdc.id_contratante, pdc.id_profissional]
+  );
+}
+
+/**
+ * Registra o CHECK-IN de uma parte no protocolo.
+ *
+ * O check-in marca a chegada ao plantão (início do turno) e é o que dá
+ * prova de presença. O check-out (conclusão) continua no fluxo de
+ * `fazerCheckout()`.
+ *
+ * Regras:
+ *   - Só faz sentido com o dinheiro em custódia (status 'checkout_pendente'):
+ *     o profissional só conhece os detalhes do plantão depois do pagamento,
+ *     então o check-in vem depois.
+ *   - O contratante só confirma presença depois que o profissional registrou
+ *     a chegada dele.
+ *   - É idempotente: repetir o check-in devolve o registro existente em vez
+ *     de erro (mobile com rede instável não pode travar o fluxo).
+ *
+ * @param {number} pdc_id
+ * @param {Object} dados - { user_id, tipo_user, latitude?, longitude?, observacao? }
+ * @returns {Promise<Object>} { checkin, ja_feito, protocolo }
+ */
+export async function fazerCheckin(pdc_id, dados) {
+  const { user_id, tipo_user, latitude, longitude, observacao } = dados;
+  const pdc = await db.get('SELECT * FROM protocolos WHERE id = ?', [pdc_id]);
+  if (!pdc) throw new Error('Protocolo não encontrado');
+
+  // Verifica autorização
+  if (tipo_user === 'profissional' && pdc.id_profissional !== user_id) throw new Error('Não autorizado');
+  if (tipo_user === 'contratante' && pdc.id_contratante !== user_id) throw new Error('Não autorizado');
+
+  // O check-in só existe a partir da custódia ativa.
+  if (pdc.status !== 'checkout_pendente') {
+    throw new Error(`Check-in não é possível neste status: ${pdc.status}`);
+  }
+
+  // O contratante confirma presença depois que o profissional chegou.
+  if (tipo_user === 'contratante' && !pdc.checkin_profissional_em) {
+    throw new Error('O profissional ainda não registrou o check-in.');
+  }
+
+  // Idempotência: um check-in por parte.
+  const existente = await db.get(
+    'SELECT * FROM protocolo_checkins WHERE id_protocolo = ? AND tipo_user = ?',
+    [pdc_id, tipo_user]
+  );
+  if (existente) {
+    return { checkin: existente, ja_feito: true, protocolo: pdc };
+  }
+
+  // `ON CONFLICT DO NOTHING` — suportado pelo SQLite (3.24+) e pelo PG,
+  // e protege contra duas requisições simultâneas do mesmo usuário.
+  await db.run(
+    `INSERT INTO protocolo_checkins
+      (id_protocolo, id_user, tipo_user, latitude, longitude, observacao, implicito)
+     VALUES (?, ?, ?, ?, ?, ?, 0)
+     ON CONFLICT (id_protocolo, tipo_user) DO NOTHING`,
+    [
+      pdc_id, user_id, tipo_user,
+      latitude ?? null, longitude ?? null, observacao || null
+    ]
+  );
+
+  const checkin = await db.get(
+    'SELECT * FROM protocolo_checkins WHERE id_protocolo = ? AND tipo_user = ?',
+    [pdc_id, tipo_user]
+  );
+
+  // Espelha o timestamp no protocolo (mesmo padrão de checkout_*_em).
+  await espelharCheckin(pdc, tipo_user);
+
+  await logarTransicaoProtocolo(
+    pdc_id, pdc.status, pdc.status, user_id,
+    `Check-in ${tipo_user} registrado`
+  );
+
+  // Notifica a outra parte.
+  const outroUserId = tipo_user === 'profissional' ? pdc.id_contratante : pdc.id_profissional;
+  emitirParaUsuario(outroUserId, 'protocolo:checkin', {
+    protocolo_id: pdc_id, vaga_id: pdc.id_vaga, tipo_user, ja_feito: false
+  });
+  if (tipo_user === 'profissional') {
+    notifyUser(outroUserId, {
+      title: '📍 Profissional chegou ao plantão',
+      body: 'O check-in foi registrado. Confirme a presença quando quiser.',
+      data: { url: '/dashboard/contratante', protocolo_id: pdc_id }
+    }).catch(() => {});
+  }
+
+  const protocolo = await db.get('SELECT * FROM protocolos WHERE id = ?', [pdc_id]);
+  return { checkin, ja_feito: false, protocolo };
+}
+
+/**
+ * Lista os check-ins de um protocolo.
+ *
+ * @param {number} pdc_id
+ * @returns {Promise<Object[]>}
+ */
+export async function listarCheckins(pdc_id) {
+  return await db.all(
+    `SELECT c.*, u.nome AS user_nome
+       FROM protocolo_checkins c
+       JOIN users u ON u.id = c.id_user
+      WHERE c.id_protocolo = ?
+      ORDER BY c.confirmado_em ASC`,
+    [pdc_id]
+  );
+}
+
+/**
+ * Cria um check-in implícito para protocolos anteriores à feature.
+ *
+ * Protocolos que já estavam em 'checkout_pendente' quando o check-in foi
+ * introduzido não têm registro de chegada. Em vez de travá-los (o
+ * profissional ficaria sem poder fechar o plantão), o check-in é criado
+ * retroativamente, marcado como `implicito = 1` para que a auditoria
+ * mostre que a chegada não foi confirmada na hora.
+ *
+ * @param {number} pdc_id
+ * @param {number} user_id
+ * @param {string} tipo_user
+ * @returns {Promise<void>}
+ */
+async function registrarCheckinImplicito(pdc_id, user_id, tipo_user) {
+  await db.run(
+    `INSERT INTO protocolo_checkins
+      (id_protocolo, id_user, tipo_user, observacao, implicito)
+     VALUES (?, ?, ?, ?, 1)
+     ON CONFLICT (id_protocolo, tipo_user) DO NOTHING`,
+    [
+      pdc_id, user_id, tipo_user,
+      'Check-in implícito — protocolo anterior à feature de check-in'
+    ]
+  );
+  const pdc = await db.get('SELECT * FROM protocolos WHERE id = ?', [pdc_id]);
+  if (pdc) await espelharCheckin(pdc, tipo_user);
+  await logarTransicaoProtocolo(
+    pdc_id, null, null, user_id,
+    'Check-in implícito registrado retroativamente (protocolo anterior à feature)'
+  );
+}
+
+/**
  * Profissional ou Contratante faz checkout (confirma execução do plantão).
  *
  * @param {number} pdc_id (ou PCP/PCM — qualquer protocolo do fluxo)
@@ -394,12 +577,26 @@ export async function fazerCheckout(pdc_id, dados) {
   if (tipo_user === 'profissional' && pdc.id_profissional !== user_id) throw new Error('Não autorizado');
   if (tipo_user === 'contratante' && pdc.id_contratante !== user_id) throw new Error('Não autorizado');
 
+  // O contratante confirma a execução depois que o profissional fechou o
+  // plantão. Sem essa ordem, um checkout do contratante antes do profissional
+  // deixava o protocolo em 'checkout_contratante' — estado que nenhum cron
+  // processa, e o pagamento ficava retido para sempre.
+  if (tipo_user === 'contratante' && pdc.status === 'checkout_pendente') {
+    throw new Error('O profissional ainda não confirmou a conclusão do plantão.');
+  }
+
   // Verifica se já fez checkout (UNIQUE constraint previne duplicação)
   const existente = await db.get(
     'SELECT id FROM protocolo_checkouts WHERE id_protocolo = ? AND tipo_user = ?',
     [pdc_id, tipo_user]
   );
   if (existente) throw new Error(`${tipo_user} já fez checkout deste protocolo`);
+
+  // O check-out do profissional pressupõe que ele chegou: se o protocolo é
+  // anterior à feature de check-in, o check-in é criado retroativamente.
+  if (tipo_user === 'profissional' && !pdc.checkin_profissional_em) {
+    await registrarCheckinImplicito(pdc_id, user_id, tipo_user);
+  }
 
   // Registra checkout
   await db.run(
@@ -434,6 +631,13 @@ export async function fazerCheckout(pdc_id, dados) {
 
   await db.run(`UPDATE protocolos SET status = ? WHERE id = ?`, [novoStatus, pdc_id]);
   await logarTransicaoProtocolo(pdc_id, pdc.status, novoStatus, user_id, `Checkout ${tipo_user} confirmado`);
+
+  // A avaliação do contratante alimenta a reputação do profissional — e a
+  // reputação é o critério (peso 0.15) que o motor de matching lê. Sem esta
+  // ponte, quem faz 20 plantões bem avaliados continuava com reputação 0.
+  if (tipo_user === 'contratante' && nota) {
+    await registrarAvaliacao(pdc, user_id, nota, comentario);
+  }
 
   // Notifica a outra parte
   const outroUserId = tipo_user === 'profissional' ? pdc.id_contratante : pdc.id_profissional;
@@ -472,6 +676,132 @@ export async function fazerCheckout(pdc_id, dados) {
 }
 
 /**
+ * Grava (ou atualiza) a avaliação do contratante sobre o profissional.
+ *
+ * A tabela `avaliacoes` é a fonte da reputação lida pelo motor de matching
+ * (`media` e `total` em `recomendarParaVaga`). O checkout do protocolo
+ * gravava a nota só em `protocolo_checkouts` — ou seja, a nota existia mas
+ * nunca chegava ao matching.
+ *
+ * O UNIQUE(id_contratante, id_vaga) garante uma avaliação por vaga; um
+ * segundo checkout (não deveria acontecer, mas pode) atualiza a existente.
+ *
+ * @param {Object} pdc — protocolo
+ * @param {number} contratante_id
+ * @param {number} nota — 1..5
+ * @param {string} comentario
+ * @returns {Promise<void>}
+ */
+async function registrarAvaliacao(pdc, contratante_id, nota, comentario) {
+  const existente = await db.get(
+    'SELECT id FROM avaliacoes WHERE id_contratante = ? AND id_vaga = ?',
+    [contratante_id, pdc.id_vaga]
+  );
+  if (existente) {
+    await db.run(
+      `UPDATE avaliacoes SET nota = ?, comentario = ? WHERE id = ?`,
+      [nota, comentario || null, existente.id]
+    );
+    return;
+  }
+  await db.run(
+    `INSERT INTO avaliacoes (id_contratante, id_profissional, id_vaga, nota, comentario)
+     VALUES (?, ?, ?, ?, ?)`,
+    [contratante_id, pdc.id_profissional, pdc.id_vaga, nota, comentario || null]
+  );
+}
+
+/**
+ * Detecta por qual trilha (rail) o dinheiro do protocolo foi cobrado.
+ *
+ *   - 'stripe'      → PaymentIntent do Stripe (prefixo `pi_`). A liberação
+ *                     para o profissional é um Transfer do Stripe Connect.
+ *   - 'mercadopago' → cobrança Pix do Mercado Pago. O MP não tem conta
+ *                     destino por profissional configurada aqui, então a
+ *                     liberação é de bookkeeping: o payout ao profissional
+ *                     sai pela agenda de payouts do MP da conta da
+ *                     plataforma, não por uma chamada nossa.
+ *   - 'desconhecida'→ sem referência de pagamento (fluxo manual/teste).
+ *
+ * @param {string|null} pagamentoId
+ * @returns {'stripe'|'mercadopago'|'desconhecida'}
+ */
+export function detectarRail(pagamentoId) {
+  if (!pagamentoId) return 'desconhecida';
+  const id = String(pagamentoId);
+  if (id.startsWith('pi_') || id.startsWith('tr_')) return 'stripe';
+  if (id.startsWith('mock_pay_') || /^\d+$/.test(id)) return 'mercadopago';
+  return 'desconhecida';
+}
+
+/**
+ * Inicia o pagamento da custódia de um PDC.
+ *
+ * Ponto único de cobrança do sistema de custódia. Tanto o
+ * `POST /api/protocolos/:id/pagar` quanto o `POST /api/pagamentos` (usado
+ * pelo modal de pagamento do dashboard) passam por aqui — ter dois caminhos
+ * de pagamento era o que permitia o dinheiro entrar por fora da custódia:
+ * um pagamento criado fora do protocolo não ativava check-in/check-out e
+ * nunca era liberado.
+ *
+ * Em modo mock (sem credenciais do Mercado Pago) o pagamento é confirmado
+ * na hora. Em modo live, cria a cobrança Pix e devolve o QR code; a
+ * confirmação acontece pelo webhook (ou por `confirmar-pix`).
+ *
+ * @param {number} pdc_id
+ * @param {number} contratante_id
+ * @returns {Promise<Object>}
+ */
+export async function iniciarPagamentoCustodia(pdc_id, contratante_id) {
+  const { criarCobrancaPix, isMock: mpIsMock } = await import('./mercadopago.js');
+
+  const pdc = await db.get('SELECT * FROM protocolos WHERE id = ? AND tipo = ?', [pdc_id, 'PDC']);
+  if (!pdc) throw new Error('PDC não encontrado');
+  if (contratante_id !== null && pdc.id_contratante !== contratante_id) throw new Error('Não autorizado');
+  if (pdc.status !== 'enviado') throw new Error(`PDC não pode ser pago (status: ${pdc.status})`);
+
+  if (mpIsMock) {
+    const result = await pagarPDC(pdc_id, contratante_id);
+    return {
+      ...result,
+      pix_flow: false,
+      mensagem: 'Pagamento em custódia confirmado. Profissional notificado com garantia.'
+    };
+  }
+
+  // Live: cria a cobrança Pix e devolve o QR code — ainda não é custódia.
+  const user = await db.get('SELECT email FROM users WHERE id = ?', [contratante_id]);
+  const cobranca = await criarCobrancaPix({
+    protocolo_id: pdc_id,
+    valor_centavos: pdc.valor_total_centavos,
+    descricao: `Custódia de Plantão #${pdc_id} — Essência do Cuidar`,
+    contratante_id,
+    metadata: {
+      contratante_email: user?.email,
+      vaga_id: pdc.id_vaga,
+      profissional_id: pdc.id_profissional
+    }
+  });
+
+  // Guarda o payment_id do MP na custódia (mesma coluna usada pelo Stripe).
+  await db.run(
+    `UPDATE pagamentos_custodia SET stripe_payment_intent_id = ? WHERE id_protocolo = ?`,
+    [cobranca.payment_id, pdc_id]
+  );
+
+  return {
+    pix_flow: true,
+    protocolo_id: pdc_id,
+    payment_id: cobranca.payment_id,
+    txid: cobranca.txid,
+    qr_code_base64: cobranca.qr_code_base64,
+    qr_code_texto: cobranca.qr_code_texto,
+    valor_total_centavos: pdc.valor_total_centavos,
+    mensagem: 'Pix gerado. Após confirmação do pagamento, o sistema confirmará a custódia automaticamente.'
+  };
+}
+
+/**
  * Libera pagamento ao profissional (após checkout completo + prazo de 72h).
  *
  * Em modo live: chama Stripe transfer para a conta Connect do profissional.
@@ -483,11 +813,51 @@ export async function fazerCheckout(pdc_id, dados) {
 export async function liberarPagamento(pdc_id) {
   const pdc = await db.get('SELECT * FROM protocolos WHERE id = ?', [pdc_id]);
   if (!pdc) throw new Error('Protocolo não encontrado');
+
+  // Idempotência: já liberado, não transfere nem notifica de novo.
+  if (pdc.status === 'liberado') {
+    return { ok: true, ja_liberado: true, valor_liberado_centavos: pdc.valor_plantao_centavos };
+  }
   if (pdc.status !== 'checkout_completo') {
     throw new Error(`Protocolo não está em checkout_completo (status: ${pdc.status})`);
   }
 
-  // Atualiza PDC para 'liberado'
+  // ── 1. Move o dinheiro ANTES de marcar como liberado ──────────────────
+  // Se a transferência falhar, o protocolo continua em 'checkout_completo'
+  // e o cron tenta de novo. O inverso — marcar como liberado e depois
+  // falhar a transferência — deixaria o profissional sem receber sem
+  // nenhuma fila de reprocessamento.
+  const pagamento = await db.get('SELECT * FROM pagamentos_custodia WHERE id_protocolo = ?', [pdc_id]);
+  const rail = detectarRail(pagamento?.stripe_payment_intent_id);
+  let transfer = null;
+
+  if (rail === 'stripe') {
+    try {
+      const { transferirParaProfissional } = await import('./stripe.js');
+      transfer = await transferirParaProfissional({
+        profissional_id: pdc.id_profissional,
+        valor_centavos: pdc.valor_plantao_centavos,
+        protocolo_id: pdc_id
+      });
+      await db.run(
+        `UPDATE pagamentos_custodia SET stripe_transfer_id = ? WHERE id_protocolo = ?`,
+        [transfer.transfer_id, pdc_id]
+      );
+    } catch (err) {
+      await logarTransicaoProtocolo(
+        pdc_id, pdc.status, pdc.status, null,
+        `Falha na transferência ao profissional: ${err.message}`
+      );
+      notifyUser(pdc.id_profissional, {
+        title: '⚠️ Pagamento pendente de liberação',
+        body: 'Conclua o cadastro de recebimento para liberar seu pagamento.',
+        data: { url: '/dashboard/profissional', protocolo_id: pdc_id }
+      }).catch(() => {});
+      throw new Error(`Falha ao transferir o pagamento ao profissional: ${err.message}`);
+    }
+  }
+
+  // ── 2. Registra a liberação ───────────────────────────────────────────
   await db.run(
     `UPDATE protocolos SET status = 'liberado', liberado_em = datetime('now') WHERE id = ?`,
     [pdc_id]
@@ -511,7 +881,8 @@ export async function liberarPagamento(pdc_id) {
 
   // Notifica profissional
   emitirParaUsuario(pdc.id_profissional, 'protocolo:pagamento_liberado', {
-    protocolo_id: pdc_id, vaga_id: pdc.id_vaga, valor_centavos: pdc.valor_plantao_centavos
+    protocolo_id: pdc_id, vaga_id: pdc.id_vaga, valor_centavos: pdc.valor_plantao_centavos,
+    transfer_id: transfer?.transfer_id || null, rail
   });
   notifyUser(pdc.id_profissional, {
     title: '💰 Pagamento liberado!',
@@ -532,10 +903,16 @@ export async function liberarPagamento(pdc_id) {
   notifyNetlify('pagamento_liberado', {
     protocolo_id: pdc_id, vaga_id: pdc.id_vaga,
     profissional_id: pdc.id_profissional, contratante_id: pdc.id_contratante,
-    valor_centavos: pdc.valor_plantao_centavos
+    valor_centavos: pdc.valor_plantao_centavos,
+    transfer_id: transfer?.transfer_id || null, rail
   }).catch(e => console.warn('[webhook]', e.message));
 
-  return { ok: true, valor_liberado_centavos: pdc.valor_plantao_centavos };
+  return {
+    ok: true,
+    valor_liberado_centavos: pdc.valor_plantao_centavos,
+    rail,
+    transfer_id: transfer?.transfer_id || null
+  };
 }
 
 /**
@@ -597,7 +974,9 @@ export async function listarMeusProtocolos(user_id, filtros = {}) {
             v.regiao AS vaga_regiao,
             v.jornada_horario AS vaga_horario,
             c.nome AS contratante_nome,
-            pr.nome AS profissional_nome
+            pr.nome AS profissional_nome,
+            (SELECT COUNT(*) FROM protocolo_checkins ci
+              WHERE ci.id_protocolo = p.id) AS total_checkins
        FROM protocolos p
        JOIN vagas v ON v.id = p.id_vaga
        JOIN users c ON c.id = p.id_contratante
@@ -658,12 +1037,19 @@ export async function buscarProtocolosParaLiberar() {
 /**
  * Busca protocolos PCM/PDC expirados (prazo ultrapassado sem resposta).
  * Usado pelo cron job de expiração.
+ *
+ * Só estados PRÉ-pagamento entram na lista. Um protocolo com dinheiro em
+ * custódia ('em_custodia', 'checkout_pendente', 'checkout_profissional',
+ * 'checkout_contratante') NÃO pode expirar: o prazo de expiração é o prazo
+ * de resposta (aceitar o matching / pagar), não o prazo de entrega do
+ * serviço. Marcar como 'expirado' um protocolo já pago destruía a custódia
+ * e deixava o profissional sem receber — o valor ficava travado num
+ * protocolo morto, sem caminho para a liberação.
  */
 export async function buscarProtocolosExpirados() {
   return await db.all(
     `SELECT * FROM protocolos
-      WHERE status IN ('enviado', 'pendente', 'em_custodia', 'checkout_pendente',
-                       'checkout_profissional', 'checkout_contratante')
+      WHERE status IN ('enviado', 'pendente')
         AND expira_em IS NOT NULL
         AND expira_em < datetime('now')
       LIMIT 100`

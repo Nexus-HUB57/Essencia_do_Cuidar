@@ -15,11 +15,15 @@
  *      POST /api/protocolos/:id/pagar (simula pagamento em modo mock)
  *      → PDC status 'em_custodia' → 'checkout_pendente'
  *
- *   4. Checkout bidirecional:
+ *   4. Check-in (chegada ao plantão):
+ *      POST /api/protocolos/:id/checkin (profissional registra a chegada)
+ *      → gravado em `protocolo_checkins` (timestamp + geo opcional)
+ *
+ *   5. Checkout bidirecional:
  *      POST /api/protocolos/:id/checkout (profissional OU contratante confirma)
  *      → Ambos confirmam → status 'checkout_completo'
  *
- *   5. Liberação (em até 72h):
+ *   6. Liberação (em até 72h):
  *      POST /api/protocolos/:id/liberar (admin ou sistema)
  *      → status 'liberado' → profissional recebe
  *
@@ -29,9 +33,11 @@
  *   POST   /api/protocolos/:id/aceitar              → profissional aceita PCM
  *   POST   /api/protocolos/:id/recusar              → profissional recusa PCM
  *   POST   /api/protocolos/:id/pagar                → contratante paga PDC
+ *   POST   /api/protocolos/:id/checkin              → registra chegada (check-in)
  *   POST   /api/protocolos/:id/checkout             → profissional/contratante confirma execução
  *   POST   /api/protocolos/:id/liberar              → admin/sistema libera pagamento
  *   POST   /api/protocolos/:id/cancelar             → contratante/admin cancela (reembolso)
+ *   GET    /api/protocolos/:id/checkins            → lista check-ins do protocolo
  *   GET    /api/protocolos/:id/checkouts           → lista checkouts do protocolo
  *   GET    /api/protocolos/:id/historico-status     → histórico de transições (auditoria)
  */
@@ -41,8 +47,9 @@ import db from '../db/driver.js';
 import { authRequired, requireTipo, requireAdmin } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import {
-  aceitarPCM, recusarPCM, pagarPDC, fazerCheckout, liberarPagamento,
-  cancelarProtocolo, listarMeusProtocolos, listarCheckouts, listarHistoricoStatus
+  aceitarPCM, recusarPCM, pagarPDC, fazerCheckout, fazerCheckin, liberarPagamento,
+  cancelarProtocolo, listarMeusProtocolos, listarCheckouts, listarCheckins,
+  listarHistoricoStatus, iniciarPagamentoCustodia
 } from '../services/protocolos.js';
 import { recusarPagamentoPNP, adminResolverPNP } from '../services/protocolos-ppp-pnp.js';
 
@@ -131,62 +138,14 @@ router.post('/:id/recusar', authRequired, requireTipo('profissional'),
  * POST /api/protocolos/:id/pagar
  * Contratante paga PDC (custódia).
  *
- * Fluxo:
- *   1. MERCADOPAGO_MOCK=true (default): simula pagamento imediato e confirma custódia.
- *   2. MERCADOPAGO_MOCK=false (live): cria cobrança Pix e retorna QR code.
- *      Após webhook MP confirmar, sistema chama pagarPDC() automaticamente.
- *      Contratante pode também chamar POST /:id/confirmar-pix após receber
- *      notificação externa de que pagou via Pix (fallback ao webhook).
+ * A cobrança vive em `services/protocolos.js#iniciarPagamentoCustodia` —
+ * o mesmo caminho usado por `POST /api/pagamentos`, para que não existam
+ * dois jeitos de pagar a mesma vaga.
  */
 router.post('/:id/pagar', authRequired, requireTipo('contratante'), async (req, res) => {
   try {
-    const pdc_id = Number(req.params.id);
-    const { criarCobrancaPix, isMock: mpIsMock } = await import('../services/mercadopago.js');
-
-    // Mock MP: confirma imediato (legacy behavior)
-    if (mpIsMock) {
-      const result = await pagarPDC(pdc_id, req.user.id);
-      return res.json({
-        ...result,
-        mensagem: 'Pagamento em custódia confirmado. Profissional notificado com garantia.',
-        pix_flow: false
-      });
-    }
-
-    // Live MP: cria cobrança Pix, retorna QR code, NÃO confirma ainda
-    const pdc = await db.get('SELECT * FROM protocolos WHERE id = ? AND tipo = ?', [pdc_id, 'PDC']);
-    if (!pdc) return res.status(404).json({ error: 'PDC não encontrado' });
-    if (pdc.id_contratante !== req.user.id) return res.status(403).json({ error: 'Não autorizado' });
-    if (pdc.status !== 'enviado') return res.status(400).json({ error: `PDC não pode ser pago (status: ${pdc.status})` });
-
-    const user = await db.get('SELECT email FROM users WHERE id = ?', [req.user.id]);
-    const cobranca = await criarCobrancaPix({
-      protocolo_id: pdc_id,
-      valor_centavos: pdc.valor_total_centavos,
-      descricao: `Custódia de Plantão #${pdc_id} — Essência do Cuidar`,
-      contratante_id: req.user.id,
-      metadata: {
-        contratante_email: user?.email,
-        vaga_id: pdc.id_vaga,
-        profissional_id: pdc.id_profissional
-      }
-    });
-
-    // Salva payment_id do MP na tabela pagamentos_custodia (stripe_payment_intent_id)
-    await db.run(
-      `UPDATE pagamentos_custodia SET stripe_payment_intent_id = ? WHERE id_protocolo = ?`,
-      [cobranca.payment_id, pdc_id]
-    );
-
-    return res.json({
-      pix_flow: true,
-      payment_id: cobranca.payment_id,
-      txid: cobranca.txid,
-      qr_code_base64: cobranca.qr_code_base64,
-      qr_code_texto: cobranca.qr_code_texto,
-      valor_total_centavos: pdc.valor_total_centavos,
-      mensagem: 'Pix gerado. Após confirmação do pagamento, o sistema confirmará a custódia automaticamente.'
-    });
+    const result = await iniciarPagamentoCustodia(Number(req.params.id), req.user.id);
+    res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -224,6 +183,59 @@ router.post('/:id/confirmar-pix', authRequired, requireTipo('contratante'), asyn
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+/**
+ * POST /api/protocolos/:id/checkin
+ * Registra a chegada ao plantão (check-in).
+ *
+ * O profissional registra a própria chegada; o contratante confirma a
+ * presença depois que o profissional fez o check-in dele.
+ *
+ * Body: {
+ *   latitude?: number (-90..90),
+ *   longitude?: number (-180..180),
+ *   observacao?: string (máx. 500)
+ * }
+ */
+router.post('/:id/checkin', authRequired, validateBody({
+  latitude: { type: 'number', min: -90, max: 90 },
+  longitude: { type: 'number', min: -180, max: 180 },
+  observacao: { type: 'string', max: 500 }
+}), async (req, res) => {
+  try {
+    const tipoUser = req.user.tipo_usuario === 'profissional' ? 'profissional' : 'contratante';
+    const result = await fazerCheckin(Number(req.params.id), {
+      user_id: req.user.id,
+      tipo_user: tipoUser,
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
+      observacao: req.body.observacao
+    });
+    res.json({
+      ...result,
+      mensagem: result.ja_feito
+        ? 'Check-in já estava registrado para esta parte.'
+        : 'Check-in registrado com sucesso.'
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/protocolos/:id/checkins
+ * Lista os check-ins (chegadas) registrados no protocolo.
+ */
+router.get('/:id/checkins', authRequired, async (req, res) => {
+  const id = Number(req.params.id);
+  const p = await db.get('SELECT id_contratante, id_profissional FROM protocolos WHERE id = ?', [id]);
+  if (!p) return res.status(404).json({ error: 'Protocolo não encontrado' });
+  if (p.id_contratante !== req.user.id && p.id_profissional !== req.user.id && !req.user.is_admin) {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+  const checkins = await listarCheckins(id);
+  res.json({ checkins });
 });
 
 /**

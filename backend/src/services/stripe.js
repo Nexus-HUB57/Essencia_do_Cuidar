@@ -186,6 +186,60 @@ export async function confirmarPagamento(pagamentoId) {
 }
 
 /**
+ * Transfere o valor retido em custódia para a conta Connect do profissional.
+ *
+ * Esta é a chamada que realmente move o dinheiro. Até aqui o valor fica
+ * retido na conta da plataforma (escrow); o "liberado" no banco de dados
+ * sem esta transferência é só bookkeeping — o profissional veria "pago" e o
+ * dinheiro nunca sairia.
+ *
+ * Idempotência: se o protocolo já tem `stripe_transfer_id`, devolve o
+ * existente em vez de transferir de novo (o cron pode rodar várias vezes
+ * e um double-transfer é dinheiro pago duas vezes).
+ *
+ * @param {Object} dados - { profissional_id, valor_centavos, protocolo_id }
+ * @returns {Promise<Object>} { transfer_id, ja_transferido, mock }
+ */
+export async function transferirParaProfissional({ profissional_id, valor_centavos, protocolo_id }) {
+  // Idempotência — nunca transfere o mesmo protocolo duas vezes.
+  const jaFeito = await db.get(
+    `SELECT stripe_transfer_id FROM pagamentos_custodia
+      WHERE id_protocolo = ? AND stripe_transfer_id IS NOT NULL`,
+    [protocolo_id]
+  );
+  if (jaFeito?.stripe_transfer_id) {
+    return { transfer_id: jaFeito.stripe_transfer_id, ja_transferido: true, mock: STRIPE_MOCK };
+  }
+
+  const conn = await db.get('SELECT * FROM stripe_connect WHERE id_user = ?', [profissional_id]);
+
+  if (STRIPE_MOCK || !stripe) {
+    // Mock — garante a conta (registro fake) e simula a transferência.
+    if (!conn) await criarConnectAccount(profissional_id);
+    const transferId = `tr_mock_${protocolo_id}_${Date.now()}`;
+    return { transfer_id: transferId, ja_transferido: false, mock: true };
+  }
+
+  if (!conn) {
+    throw new Error('Profissional sem conta Stripe Connect — onboarding não concluído');
+  }
+  if (!conn.payouts_enabled) {
+    throw new Error('Conta Stripe Connect do profissional ainda não habilitada para receber');
+  }
+  if (valor_centavos < 100) {
+    throw new Error('Valor abaixo do mínimo transferível (R$ 1,00)');
+  }
+
+  const transfer = await stripe.transfers.create({
+    amount: valor_centavos,
+    currency: 'brl',
+    destination: conn.stripe_account_id,
+    metadata: { protocolo_id: String(protocolo_id) }
+  });
+  return { transfer_id: transfer.id, ja_transferido: false, mock: false };
+}
+
+/**
  * Webhook do Stripe — em produção, valida signature e processa eventos.
  * S2 — Idempotência: usa stripe_event_id para evitar processar o mesmo evento 2x.
  * Stripe pode reenviar o mesmo evento se não receber 200 rápido o suficiente.

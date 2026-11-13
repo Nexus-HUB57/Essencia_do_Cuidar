@@ -39,13 +39,33 @@ function adapt(sql) {
 
 export const driver = 'sqlite';
 
+/**
+ * Hook de teste: quando `globalThis.__SQL_TRACE__` é um array, cada SQL
+ * executado é registrado nele.
+ *
+ * Serve ao teste de portabilidade PostgreSQL (`tests/sql-postgres-runtime`),
+ * que valida o SQL REALMENTE executado pela aplicação — com as
+ * interpolações já resolvidas — contra o parser do PostgreSQL. Extrair
+ * strings do código-fonte não funciona: `${where}` vira um token inválido
+ * e o resultado não corresponde ao que o banco executa.
+ *
+ * @param {string} sql
+ */
+function registrar(sql) {
+  const trace = globalThis.__SQL_TRACE__;
+  if (Array.isArray(trace)) trace.push(sql);
+}
+
 export function all(sql, params = []) {
+  registrar(sql);
   return db.prepare(adapt(sql)).all(...params);
 }
 export function get(sql, params = []) {
+  registrar(sql);
   return db.prepare(adapt(sql)).get(...params);
 }
 export function run(sql, params = []) {
+  registrar(sql);
   const info = db.prepare(adapt(sql)).run(...(Array.isArray(params) ? params : [params]));
   return { lastInsertRowid: Number(info.lastInsertRowid), changes: info.changes };
 }
@@ -417,6 +437,35 @@ export function initSchema() {
       FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE
     );
 
+    -- ════════════════════════════════════════════════════════════════════
+    --  CHECK-IN / CHECK-OUT DO PLANTÃO
+    --
+    --  O check-in registra a presença do profissional no início do plantão
+    --  (timestamp + geolocalização opcional). O check-out é a confirmação
+    --  de conclusão, que já existia no fluxo de protocolos.
+    --
+    --  Este ledger é append-only e independente do status do protocolo:
+    --  assim não é preciso alterar o CHECK constraint de protocolos.status
+    --  (que no SQLite exigiria rebuild da tabela), e o histórico de
+    --  check-ins sobrevive a qualquer mudança do fluxo.
+    --
+    --  UNIQUE(id_protocolo, tipo_user) garante um check-in por parte.
+    -- ════════════════════════════════════════════════════════════════════
+    CREATE TABLE IF NOT EXISTS protocolo_checkins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_protocolo INTEGER NOT NULL,
+      id_user INTEGER NOT NULL,
+      tipo_user TEXT NOT NULL CHECK(tipo_user IN ('profissional', 'contratante')),
+      confirmado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      latitude REAL,
+      longitude REAL,
+      observacao TEXT,
+      implicito INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(id_protocolo, tipo_user)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_vagas_contratante ON vagas(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
@@ -461,6 +510,9 @@ export function initSchema() {
   // `profissional_desejado` da vaga (o `tipo_registro` é o conselho, não a profissão).
   safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN profissao TEXT");
   safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN regiao TEXT");
+  // Check-in / check-out — timestamps de chegada e de confirmação de presença.
+  safeExec("ALTER TABLE protocolos ADD COLUMN checkin_profissional_em TEXT");
+  safeExec("ALTER TABLE protocolos ADD COLUMN checkin_contratante_em TEXT");
   console.log('[db:sqlite] schema inicializado em', dbPath);
 }
 

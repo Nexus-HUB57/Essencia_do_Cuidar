@@ -227,6 +227,91 @@ export function getOpenApiSpec() {
           security: [{ bearerAuth: [] }],
           responses: { '200': { description: 'Resultado da expiração' } }
         }
+      },
+      '/protocolos': {
+        get: {
+          tags: ['Protocolos'],
+          summary: 'Protocolos do usuário logado',
+          description: 'Filtros opcionais: tipo (PCP|PCM|PDC), status, limite, offset.',
+          security: [{ bearerAuth: [] }],
+          responses: { '200': { description: 'Lista de protocolos' } }
+        }
+      },
+      '/protocolos/{id}/pagar': {
+        post: {
+          tags: ['Protocolos', 'Pagamentos'],
+          summary: 'Paga a custódia do PDC (Pix)',
+          description: 'Único caminho de cobrança: o valor fica retido até o check-out das duas partes.',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+          responses: { '200': { description: 'Custódia confirmada (mock) ou QR Code Pix (live)' }, '400': { description: 'PDC não pagável' } }
+        }
+      },
+      '/protocolos/{id}/checkin': {
+        post: {
+          tags: ['Protocolos', 'Check-in'],
+          summary: 'Registra a chegada ao plantão',
+          description: 'Profissional registra a chegada; o contratante confirma a presença depois. Idempotente. Geolocalização opcional.',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    latitude: { type: 'number', minimum: -90, maximum: 90 },
+                    longitude: { type: 'number', minimum: -180, maximum: 180 },
+                    observacao: { type: 'string', maxLength: 500 }
+                  }
+                }
+              }
+            }
+          },
+          responses: { '200': { description: 'Check-in registrado' }, '400': { description: 'Status não permite check-in' } }
+        }
+      },
+      '/protocolos/{id}/checkins': {
+        get: {
+          tags: ['Protocolos', 'Check-in'],
+          summary: 'Histórico de check-ins do protocolo',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+          responses: { '200': { description: 'Lista de check-ins' } }
+        }
+      },
+      '/protocolos/{id}/checkout': {
+        post: {
+          tags: ['Protocolos', 'Check-out'],
+          summary: 'Confirma a conclusão do plantão',
+          description: 'Profissional primeiro, contratante depois. A nota do contratante alimenta a reputação usada pelo matching.',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    nota: { type: 'integer', minimum: 1, maximum: 5 },
+                    comentario: { type: 'string', maxLength: 1000 }
+                  }
+                }
+              }
+            }
+          },
+          responses: { '200': { description: 'Checkout registrado' }, '400': { description: 'Fora de ordem ou duplicado' } }
+        }
+      },
+      '/protocolos/{id}/liberar': {
+        post: {
+          tags: ['Protocolos', 'Pagamentos'],
+          summary: 'Libera o pagamento ao profissional',
+          description: 'Executa o Transfer do Stripe Connect (quando o pagamento foi pelo Stripe) e é idempotente.',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+          responses: { '200': { description: 'Pagamento liberado' }, '403': { description: 'Apenas admin' } }
+        }
       }
     }
   };
