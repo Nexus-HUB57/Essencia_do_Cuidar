@@ -13,7 +13,7 @@ step() { echo -e "\n${YELLOW}=== $* ===${NC}"; }
 ok()   { echo -e "  ${GREEN}✓${NC} $*"; }
 bad()  { echo -e "  ${RED}✗${NC} $*"; FAILED=$((FAILED+1)); }
 
-step "1. Backend — dependências (npm ci) e seed"
+step "1. Dependências (npm ci) e seed"
 # Derruba qualquer servidor anterior: com a API no ar, o `npm ci` falha ao
 # remover o node_modules (o better-sqlite3 fica aberto) e o seed trava no
 # banco. O padrão [n] evita que o pkill case o próprio shell.
@@ -21,6 +21,18 @@ pkill -f "[n]ode src/index.js" 2>/dev/null
 sleep 1
 ( cd backend && npm ci --no-audit --no-fund > /tmp/val-npm.log 2>&1 ) \
   && ok "npm ci no backend" || bad "npm ci no backend (veja /tmp/val-npm.log)"
+# O frontend também precisa das dependências: sem isso o `npx tsc` baixa um
+# TypeScript avulso (v7, que rejeita o `baseUrl` do tsconfig) e o build
+# falha com "vite: not found" — o script só funcionava numa máquina onde
+# o node_modules do frontend já existia.
+# Antes do `npm ci`, o servidor de dev do Vite precisa ser derrubado: com
+# arquivos abertos em node_modules (o binário nativo do rollup), o npm falha
+# com ENOTEMPTY ao remover a pasta. O padrão [v] evita que o pkill case o
+# próprio shell.
+pkill -f "[v]ite" 2>/dev/null
+sleep 1
+( cd frontend && npm ci --no-audit --no-fund > /tmp/val-npm-frontend.log 2>&1 ) \
+  && ok "npm ci no frontend" || bad "npm ci no frontend (veja /tmp/val-npm-frontend.log)"
 ( cd backend && npm run seed > /tmp/val-seed.log 2>&1 ) \
   && ok "npm run seed" || bad "npm run seed (veja /tmp/val-seed.log)"
 
@@ -43,6 +55,12 @@ for s in smoke-test.sh smoke-test-v2.sh smoke-test-matching.sh; do
   [ "$code" -eq 0 ] && ok "$s — $p passed, $f failed" \
                     || { bad "$s — $p passed, $f failed (exit $code)"; grep -E "✗" "/tmp/val-$s.out" | sed 's/\x1b\[[0-9;]*m//g'; }
 done
+
+# Jornada de custódia (matching → pagamento → check-in → check-out → liberação).
+# É a única suíte que percorre o caminho do dinheiro inteiro via HTTP.
+python3 "scripts/smoke-test-custodia.py" http://localhost:4000 > /tmp/val-smoke-test-custodia.out 2>&1 \
+  && ok "smoke-test-custodia.py — jornada completa OK" \
+  || { bad "smoke-test-custodia.py (exit $?)"; grep -E "✗|FALHAS" /tmp/val-smoke-test-custodia.out; }
 
 step "3b. Limpeza — banco de volta ao estado de demo"
 # As suítes de smoke gravam no mesmo banco de desenvolvimento (usuários

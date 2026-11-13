@@ -172,11 +172,21 @@ JA_CANDIDATOU=$(echo "$REC_DEPOIS" | json "1 if any(r['profissional']['id'] == $
 assert_eq 0 "$JA_CANDIDATOU" "João (id 4) não aparece após se candidar"
 
 # ── 10. Filtros minScore e limite ─────────────────────────────────────────
+# O corte usa 0.8 (não 0.9) de propósito: o score do melhor profissional
+# passou a ficar logo abaixo de 0.9 quando "atendimentos concluídos" deixou
+# de contar candidacy aceita e passou a contar atendimento de fato. Fixar
+# 0.9 acoplar o teste ao valor exato do score; 0.8 separa o mesmo grupo
+# (match alto x. médio/baixo) sem depender do número.
 echo ""
 echo "[10] Filtros minScore e limite"
-REC_ALTO=$(http_body "$BASE/api/vagas/$VAGA_ID/recomendar?minScore=0.9" -H "Authorization: Bearer $TOKEN_C")
+REC_ALTO=$(http_body "$BASE/api/vagas/$VAGA_ID/recomendar?minScore=0.8" -H "Authorization: Bearer $TOKEN_C")
 N_ALTO=$(echo "$REC_ALTO" | json "len(d['recomendacoes'])")
-assert_eq 1 "$N_ALTO" "minScore=0.9 mantém só o match alto"
+assert_eq 1 "$N_ALTO" "minScore=0.8 mantém só o match alto"
+# Corte acima de qualquer score devolve lista vazia — o filtro realmente
+# descarta, não só reordena.
+REC_CORTADO=$(http_body "$BASE/api/vagas/$VAGA_ID/recomendar?minScore=0.99" -H "Authorization: Bearer $TOKEN_C")
+N_CORTADO=$(echo "$REC_CORTADO" | json "len(d['recomendacoes'])")
+assert_eq 0 "$N_CORTADO" "minScore acima do melhor match não devolve ninguém"
 REC_LIM=$(http_body "$BASE/api/vagas/$VAGA_ID/recomendar?limite=1" -H "Authorization: Bearer $TOKEN_C")
 N_LIM=$(echo "$REC_LIM" | json "len(d['recomendacoes'])")
 assert_eq 1 "$N_LIM" "limite=1 corta a lista"
