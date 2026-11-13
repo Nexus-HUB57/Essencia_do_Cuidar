@@ -67,6 +67,12 @@
 # --------------------------------------------------------------------------
 # 3) HEADERS DE CACHE (performance)
 # --------------------------------------------------------------------------
+# ⚠️ frontend/public/sw.js É OBRIGATÓRIO: sem esse arquivo, /sw.js cai no
+# catch-all (/* → /index.html), volta HTML com Content-Type text/html e o
+# Chrome recusa o service worker — o Web Push nunca funciona e
+# `navigator.serviceWorker.ready` fica pendurado para sempre.
+# O Vite copia frontend/public/* para dist/ no build.
+#
 # Assets com hash no nome (gerados por Vite): imutáveis, cache 1 ano
 [[headers]]
   for = "/assets/*"
