@@ -30,6 +30,34 @@ echo -e "${YELLOW}=== Smoke test V2 — 6 features ===${NC}"
 echo "BASE = $BASE"
 echo ""
 
+# ---------------------------------------------------------------------------
+# 0. Suíte de integração do backend (vitest) — roda ANTES dos testes HTTP.
+#
+# Por que aqui: tanto o workflow de CI quanto o de deploy na Netlify
+# executam este arquivo, então a suíte entra no gate dos dois sem depender
+# de editar os workflows (que exigem permissão de escrita em
+# .github/workflows/).
+#
+# O vitest sobe a própria aplicação e usa um banco TEMPORÁRIO isolado
+# (backend/tests/setup.js), então pode rodar junto do servidor do smoke test
+# sem disputa de lock no SQLite.
+# ---------------------------------------------------------------------------
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -d "$REPO_ROOT/backend/node_modules" ]; then
+  echo "[0] Suíte de integração (vitest)"
+  if (cd "$REPO_ROOT/backend" && npx vitest run --reporter=basic > /tmp/vitest-ci.log 2>&1); then
+    echo -e "  ${GREEN}✓${NC} suíte vitest passou ($(grep -oE 'Tests +[0-9]+ passed' /tmp/vitest-ci.log | tail -1 | grep -oE '[0-9]+' | head -1) testes)"
+    PASS=$((PASS+1))
+  else
+    echo -e "  ${RED}✗${NC} suíte vitest falhou — últimas linhas:"
+    tail -25 /tmp/vitest-ci.log | sed 's/^/    /'
+    FAIL=$((FAIL+1))
+  fi
+else
+  echo "[0] Suíte de integração (vitest) — pulada (node_modules do backend ausente)"
+fi
+echo ""
+
 # 0. Healthcheck
 echo "[0] Healthcheck"
 HC=$(http_body "$BASE/api/health")
