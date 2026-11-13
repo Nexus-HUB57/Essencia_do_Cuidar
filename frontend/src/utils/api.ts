@@ -37,11 +37,20 @@ api.interceptors.response.use(
 
 export function getErrorMessage(err: unknown): string {
   const ax = err as AxiosError<any>;
-  if (ax?.response?.data?.error) return ax.response.data.error;
-  if (ax?.response?.data?.details) {
-    const d = ax.response.data.details as Array<{ field: string; msg: string }>;
-    return d.map((x) => `${x.field}: ${x.msg}`).join('; ');
+  const data = ax?.response?.data;
+
+  // `details` vem PRIMEIRO. A resposta de validação é
+  // { error: 'Validação falhou', details: [{field, msg}] } — checando
+  // `error` antes, o motivo (qual campo falhou, e por quê) nunca chegava
+  // ao usuário: ele só via "Validação falhou", sem indicação de nada.
+  const detalhes = data?.details;
+  if (Array.isArray(detalhes) && detalhes.length > 0) {
+    const lista = (detalhes as Array<{ field: string; msg: string }>)
+      .map((x) => `${x.field}: ${x.msg}`)
+      .join('; ');
+    return data?.error ? `${data.error} — ${lista}` : lista;
   }
+  if (data?.error) return data.error;
   if (ax?.message) return ax.message;
   return 'Erro inesperado';
 }

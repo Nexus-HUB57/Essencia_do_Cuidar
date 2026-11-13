@@ -17,10 +17,7 @@
     "actions": "Acciones",
     "details": "Detalles",
     "close": "Cerrar",
-    "send": "Enviar",
-    "loadingJobs": "Cargando trabajos...",
-    "loadingProtocols": "Cargando protocolos...",
-    "loadingHistory": "Cargando historial..."
+    "send": "Enviar"
   },
   "nav": {
     "home": "Inicio",
@@ -56,12 +53,11 @@
     "professional": "Profesional de la Salud",
     "contractor": "+Salud (Contratante)",
     "contractorDescription": "Familias y clínicas que contratan.",
-    "experiencePlaceholder": "Cuéntanos un poco sobre tu experiencia...",
-    "professionalDescription": "Cuidadores, enfermeros, fisioterapeutas..."
+    "experiencePlaceholder": "Cuéntanos un poco sobre tu experiencia..."
   },
   "vaga": {
     "title": "Vacante",
-    "publish": "Publicar trabajo",
+    "publish": "Publicar vacante",
     "myVagas": "Mis vacantes",
     "newVaga": "Nueva vacante",
     "complexity": "Complejidad",
@@ -69,7 +65,7 @@
     "medium": "Media",
     "region": "Región",
     "salary": "Remuneración",
-    "schedule": "Horario",
+    "schedule": "Jornada",
     "description": "Descripción del servicio",
     "apply": "Aplicar",
     "applied": "Aplicación enviada",
@@ -95,22 +91,7 @@
     "shareJob": "Compartir trabajo",
     "wantToApply": "Quiero postularme",
     "perHour": "Hora",
-    "perShift": "Turno",
-    "applyQuestion": "¿Quieres postularte a este trabajo?",
-    "registerAs": "Regístrate como profesional",
-    "messageLabel": "Mensaje para el cliente (opcional)",
-    "diagnosisLabel": "Diagnóstico / notas clínicas",
-    "desiredProfessional": "Profesional deseado*",
-    "noComplexUti": "No atendemos casos de alta complejidad / UCI.",
-    "publishNew": "Publicar un nuevo trabajo",
-    "closedWithAccepted": "Los trabajos cerrados con un profesional aceptado aparecerán aquí.",
-    "accept": "✓ Aceptar",
-    "viewProfile": "👤 Ver perfil",
-    "payProfessional": "💰 Pagar al profesional",
-    "message": "Mensaje:",
-    "back": "← Volver a los trabajos",
-    "share": "🔗 Compartir",
-    "signIn": "Iniciar sesión"
+    "perShift": "Turno"
   },
   "candidate": {
     "status": {
@@ -135,7 +116,8 @@
     "scanQrCode": "Escanea el QR Code Pix",
     "txid": "ID de transacción",
     "confirmMock": "Confirmar pago (mock)",
-    "mockMode": "Modo demostración"
+    "mockMode": "Modo demostración",
+    "custodyNotice": "El pago queda en custodia y solo se libera al profesional tras el turno y la confirmación de ambas partes."
   },
   "perfil": {
     "title": "Mi perfil",
@@ -181,17 +163,14 @@
     "pnpReview": "⚖️ PNP en revisión administrativa (necesita una decisión)",
     "refundFull": "Reembolso total",
     "refundPartial": "Reembolso parcial",
-    "noVerifications": "Sin verificaciones pendientes 🎉",
-    "noPnp": "Ningún PNP en revisión 🎉",
-    "viewDiploma": "ver diploma",
-    "paymentReleased": "✅ Pago liberado",
-    "alreadyReleased": "💸 Ya liberado a profesionales"
+    "noVerifications": "Sin verificaciones pendientes 🎉"
   },
   "notifications": {
     "title": "Notificaciones",
     "enablePush": "Activar notificaciones push",
     "enabled": "Notificaciones activadas",
     "permissionDenied": "Permiso denegado por el navegador",
+    "enablePushError": "No fue posible activar las notificaciones push en este navegador.",
     "pushNotConfigured": "🔕 Push (VAPID no configurado en el servidor)",
     "empty": "Sin notificaciones."
   },
@@ -296,13 +275,7 @@
       "protocolos": "🛡️ Protocolos",
       "favoritas": "❤️ Favoritos",
       "perfil": "👤 Mi perfil"
-    },
-    "applicationSent": "¡Postulación enviada! Mírala en la pestaña \"Mis postulaciones\".",
-    "diplomaLabel": "Diploma:",
-    "registroLabel": "Registro:",
-    "profileSummary": "Resumen del perfil",
-    "viewPublicProfile": "👁️ Ver perfil público",
-    "summary": "Resumen del perfil"
+    }
   },
   "protocolos": {
     "title": "Protocolos",
@@ -316,16 +289,25 @@
     "confirmAccept": "¿Aceptar este matching? Se generará un PDC (Protocolo de Débito de Custodia) para que el cliente lo pague.",
     "emptyProfissional": "Todavía no hay ningún protocolo. Cuando un cliente acepte tu postulación, el matching aparecerá aquí.",
     "emptyContratante": "Todavía no hay ningún protocolo. Cuando aceptes una postulación, el PCP se creará automáticamente.",
-    "sendRejection": "Enviar rechazo",
-    "rejectionReason": "Elige el motivo del rechazo (Protocolo de No Pago):",
-    "auditHistory": "Historial (auditoría):",
-    "rejectPayment": "⚠️ Rechazar pago (PNP)",
-    "checkoutComplete": "¡Checkout completo! El pago se liberará en un plazo de 72h.",
-    "matchingAccepted": "¡Matching aceptado! Esperando el pago en custodia del cliente.",
-    "custodyConfirmed": "¡Pago en custodia confirmado! Profesional notificado.",
-    "paymentReleased": "¡Pago liberado!",
-    "partialReleased": "Pago parcial liberado",
-    "shift": "📋 Turno"
+    "checkIn": "📍 Hacer check-in",
+    "checkInConfirm": "📍 Confirmar presencia",
+    "checkInSuccess": "✓ ¡Check-in registrado!",
+    "checkInAlready": "El check-in ya estaba registrado.",
+    "checkOut": "✓ Finalizar turno (check-out)",
+    "checkOutSuccess": "✓ ¡Check-out registrado!",
+    "awaitingCheckIn": "Esperando el check-in del profesional",
+    "checkedInAt": "Llegada",
+    "presenceConfirmedAt": "Presencia confirmada",
+    "locationSharing": "Compartir ubicación",
+    "locationUnavailable": "Ubicación no disponible — check-in registrado sin ella.",
+    "checkInAfterPay": "El check-in se habilita tras el pago de la custodia.",
+    "checkinsTitle": "Check-ins",
+    "checkoutsTitle": "Check-outs",
+    "waitProfessionalCheckout": "Esperando que el profesional finalice el turno para confirmar.",
+    "checkoutComplete": "El pago se liberará en un plazo de 72h.",
+    "waitOther": "Esperando a la otra parte.",
+    "inShift": "En turno",
+    "awaitingCheckInShort": "Esperando check-in"
   },
   "contractor": {
     "subtitle": "Gestiona tus trabajos y candidatos",
@@ -344,258 +326,16 @@
     "thanksFeedback": "Gracias por tus comentarios.",
     "updateError": "Error al actualizar",
     "reviewError": "Error al evaluar",
-    "noHires": "Todavía no hay contrataciones completadas.",
-    "noApplications": "Todavía no te has postulado a ningún trabajo.",
-    "describeService": "Describe el servicio (mínimo 10 caracteres).",
-    "selectProfessional": "Selecciona el profesional deseado.",
-    "messageLabel": "Mensaje:",
-    "publishedOn": "Publicado el {{date}}",
-    "completedOn": "Completado el {{date}}",
-    "notInform": "No informar",
-    "female": "Femenino",
-    "male": "Masculino",
-    "payBy": "Remuneración por",
-    "regionText": "Región (texto)",
-    "patient": "Paciente",
-    "service": "Servicio",
-    "schedule": "Jornada",
-    "contractType": "Tipo de contrato",
-    "sendOn": "Enviada el {{date}}",
-    "notSent": "no enviado"
+    "noHires": "Todavía no hay contrataciones completadas."
   },
   "chat": {
     "placeholder": "Escribe un mensaje...",
-    "empty": "Todavía no hay mensajes. ¡Inicia la conversación!",
-    "send": "Enviar"
+    "empty": "Todavía no hay mensajes. ¡Inicia la conversación!"
   },
   "profile": {
-    "noReviews": "Aún sin reseñas. Este profesional es nuevo en la plataforma.",
-    "reviews": "Reseñas",
-    "completedServices": "Atenciones completadas",
-    "acceptedJobs": "Trabajos aceptados",
-    "totalApplications": "Postulaciones totales"
+    "noReviews": "Aún sin reseñas. Este profesional es nuevo en la plataforma."
   },
   "publicVagas": {
-    "noActive": "No hay trabajos activos por ahora.",
-    "title": "Encuentra oportunidades de cuidado domiciliar",
-    "filter": "Filtrar",
-    "title2": "Trabajos abiertos"
-  },
-  "landing": {
-    "quote": "Cuidar con amor es nuestra esencia. Cuidado, Acogida y Respeto en cada detalle.",
-    "about": "En la región de Campinas conectamos familias, clínicas e instituciones con profesionales de la salud cualificados para atención domiciliaria de complejidad baja y media.",
-    "badges": [
-      "Cuidado humanizado",
-      "Profesionalismo",
-      "Atención cercana",
-      "Confianza"
-    ],
-    "motto": "Cuidado • Acogida • Respeto",
-    "threeSteps": "3 pasos",
-    "stepsContractor": [
-      {
-        "t": "Crea tu cuenta +Saúde",
-        "d": "Registro rápido con nombre, correo y teléfono."
-      },
-      {
-        "t": "Publica el trabajo",
-        "d": "Describe al paciente, la jornada y el profesional que necesitas."
-      },
-      {
-        "t": "Paga vía Pix",
-        "d": "Reparto automático: 90% profesional, 10% plataforma."
-      }
-    ],
-    "stepsProfessional": [
-      {
-        "t": "Regístrate + diploma",
-        "d": "Validamos tu registro (CRM/COREN/CREFITO)."
-      },
-      {
-        "t": "Conecta tu cuenta Stripe",
-        "d": "Recibe pagos vía Pix con reparto."
-      },
-      {
-        "t": "Postúlate y activa push",
-        "d": "Notificaciones en tiempo real en tu móvil."
-      }
-    ],
-    "differentials": [
-      {
-        "t": "Selección rigurosa",
-        "d": "Evaluación cuidadosa del perfil, la experiencia y las referencias de cada profesional antes de entrar en la plataforma."
-      },
-      {
-        "t": "Formación técnica",
-        "d": "Capacitación práctica y protocolos de cuidado estandarizados para garantizar la calidad en cada atención."
-      },
-      {
-        "t": "Acompañamiento a la familia",
-        "d": "Soporte continuo, comunicación transparente y ajustes siempre que la familia lo necesite."
-      }
-    ],
-    "securityBadge": "🛡️ Seguridad ante todo",
-    "whyTrust": "Por qué confiar en {{app}}",
-    "trustCards": [
-      {
-        "t": "Registro verificado",
-        "d": "Validamos CRM, COREN, CREFITO, CRP y CRN."
-      },
-      {
-        "t": "Diploma",
-        "d": "Los profesionales suben PDF/foto del diploma."
-      },
-      {
-        "t": "Pix + Stripe Connect",
-        "d": "Pago seguro con reparto automático."
-      },
-      {
-        "t": "Notificaciones push",
-        "d": "Aviso en tiempo real de mensajes y trabajos."
-      }
-    ],
-    "agendaBadge": "📅 Agenda abierta",
-    "agendaTitle": "Habla directamente con Jeane",
-    "agendaText": "Tenemos agenda abierta para nuevas atenciones en la región de Campinas. Agenda una visita gratuita y conoce el cuidado que marca la diferencia.",
-    "wantToHire": "Quiero contratar",
-    "scheduleFree": "📲 Agendar una visita gratuita",
-    "altCaregiver": "Cuidadora sosteniendo la mano de una anciana",
-    "altFounder": "Jeane Silva, fundadora de Esencia del Cuidar",
-    "specialties": [
-      "Alzheimer",
-      "Cuidados paliativos",
-      "Ancianos"
-    ],
-    "viewProfile": "Ver perfil",
-    "ourStory": "💚 Nuestra historia",
-    "familyDeserves": "Tu familia merece tranquilidad.",
-    "shortQuote": "\"Cuidar con amor es nuestra esencia\""
-  },
-  "comoFunciona": {
-    "title": "Cómo funciona",
-    "subtitle": "Dos caminos sencillos, una plataforma segura.",
-    "forFamilies": "🏠 Para quien busca un profesional",
-    "families": [
-      [
-        "Regístrate como +Saúde",
-        "Crea tu cuenta gratuita con nombre, correo y teléfono."
-      ],
-      [
-        "Publica el trabajo",
-        "Detalla al paciente, la jornada deseada y el tipo de profesional."
-      ],
-      [
-        "Recibe candidatos verificados",
-        "Los profesionales con diploma y registro aparecen primero."
-      ],
-      [
-        "Conversa y cierra",
-        "Usa el chat interno para combinar los detalles con seguridad."
-      ],
-      [
-        "Sigue el servicio",
-        "El trabajo queda activo hasta que lo pausas o lo cierras."
-      ]
-    ],
-    "forProfessionals": "🩺 Para profesionales",
-    "professionals": [
-      [
-        "Regístrate gratis",
-        "Completa tus datos personales, especialidad y disponibilidad."
-      ],
-      [
-        "Sube tu diploma",
-        "PDF o imagen de tu diploma/registro para obtener la insignia de verificado."
-      ],
-      [
-        "Filtra y postúlate",
-        "Busca trabajos por región, complejidad y remuneración."
-      ],
-      [
-        "Conversa con la familia",
-        "Chat interno para combinarlo todo antes de empezar."
-      ],
-      [
-        "Recibe el contacto",
-        "Al ser aceptada/o, recibes el teléfono del cliente para coordinar tu llegada."
-      ]
-    ],
-    "safetyTitle": "⚠️ Importante sobre seguridad",
-    "safety": [
-      "Verifica siempre el número de registro (COREN, CRM, etc.) en la web del colegio profesional.",
-      "Combina el primer encuentro en un lugar público o con la familia presente.",
-      "Esta plataforma <strong>no</strong> atiende casos de alta complejidad / UCI."
-    ]
-  },
-  "favorites": {
-    "loginRequired": "Inicia sesión para guardar",
-    "saved": "¡Guardado!",
-    "added": "Añadido a tus favoritos",
-    "removed": "Eliminado de tus favoritos",
-    "error": "Error",
-    "tryAgain": "Inténtalo de nuevo",
-    "remove": "Eliminar de favoritos",
-    "add": "Guardar"
-  },
-  "connect": {
-    "account": "Cuenta:",
-    "detailsSubmitted": "Detalles enviados",
-    "pending": "pendiente",
-    "paymentsEnabled": "Pagos habilitados",
-    "payoutsEnabled": "Transferencias habilitadas",
-    "reopenOnboarding": "Reabrir onboarding",
-    "completeOnboarding": "Completar onboarding"
-  },
-  "payment": {
-    "professionalReceives": "El profesional recibe:"
-  },
-  "especialidades": {
-    "Idosos": "Ancianos",
-    "Alzheimer": "Alzheimer",
-    "Cuidados Paliativos": "Cuidados paliativos",
-    "Pós-operatório": "Postoperatorio",
-    "Geriatria": "Geriatría",
-    "Fisioterapia": "Fisioterapia",
-    "Psicologia": "Psicología",
-    "Acompanhamento Familiar": "Acompañamiento familiar",
-    "Nutrição": "Nutrición"
-  },
-  "disponibilidade": {
-    "manha": "Mañana",
-    "tarde": "Tarde",
-    "noite": "Noche",
-    "12h": "Turno de 12h",
-    "24h": "Turno de 24h"
-  },
-  "profissionais": {
-    "loading": "Cargando perfil...",
-    "back": "← Volver a los trabajos",
-    "sobre": "Sobre",
-    "especialidades": "Especialidades",
-    "especialidadesVazias": "Sin especialidades indicadas.",
-    "disponibilidade": "Disponibilidad",
-    "disponibilidadeVazia": "Sin disponibilidad indicada.",
-    "anosPlataforma": "{{count}} año en la plataforma",
-    "novoPlataforma": "Nuevo en la plataforma",
-    "registroEstado": {
-      "verificado": "Verificado",
-      "emAnalise": "En revisión",
-      "naoValidado": "No validado"
-    },
-    "documentos": {
-      "title": "Documentos",
-      "diploma": "Diploma",
-      "registro": "Registro profesional",
-      "help": "Haz clic para ver el documento enviado",
-      "verificado": "Verificado",
-      "emAnalise": "En revisión",
-      "naoEnviado": "No enviado",
-      "naoInformado": "No informado",
-      "verificadoEm": "Verificado el {{date}}"
-    },
-    "nome": "Nombre:",
-    "email": "Correo:",
-    "telefone": "Teléfono:",
-    "cidade": "Ciudad:"
+    "noActive": "No hay trabajos activos por ahora."
   }
 }

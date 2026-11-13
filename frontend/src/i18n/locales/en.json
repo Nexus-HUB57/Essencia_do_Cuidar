@@ -17,10 +17,7 @@
     "actions": "Actions",
     "details": "Details",
     "close": "Close",
-    "send": "Send",
-    "loadingJobs": "Loading jobs...",
-    "loadingProtocols": "Loading protocols...",
-    "loadingHistory": "Loading history..."
+    "send": "Send"
   },
   "nav": {
     "home": "Home",
@@ -56,12 +53,11 @@
     "professional": "Health Professional",
     "contractor": "+Health (Contractor)",
     "contractorDescription": "Families and clinics that hire.",
-    "experiencePlaceholder": "Tell us a bit about your experience...",
-    "professionalDescription": "Caregivers, nurses, physiotherapists..."
+    "experiencePlaceholder": "Tell us a bit about your experience..."
   },
   "vaga": {
     "title": "Job",
-    "publish": "Post job",
+    "publish": "Publish job",
     "myVagas": "My jobs",
     "newVaga": "New job",
     "complexity": "Complexity",
@@ -95,22 +91,7 @@
     "shareJob": "Share job",
     "wantToApply": "I want to apply",
     "perHour": "Hour",
-    "perShift": "Shift",
-    "applyQuestion": "Want to apply for this job?",
-    "registerAs": "Register as a professional",
-    "messageLabel": "Message to the client (optional)",
-    "diagnosisLabel": "Diagnosis / clinical notes",
-    "desiredProfessional": "Desired professional*",
-    "noComplexUti": "We don't take on high complexity / ICU cases.",
-    "publishNew": "Post a new job",
-    "closedWithAccepted": "Jobs closed with an accepted professional will show up here.",
-    "accept": "✓ Accept",
-    "viewProfile": "👤 View profile",
-    "payProfessional": "💰 Pay professional",
-    "message": "Message:",
-    "back": "← Back to jobs",
-    "share": "🔗 Share",
-    "signIn": "Sign in"
+    "perShift": "Shift"
   },
   "candidate": {
     "status": {
@@ -135,7 +116,8 @@
     "scanQrCode": "Scan the Pix QR code",
     "txid": "Transaction ID",
     "confirmMock": "Confirm payment (mock)",
-    "mockMode": "Demo mode"
+    "mockMode": "Demo mode",
+    "custodyNotice": "The payment is held in escrow and only released after the shift and confirmation by both parties."
   },
   "perfil": {
     "title": "My profile",
@@ -181,17 +163,14 @@
     "pnpReview": "⚖️ PNP under administrative review (needs a decision)",
     "refundFull": "Full refund",
     "refundPartial": "Partial refund",
-    "noVerifications": "No pending verifications 🎉",
-    "noPnp": "No PNP under review 🎉",
-    "viewDiploma": "view diploma",
-    "paymentReleased": "✅ Payment released",
-    "alreadyReleased": "💸 Already released to professionals"
+    "noVerifications": "No pending verifications 🎉"
   },
   "notifications": {
     "title": "Notifications",
     "enablePush": "Enable push notifications",
     "enabled": "Notifications enabled",
     "permissionDenied": "Permission denied by browser",
+    "enablePushError": "Could not enable push notifications in this browser.",
     "pushNotConfigured": "🔕 Push (VAPID not configured on the server)",
     "empty": "No notifications."
   },
@@ -284,7 +263,7 @@
     "pushNotConfigured": "🔕 Push (VAPID not configured on the server)",
     "filter": "Filter",
     "viewDetails": "View details",
-    "apply": "Apply",
+    "apply": "Apply now",
     "complexity": "Complexity",
     "noApplications": "You haven't applied to any job yet.",
     "noFavorites": "You haven't favorited any job yet. Click the 🤍 on a job to save it.",
@@ -296,13 +275,7 @@
       "protocolos": "🛡️ Protocols",
       "favoritas": "❤️ Favorites",
       "perfil": "👤 My profile"
-    },
-    "applicationSent": "Application sent! Track it in the \"My applications\" tab.",
-    "diplomaLabel": "Diploma:",
-    "registroLabel": "Registration:",
-    "profileSummary": "Profile summary",
-    "viewPublicProfile": "👁️ View public profile",
-    "summary": "Profile summary"
+    }
   },
   "protocolos": {
     "title": "Protocols",
@@ -316,16 +289,25 @@
     "confirmAccept": "Accept this matching? A PDC (Custody Debit Protocol) will be generated for the client to pay.",
     "emptyProfissional": "No protocol yet. When a client accepts your application, the matching will show up here.",
     "emptyContratante": "No protocol yet. When you accept an application, the PCP will be created automatically.",
-    "sendRejection": "Send rejection",
-    "rejectionReason": "Choose the rejection reason (Non-Payment Protocol):",
-    "auditHistory": "History (audit):",
-    "rejectPayment": "⚠️ Reject payment (PNP)",
-    "checkoutComplete": "✓ Checkout complete! Payment will be released within 72h.",
-    "matchingAccepted": "✓ Matching accepted! Waiting for the client's custody payment.",
-    "custodyConfirmed": "✓ Custody payment confirmed! Professional notified.",
-    "paymentReleased": "💰 Payment released!",
-    "partialReleased": "💰 Partial payment released",
-    "shift": "📋 Shift"
+    "checkIn": "📍 Check in",
+    "checkInConfirm": "📍 Confirm presence",
+    "checkInSuccess": "✓ Check-in registered!",
+    "checkInAlready": "Check-in was already registered.",
+    "checkOut": "✓ Finish shift (check-out)",
+    "checkOutSuccess": "✓ Check-out registered!",
+    "awaitingCheckIn": "Waiting for the professional's check-in",
+    "checkedInAt": "Arrival",
+    "presenceConfirmedAt": "Presence confirmed",
+    "locationSharing": "Share location",
+    "locationUnavailable": "Location unavailable — check-in registered without it.",
+    "checkInAfterPay": "Check-in unlocks after the custody payment.",
+    "checkinsTitle": "Check-ins",
+    "checkoutsTitle": "Check-outs",
+    "waitProfessionalCheckout": "Waiting for the professional to finish the shift before confirming.",
+    "checkoutComplete": "Payment will be released within 72h.",
+    "waitOther": "Waiting for the other party.",
+    "inShift": "On shift",
+    "awaitingCheckInShort": "Awaiting check-in"
   },
   "contractor": {
     "subtitle": "Manage your jobs and candidates",
@@ -344,258 +326,16 @@
     "thanksFeedback": "Thanks for your feedback.",
     "updateError": "Error updating",
     "reviewError": "Error reviewing",
-    "noHires": "No completed hires yet.",
-    "noApplications": "You haven't applied to any job yet.",
-    "describeService": "Describe the service (minimum 10 characters).",
-    "selectProfessional": "Select the desired professional.",
-    "messageLabel": "Message:",
-    "publishedOn": "Posted on {{date}}",
-    "completedOn": "Completed on {{date}}",
-    "notInform": "Not specified",
-    "female": "Female",
-    "male": "Male",
-    "payBy": "Pay per",
-    "regionText": "Region (text)",
-    "patient": "Patient",
-    "service": "Service",
-    "schedule": "Schedule",
-    "contractType": "Contract type",
-    "sendOn": "Sent on {{date}}",
-    "notSent": "not sent"
+    "noHires": "No completed hires yet."
   },
   "chat": {
     "placeholder": "Type a message...",
-    "empty": "No messages yet. Start the conversation!",
-    "send": "Send"
+    "empty": "No messages yet. Start the conversation!"
   },
   "profile": {
-    "noReviews": "No reviews yet. This professional is new to the platform.",
-    "reviews": "Reviews",
-    "completedServices": "Completed services",
-    "acceptedJobs": "Accepted jobs",
-    "totalApplications": "Total applications"
+    "noReviews": "No reviews yet. This professional is new to the platform."
   },
   "publicVagas": {
-    "noActive": "No active jobs at the moment.",
-    "title": "Find home care opportunities",
-    "filter": "Filter",
-    "title2": "Open jobs"
-  },
-  "landing": {
-    "quote": "Caring with love is our essence. Care, Welcome and Respect in every detail.",
-    "about": "In the Campinas region, we connect families, clinics and institutions with qualified health professionals for low and medium complexity home care.",
-    "badges": [
-      "Humanized care",
-      "Professionalism",
-      "Close attention",
-      "Trust"
-    ],
-    "motto": "Care • Welcome • Respect",
-    "threeSteps": "3 steps",
-    "stepsContractor": [
-      {
-        "t": "Create your +Saúde account",
-        "d": "Quick signup with name, e-mail and phone."
-      },
-      {
-        "t": "Post the job",
-        "d": "Describe the patient, the schedule and the professional you need."
-      },
-      {
-        "t": "Pay via Pix",
-        "d": "Automatic split: 90% professional, 10% platform."
-      }
-    ],
-    "stepsProfessional": [
-      {
-        "t": "Sign up + diploma",
-        "d": "We validate your registration (CRM/COREN/CREFITO)."
-      },
-      {
-        "t": "Connect your Stripe account",
-        "d": "Receive payments via Pix with split."
-      },
-      {
-        "t": "Apply and enable push",
-        "d": "Real-time notifications on your phone."
-      }
-    ],
-    "differentials": [
-      {
-        "t": "Rigorous selection",
-        "d": "Careful review of every professional's profile, experience and references before they join the platform."
-      },
-      {
-        "t": "Technical training",
-        "d": "Practical training and standardized care protocols to guarantee quality in every service."
-      },
-      {
-        "t": "Family support",
-        "d": "Ongoing support, transparent communication and adjustments whenever the family needs them."
-      }
-    ],
-    "securityBadge": "🛡️ Safety first",
-    "whyTrust": "Why trust {{app}}",
-    "trustCards": [
-      {
-        "t": "Verified registration",
-        "d": "We validate CRM, COREN, CREFITO, CRP and CRN."
-      },
-      {
-        "t": "Diploma",
-        "d": "Professionals upload a PDF/photo of their diploma."
-      },
-      {
-        "t": "Pix + Stripe Connect",
-        "d": "Secure payment with automatic split."
-      },
-      {
-        "t": "Push notifications",
-        "d": "Real-time alerts about messages and jobs."
-      }
-    ],
-    "agendaBadge": "📅 Open schedule",
-    "agendaTitle": "Talk directly with Jeane",
-    "agendaText": "We have availability for new services in the Campinas region. Schedule a free visit and get to know the care that makes a difference.",
-    "wantToHire": "I want to hire",
-    "scheduleFree": "📲 Schedule a free visit",
-    "altCaregiver": "Caregiver holding an elderly woman's hand",
-    "altFounder": "Jeane Silva, founder of Essence of Care",
-    "specialties": [
-      "Alzheimer",
-      "Palliative care",
-      "Elderly"
-    ],
-    "viewProfile": "View profile",
-    "ourStory": "💚 Our story",
-    "familyDeserves": "Your family deserves peace of mind.",
-    "shortQuote": "\"Caring with love is our essence\""
-  },
-  "comoFunciona": {
-    "title": "How it works",
-    "subtitle": "Two simple paths, one safe platform.",
-    "forFamilies": "🏠 For those looking for a professional",
-    "families": [
-      [
-        "Sign up as +Saúde",
-        "Create your free account with name, e-mail and phone."
-      ],
-      [
-        "Post the job",
-        "Detail the patient, desired schedule and type of professional."
-      ],
-      [
-        "Receive verified candidates",
-        "Professionals with diploma and registration appear first."
-      ],
-      [
-        "Talk and close",
-        "Use the internal chat to arrange details safely."
-      ],
-      [
-        "Follow the service",
-        "The job stays active until you pause or close it."
-      ]
-    ],
-    "forProfessionals": "🩺 For professionals",
-    "professionals": [
-      [
-        "Sign up for free",
-        "Fill in your personal details, specialty and availability."
-      ],
-      [
-        "Upload your diploma",
-        "PDF or image of your diploma/registration to earn the verified badge."
-      ],
-      [
-        "Filter and apply",
-        "Search jobs by region, complexity and pay."
-      ],
-      [
-        "Talk to the family",
-        "Internal chat to sort everything out before you start."
-      ],
-      [
-        "Get the contact",
-        "Once accepted, you receive the client's phone number to coordinate your arrival."
-      ]
-    ],
-    "safetyTitle": "⚠️ Important safety notes",
-    "safety": [
-      "Always check the registration number (COREN, CRM, etc.) on the council's website.",
-      "Arrange the first meeting in a public place or with the family present.",
-      "This platform <strong>does not</strong> take on high complexity / ICU cases."
-    ]
-  },
-  "favorites": {
-    "loginRequired": "Sign in to favorite",
-    "saved": "Saved!",
-    "added": "Added to your favorites",
-    "removed": "Removed from favorites",
-    "error": "Error",
-    "tryAgain": "Try again",
-    "remove": "Remove from favorites",
-    "add": "Favorite"
-  },
-  "connect": {
-    "account": "Account:",
-    "detailsSubmitted": "Details submitted",
-    "pending": "pending",
-    "paymentsEnabled": "Payments enabled",
-    "payoutsEnabled": "Payouts enabled",
-    "reopenOnboarding": "Reopen onboarding",
-    "completeOnboarding": "Complete onboarding"
-  },
-  "payment": {
-    "professionalReceives": "Professional receives:"
-  },
-  "especialidades": {
-    "Idosos": "Elderly",
-    "Alzheimer": "Alzheimer",
-    "Cuidados Paliativos": "Palliative care",
-    "Pós-operatório": "Post-operative",
-    "Geriatria": "Geriatrics",
-    "Fisioterapia": "Physiotherapy",
-    "Psicologia": "Psychology",
-    "Acompanhamento Familiar": "Family support",
-    "Nutrição": "Nutrition"
-  },
-  "disponibilidade": {
-    "manha": "Morning",
-    "tarde": "Afternoon",
-    "noite": "Night",
-    "12h": "12h shift",
-    "24h": "24h shift"
-  },
-  "profissionais": {
-    "loading": "Loading profile...",
-    "back": "← Back to jobs",
-    "sobre": "About",
-    "especialidades": "Specialties",
-    "especialidadesVazias": "No specialties listed.",
-    "disponibilidade": "Availability",
-    "disponibilidadeVazia": "No availability listed.",
-    "anosPlataforma": "{{count}} year on the platform",
-    "novoPlataforma": "New on the platform",
-    "registroEstado": {
-      "verificado": "Verified",
-      "emAnalise": "Under review",
-      "naoValidado": "Not validated"
-    },
-    "documentos": {
-      "title": "Documents",
-      "diploma": "Diploma",
-      "registro": "Professional registration",
-      "help": "Click to view the uploaded document",
-      "verificado": "Verified",
-      "emAnalise": "Under review",
-      "naoEnviado": "Not uploaded",
-      "naoInformado": "Not provided",
-      "verificadoEm": "Verified on {{date}}"
-    },
-    "nome": "Name:",
-    "email": "E-mail:",
-    "telefone": "Phone:",
-    "cidade": "City:"
+    "noActive": "No active jobs at the moment."
   }
 }
