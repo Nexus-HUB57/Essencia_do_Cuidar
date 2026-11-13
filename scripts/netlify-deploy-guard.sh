@@ -53,7 +53,7 @@
 set -uo pipefail
 
 SITE_ID="7ba263f5-b5db-4874-8c0e-bc487a31c6d1"
-SITE_URL="https://ecuidar.netlify.app"
+SITE_NAME="ecuidar"
 
 install_mode() {
   local self="$1"
@@ -81,7 +81,7 @@ for arg in "$@"; do
     echo "   Publicar sem token criaria um site novo e aleatório"
     echo "   (ex.: http://comfy-torte-9378b6.netlify.app) e o app real"
     echo "   continuaria no ar com a versão antiga."
-    echo "   Site que deveria receber o deploy: $SITE_URL ($SITE_ID)"
+    echo "   Site que deveria receber o deploy: $SITE_NAME (id $SITE_ID)"
     echo "   Causa do bloqueio: o deploy com token falhou logo acima."
     echo "   Configure o secret TOKEN_NETFLY no repositório ou conecte o"
     echo "   site ao GitHub na Netlify. Nada foi publicado."
@@ -104,10 +104,22 @@ else
   echo "→ NENHUM NETLIFY_AUTH_TOKEN no ambiente: o deploy vai falhar."
   echo "  Configure o secret TOKEN_NETFLY no repositório."
 fi
-echo "→ site alvo: $SITE_URL ($SITE_ID)"
+# Sem a URL completa de propósito: o workflow faz
+#   grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log
+# e interpretaria esta linha como "deploy publicado" — mesmo sem ter
+# publicado nada. O nome do site e o ID bastam para diagnóstico.
+echo "→ site alvo: ${SITE_NAME} (id ${SITE_ID})"
 echo "→ executando: netlify $*"
 
-# A saída vai para o log da Actions (antes ela só ia para /tmp/deploy.log
-# e era grepada por URL, escondendo o erro real).
-netlify "$@" 2>&1 | tee /tmp/netlify-deploy.log
-exit "${PIPESTATUS[0]}"
+# A saída do CLI vai para um arquivo e depois é exibida no log da Actions
+# (antes ela só ia para /tmp/deploy.log e era grepada por URL, escondendo o
+# erro real).
+#
+# ⚠️ NÃO usar `| tee`: o `tee` das runners do GitHub (Ubuntu 26.04) é a
+# reimplementação em Rust (uutils), que entra em panic com "2nd pipe should
+# have enough spare" quando o leitor fecha o pipe — o SIGPIPE matava o
+# netlify-cli no meio do deploy.
+netlify "$@" > /tmp/netlify-deploy.log 2>&1
+rc=$?
+cat /tmp/netlify-deploy.log
+exit "$rc"
