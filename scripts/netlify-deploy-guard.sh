@@ -119,7 +119,29 @@ echo "→ executando: netlify $*"
 # reimplementação em Rust (uutils), que entra em panic com "2nd pipe should
 # have enough spare" quando o leitor fecha o pipe — o SIGPIPE matava o
 # netlify-cli no meio do deploy.
-netlify "$@" > /tmp/netlify-deploy.log 2>&1
+# ── nunca travar o workflow ─────────────────────────────────────────────
+# Sem isto o passo "Deploy na Netlify" pode ficar in_progress por horas:
+# o netlify-cli espera input interativo (link do site, confirmação) ou
+# fica esperando a rede. E o grupo de concorrência do workflow tem
+# `cancel-in-progress: true` — um deploy travado faz o PRÓXIMO deploy ser
+# CANCELADO, e o site fica defasado em vários commits.
+#
+# Três defesas:
+#   1. --non-interactive  → nunca pergunta nada
+#   2. --no-telemetry     → não abre prompt de telemetria
+#   3. timeout            → se travar, morre em DEPLOY_TIMEOUT_SEG
+DEPLOY_TIMEOUT_SEG="${DEPLOY_TIMEOUT_SEG:-300}"
+timeout --foreground "$DEPLOY_TIMEOUT_SEG" \
+  netlify --non-interactive --no-telemetry "$@" > /tmp/netlify-deploy.log 2>&1
 rc=$?
+if [ "$rc" -eq 124 ]; then
+  echo "❌ netlify-cli excedeu ${DEPLOY_TIMEOUT_SEG}s e foi interrompido."
+  echo "   O passo seria travado indefinidamente (e cancelaria o próximo"
+  echo "   deploy por causa do concurrency: cancel-in-progress)."
+  echo "--- últimas linhas do log ----------------------------------------"
+  tail -20 /tmp/netlify-deploy.log
+  echo "------------------------------------------------------------------"
+  rc=1
+fi
 cat /tmp/netlify-deploy.log
 exit "$rc"
