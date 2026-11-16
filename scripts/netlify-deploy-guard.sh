@@ -187,5 +187,19 @@ if [ "$rc" -eq 143 ] || [ "$rc" -eq 124 ]; then
   echo "------------------------------------------------------------------"
   rc=1
 fi
+# Sanitiza a saída antes de mostrá-la. O workflow faz
+#   grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log
+# e, se o arquivo tiver bytes de controle (as barras de progresso do CLI
+# escrevem ANSI), o grep responde "binary file matches" e a URL do deploy
+# se perde — o resumo saía com "Deploy URL:" vazio mesmo com o deploy
+# tendo sido publicado.
+sed -i -e 's/\x1B\[[0-9;?]*[a-zA-Z]//g' -e 's/[^\x20-\x7E\t]//g' \
+  /tmp/netlify-deploy.log 2>/dev/null || true
+
+if [ "$rc" -eq 0 ]; then
+  echo "DEPLOY_RESULT=sucesso"
+else
+  echo "DEPLOY_RESULT=falha (código $rc)"
+fi
 tail -n 60 /tmp/netlify-deploy.log
 exit "$rc"
