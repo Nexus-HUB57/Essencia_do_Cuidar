@@ -14,3 +14,7 @@ uploads/
 .vite/
 coverage/
 *.tsbuildinfo
+
+# Cache Python (helpers de script)
+__pycache__/
+*.pyc
