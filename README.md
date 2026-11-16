@@ -771,6 +771,15 @@ python3 scripts/pwa-check.py http://localhost:5173           # /sw.js, service w
 worker não ativar, se o handler de push sumir ou se o handshake do
 Socket.IO não passar.
 
+### Deploy direto na Netlify (sem depender do CI)
+```bash
+export NETLIFY_AUTH_TOKEN=<personal access token do Netlify>
+bash scripts/deploy-netlify.sh
+```
+Valida o token, confere o site alvo, faz o build, publica com
+`--site <id> --prod` (nunca `--allow-anonymous`, que criaria um site novo
+e aleatório) e verifica se o bundle novo está no ar.
+
 ### Internacionalização
 Dicionário em `frontend/src/i18n/locales/` (pt-BR, es, en) — **357 chaves**
 nos três idiomas, sem fallback silencioso. Toda a interface usa `t()`:
