@@ -748,12 +748,28 @@ usuários `Smoke` no banco de desenvolvimento — sem o reseed eles apareceriam
 como recomendados no matching), faz o typecheck e o build do frontend, e
 por fim checa que uma entrada inválida não derruba o servidor.
 
-Resultado atual: **107 asserções** (38 + 30 + 39) + `tsc` + `build`.
+Resultado atual: **138 asserções** (38 + 30 + 40) + jornada de custódia
+(22) + `tsc` + `build`.
 
 ### Testes unitários
 ```bash
-npm --prefix backend test          # vitest — 145 testes
+npm --prefix backend test          # vitest — 185 testes
 ```
+
+### Testes no navegador real (playwright)
+```bash
+pip install playwright && playwright install chromium
+
+python3 scripts/browser-check.py http://localhost:5173      # erros de console/rede em todas as telas
+python3 scripts/checkin-ui-check.py http://localhost:5173    # UI de check-in/check-out (badges, botões)
+python3 scripts/signup-flow-check.py http://localhost:5173   # wizard de cadastro + candidatura
+python3 scripts/pwa-check.py http://localhost:5173           # /sw.js, service worker, push e socket.io
+```
+
+`pwa-check.py` é o guard de regressão da camada PWA: ele falha se o
+`/sw.js` voltar a ser servido como HTML (o fallback da SPA), se o service
+worker não ativar, se o handler de push sumir ou se o handshake do
+Socket.IO não passar.
 
 ### Internacionalização
 Dicionário em `frontend/src/i18n/locales/` (pt-BR, es, en) — **357 chaves**

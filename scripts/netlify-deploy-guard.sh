@@ -109,7 +109,7 @@ fi
 # e interpretaria esta linha como "deploy publicado" — mesmo sem ter
 # publicado nada. O nome do site e o ID bastam para diagnóstico.
 echo "→ site alvo: ${SITE_NAME} (id ${SITE_ID})"
-echo "→ executando: netlify $*"
+echo "→ executando: netlify $* --site $SITE_ID"
 
 # A saída do CLI vai para um arquivo e depois é exibida no log da Actions
 # (antes ela só ia para /tmp/deploy.log e era grepada por URL, escondendo o
@@ -131,8 +131,34 @@ echo "→ executando: netlify $*"
 #   2. --no-telemetry     → não abre prompt de telemetria
 #   3. timeout            → se travar, morre em DEPLOY_TIMEOUT_SEG
 DEPLOY_TIMEOUT_SEG="${DEPLOY_TIMEOUT_SEG:-300}"
-timeout --foreground "$DEPLOY_TIMEOUT_SEG" \
-  netlify --non-interactive --no-telemetry "$@" > /tmp/netlify-deploy.log 2>&1
+
+# ⚠️ `--site` SEMPRE explícito. Sem ele, se o token do secret estiver
+# inválido (expirado), o CLI não consegue ler o site e cai no prompt
+# interativo "This folder isn't linked to a project yet / What would you
+# like to do?" — em CI não há TTY, então o passo fica in_progress POR
+# HORAS (já aconteceu: um deploy ficou 33 minutos pendurado) e, como o
+# grupo de concorrência tem `cancel-in-progress: true`, o deploy seguinte
+# era cancelado e o site ficava defasado em vários commits.
+#
+# Com `--site`, o CLI vai direto à API: ou publica, ou falha na hora com
+# "Unauthorized: could not retrieve project".
+#
+# ⚠️ `--non-interactive` e `--no-telemetry` NÃO existem no netlify-cli v27
+# (erro: "unknown option") e faziam o deploy falhar sempre. A telemetria
+# se desliga pela variável de ambiente NETLIFY_TELEMETRY_DISABLED.
+cmd=(netlify "$@")
+tem_site_explicito=0
+for arg in "$@"; do
+  case "$arg" in
+    --site|--site=*|--create-site|--site-name) tem_site_explicito=1 ;;
+  esac
+done
+if [ "$tem_site_explicito" -eq 0 ]; then
+  cmd+=(--site "$SITE_ID")
+fi
+
+NETLIFY_TELEMETRY_DISABLED=1 timeout --foreground "$DEPLOY_TIMEOUT_SEG" \
+  "${cmd[@]}" > /tmp/netlify-deploy.log 2>&1
 rc=$?
 if [ "$rc" -eq 124 ]; then
   echo "❌ netlify-cli excedeu ${DEPLOY_TIMEOUT_SEG}s e foi interrompido."
