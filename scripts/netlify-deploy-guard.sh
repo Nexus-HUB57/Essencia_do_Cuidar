@@ -88,10 +88,10 @@ for arg in "$@"; do
     # A tentativa com token (que acabou de falhar) deixou o log em
     # /tmp/netlify-deploy.log — o workflow sobrescreve /tmp/deploy.log com a
     # tentativa anônima, então é daqui que a causa original sai.
-    if [[ -s /tmp/netlify-deploy.log ]]; then
+    if [ -s /tmp/netlify-deploy.log ]; then
       echo ""
       echo "--- causa original (deploy com token) -------------------------"
-      tail -25 /tmp/netlify-deploy.log
+      tail -n 25 /tmp/netlify-deploy.log
       echo "--------------------------------------------------------------"
     fi
     exit 1
@@ -157,10 +157,28 @@ if [ "$tem_site_explicito" -eq 0 ]; then
   cmd+=(--site "$SITE_ID")
 fi
 
-NETLIFY_TELEMETRY_DISABLED=1 timeout --foreground "$DEPLOY_TIMEOUT_SEG" \
-  "${cmd[@]}" > /tmp/netlify-deploy.log 2>&1
+# ⚠️ SEM `timeout`: nas runners do GitHub (Ubuntu 26.04) o `timeout` é a
+# reimplementação em Rust (uutils) e falha ao spawnar o processo com
+# "failed to execute process: Resource temporarily unavailable (os error 11)"
+# — o deploy nem começava. O mesmo happened com o `tee` (panic). Por isso
+# aqui o watchdog é feito em bash puro: o CLI roda em background e um
+# temporizador em background mata o grupo de processos se ele passar do
+# prazo.
+NETLIFY_TELEMETRY_DISABLED=1 "${cmd[@]}" > /tmp/netlify-deploy.log 2>&1 &
+cli_pid=$!
+
+# O watchdog redireciona a saída: se herdar o stdout do wrapper, ele segura
+# o pipe aberto e quem lê a saída (ex.: `| tail`) fica esperando até o
+# sleep terminar.
+( sleep "$DEPLOY_TIMEOUT_SEG"; kill -TERM "$cli_pid" 2>/dev/null ) > /dev/null 2>&1 &
+watchdog_pid=$!
+
+wait "$cli_pid"
 rc=$?
-if [ "$rc" -eq 124 ]; then
+
+kill "$watchdog_pid" 2>/dev/null
+wait "$watchdog_pid" 2>/dev/null
+if [ "$rc" -eq 143 ] || [ "$rc" -eq 124 ]; then
   echo "❌ netlify-cli excedeu ${DEPLOY_TIMEOUT_SEG}s e foi interrompido."
   echo "   O passo seria travado indefinidamente (e cancelaria o próximo"
   echo "   deploy por causa do concurrency: cancel-in-progress)."
@@ -169,5 +187,5 @@ if [ "$rc" -eq 124 ]; then
   echo "------------------------------------------------------------------"
   rc=1
 fi
-cat /tmp/netlify-deploy.log
+tail -n 60 /tmp/netlify-deploy.log
 exit "$rc"
