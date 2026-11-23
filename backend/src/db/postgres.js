@@ -175,28 +175,6 @@ export async function initSchema() {
       criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
-    CREATE TABLE IF NOT EXISTS rag_documentos (
-      id SERIAL PRIMARY KEY,
-      doc_id TEXT NOT NULL UNIQUE,
-      tipo TEXT NOT NULL,
-      titulo TEXT NOT NULL,
-      fonte TEXT,
-      ref_id INTEGER,
-      conteudo TEXT NOT NULL,
-      criado_em TEXT NOT NULL DEFAULT (now()::text)
-    );
-
-    CREATE TABLE IF NOT EXISTS rag_chunks (
-      id SERIAL PRIMARY KEY,
-      doc_id TEXT NOT NULL REFERENCES rag_documentos(doc_id) ON DELETE CASCADE,
-      chunk_index INTEGER NOT NULL,
-      conteudo TEXT NOT NULL,
-      embedding TEXT NOT NULL,
-      tokens INTEGER NOT NULL DEFAULT 0,
-      criado_em TEXT NOT NULL DEFAULT (now()::text),
-      UNIQUE(doc_id, chunk_index)
-    );
-
     CREATE TABLE IF NOT EXISTS webhook_logs (
       id SERIAL PRIMARY KEY,
       tipo TEXT NOT NULL,
@@ -223,8 +201,6 @@ export async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_av_contratante ON avaliacoes(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
     CREATE INDEX IF NOT EXISTS idx_visualizacoes_vaga ON vaga_visualizacoes(id_vaga);
-    CREATE INDEX IF NOT EXISTS idx_rag_chunks_doc ON rag_chunks(doc_id);
-    CREATE INDEX IF NOT EXISTS idx_rag_docs_tipo ON rag_documentos(tipo);
 
     CREATE TABLE IF NOT EXISTS verificacao_registros (
       id SERIAL PRIMARY KEY,
@@ -389,6 +365,27 @@ export async function initSchema() {
       nota INTEGER CHECK(nota BETWEEN 1 AND 5),
       comentario TEXT,
       UNIQUE(id_protocolo, tipo_user)
+    );
+
+    -- Assistente RAG — documentos indexados e seus chunks (busca semântica).
+    CREATE TABLE IF NOT EXISTS rag_documentos (
+      id SERIAL PRIMARY KEY,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga', 'profissional', 'conhecimento')),
+      ref_id INTEGER,
+      titulo TEXT NOT NULL,
+      conteudo TEXT NOT NULL,
+      origem TEXT,
+      embedding TEXT,
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+    );
+
+    CREATE TABLE IF NOT EXISTS rag_chunks (
+      id SERIAL PRIMARY KEY,
+      id_documento INTEGER NOT NULL REFERENCES rag_documentos(id) ON DELETE CASCADE,
+      ordem INTEGER NOT NULL DEFAULT 0,
+      conteudo TEXT NOT NULL,
+      embedding TEXT,
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     -- Reivindicação de liberação de pagamento (trava de concorrência).

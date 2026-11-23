@@ -164,6 +164,18 @@ fi
 # aqui o watchdog é feito em bash puro: o CLI roda em background e um
 # temporizador em background mata o grupo de processos se ele passar do
 # prazo.
+# Limita o heap do Node do netlify-cli. O runner de repositório público
+# tem 7 GB e o job já usou o build do Vite, o tsc, o check pré-deploy e o
+# `npm install -g netlify-cli` (1188 pacotes) antes de chegar aqui: sem o
+# limite, o V8 do CLI crescia até o cgroup matar o processo ("Out of
+# memory" na anotação da run).
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1024}"
+
+# Devolve memória ao sistema antes de subir o CLI (o page cache dos npm/
+# node_modules conta no limite do cgroup). Best-effort: sem sudo, segue.
+sync 2>/dev/null || true
+sudo -n sh -c "echo 3 > /proc/sys/vm/drop_caches" 2>/dev/null || true
+
 NETLIFY_TELEMETRY_DISABLED=1 "${cmd[@]}" > /tmp/netlify-deploy.log 2>&1 &
 cli_pid=$!
 

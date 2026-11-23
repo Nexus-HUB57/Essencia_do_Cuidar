@@ -128,6 +128,23 @@ echo "› 3. Build do frontend (npm run build em frontend/):"
 echo ""
 
 cd "$ROOT_DIR/frontend"
+
+# Reaproveita o build já feito no passo anterior do workflow, quando ele
+# existe e está mais novo que as fontes. Sem isto o job de deploy fazia
+# DOIS builds do Vite (o do passo "Build" + este) — dois picos de memória
+# seguidos, e o runner de repo público tem 7 GB: era o que matava o job
+# com "Out of memory".
+build_reaproveitavel() {
+  [ -f dist/index.html ] || return 1
+  local mais_novo
+  mais_novo=$(find src public index.html vite.config.ts package.json \
+    -newer dist/index.html 2>/dev/null | head -1)
+  [ -z "$mais_novo" ]
+}
+
+if build_reaproveitavel; then
+  yellow "Build reaproveitado (dist/ mais novo que as fontes — novo build evitado)"
+else
 if npm run build > /tmp/build.log 2>&1; then
   green "Build OK"
   if [ -f dist/index.html ]; then
@@ -170,6 +187,7 @@ if npm run build > /tmp/build.log 2>&1; then
 else
   red "Build falhou"
   tail -20 /tmp/build.log
+fi
 fi
 
 # ───────────────────────────────────────────────────────────────────
@@ -261,6 +279,21 @@ fi
 
 # ───────────────────────────────────────────────────────────────────
 # Resumo
+# ───────────────────────────────────────────────────────────────────
+# 5. Libera memória antes do deploy
+# ───────────────────────────────────────────────────────────────────
+echo ""
+echo "› 5. Preparando memória para o deploy:"
+echo ""
+# O runner de repositório público tem 7 GB. Até aqui já passaram o npm ci,
+# o tsc, o build do Vite e (no passo seguinte) o `npm install -g
+# netlify-cli` — o page cache desses arquivos conta no limite do cgroup e
+# era o que triggerava o "Out of memory" no job de deploy.
+sync 2>/dev/null || true
+sudo -n sh -c "echo 3 > /proc/sys/vm/drop_caches" 2>/dev/null \
+  && green "page cache liberado (sudo)" \
+  || yellow "sem sudo — page cache não liberado (deploy pode apertar memória)"
+
 # ───────────────────────────────────────────────────────────────────
 echo ""
 echo "============================================================"
