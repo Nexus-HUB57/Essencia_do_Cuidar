@@ -4,10 +4,14 @@
  */
 import { useTranslation } from 'react-i18next';
 import { supportedLanguages } from '../i18n/config';
+import { normalizarIdioma } from '../i18n/normalize';
 
 export default function LanguageSwitcher() {
   const { i18n } = useTranslation();
-  const current = i18n.language || 'pt-BR';
+  // Normaliza: o resolvedLanguage pode ser uma tag regional ("en-US") que
+  // não existe entre as opções — nesse caso o <select> exibia a primeira
+  // opção ("Português") numa tela em inglês.
+  const current = normalizarIdioma(i18n.resolvedLanguage || i18n.language);
 
   return (
     <select

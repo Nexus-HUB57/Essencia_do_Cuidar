@@ -7,6 +7,57 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.4.2] — 2026-11-23 — Demonstração da custódia e correção de idioma
+
+### Corrigido — O seletor de idioma mentia sobre o idioma atual
+
+- **O seletor mostrava "🇧🇷 Português" numa tela em inglês.** O
+  `i18next-browser-languagedetector` cacheia no localStorage o idioma
+  **detectado** (`en-US`), não um dos três idiomas suportados. Como o
+  `<select value="en-US">` não tinha opção correspondente, o navegador
+  exibia a primeira — "Português" — enquanto a interface era renderizada
+  em inglês.
+- Novo `frontend/src/i18n/normalize.ts` centraliza a normalização
+  (`en-US` → `en`, `es-419` → `es`, `pt_BR` → `pt-BR`, desconhecido →
+  `pt-BR`). O detector, o seletor e o `<html lang>` passam a falar a mesma
+  língua.
+- `<html lang>` agora acompanha o idioma exibido. Antes ficava travado em
+  `pt-BR`, o que enganava leitores de tela e buscadores.
+- **Armadilha do i18next:** `nonExplicitSupportedLngs: true` faz o i18next
+  tratar `"pt"` (sem região) como idioma suportado e tentar carregar um
+  bundle inexistente — a tela inteira passava a mostrar chaves cruas em
+  pt-BR. A variante segura usa `supportedLngs` **sem**
+  `nonExplicitSupportedLngs`, já que o `convertDetectedLanguage` normaliza
+  antes.
+- Regressão coberta por `backend/tests/i18n-idioma.test.js`.
+
+### Corrigido — A demonstração abria sem nenhum protocolo
+
+- **O seed criava zero protocolos.** A custódia e o check-in/out estavam
+  implementados e testados (`smoke-test-custodia.py` cobre a jornada
+  inteira), mas quem abria o app via o painel de protocolos **vazio** —
+  sem nenhuma pista de que a funcionalidade existia.
+- O seed agora cria **5 protocolos** cobrindo cada estágio da jornada:
+  `enviado` (PCM aguardando aceite), `em_custodia` (pagamento retido),
+  `checkout_pendente` (check-in feito, aguardando check-out),
+  `checkout_completo` (check-out dos dois lados, aguardando a liberação em
+  72h) e `liberado` (custódia transferida ao profissional). Com check-ins,
+  check-outs e registros de custódia correspondentes.
+- As vagas novas (`vMaria4`, `vMaria5`) existem exatamente para isso: o
+  matcher **não recomenda quem já se candidatou** à vaga, então usar as
+  vagas do showcase de matching quebraria a vitrine do ranking.
+
+### Verificado
+
+- `smoke-test.sh` 38/38 · `smoke-test-v2.sh` 31/31 ·
+  `smoke-test-matching.sh` 40/40 · `smoke-test-custodia.py` 29 checks
+- vitest **197 testes / 16 arquivos** (era 191/15)
+- `tsc --noEmit` sem erros · `vite build` OK
+- Navegador: painel de protocolos renderiza os 5 estados em pt-BR/es/en
+  sem erro de console
+
+---
+
 ## [1.4.1] — 2026-11-12 — Correções de bugs
 
 Revisão pós-entrega: bugs achados rodando o app de verdade (navegador +
