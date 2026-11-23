@@ -1,9 +1,13 @@
 import { useTranslation, Trans } from 'react-i18next';
+import { DivisorBotanico, CoracaoMaos } from '../components/ilustracoes';
 
 export default function ComoFunciona() {
   const { t } = useTranslation();
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 fade-in">
+      <div className="w-14 mx-auto mb-4">
+        <CoracaoMaos className="w-full h-auto" titulo="Emblema da marca" />
+      </div>
       <h1 className="text-3xl md:text-4xl font-bold text-center mb-3">{t('comoFunciona.title')}</h1>
       <p className="text-center text-slate-500 mb-12 max-w-xl mx-auto">
         {t('comoFunciona.subtitle')}
@@ -25,6 +29,8 @@ export default function ComoFunciona() {
           ))}
         </ol>
       </section>
+
+      <DivisorBotanico className="w-full max-w-sm mx-auto mb-10 opacity-80" titulo="Divisor botânico da marca" />
 
       <section className="mb-12">
         <h2 className="text-2xl font-bold text-emerald-600 mb-6">{t('comoFunciona.forProfessionals')}</h2>

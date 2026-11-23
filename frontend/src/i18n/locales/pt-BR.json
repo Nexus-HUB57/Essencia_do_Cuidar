@@ -642,6 +642,7 @@
     "statusPendente": "Pendente",
     "statusPago": "Pago",
     "statusCancelado": "Cancelado",
-    "precoValor": "R$ {{valor}}"
+    "precoValor": "R$ {{valor}}",
+    "semCatalogo": "Ainda não há plantões publicados — volte em breve."
   }
 }

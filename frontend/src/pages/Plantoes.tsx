@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../utils/api';
 import { useAuth, getErrorMessage } from '../context/AuthContext';
+import { FaixaCenario, CenarioHospitalar, CenarioDomiciliar, CenarioVazio } from '../components/ilustracoes';
 
 interface Plantao {
   id: string;
@@ -133,20 +134,30 @@ export default function Plantoes() {
       {erro && <p className="text-rose-600 text-sm mt-4">{erro}</p>}
       {carregando ? (
         <p className="text-center text-slate-400 py-12">{t('common.loading')}</p>
+      ) : visiveis.length === 0 ? (
+        <div className="card mt-6">
+          <CenarioVazio className="w-full max-w-xs mx-auto h-auto" />
+          <p className="text-center text-slate-400 mt-3">{t('plantoes.semCatalogo')}</p>
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
           {visiveis.map((p) => (
-            <div key={p.id} className="card flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-2">
+            <div key={p.id} className="card flex flex-col gap-3 !p-0 overflow-hidden">
+              {/* faixa de cenário: hospital para enfermagem, casa para cuidador */}
+              <FaixaCenario
+                className="rounded-b-none border-b border-slate-100 dark:border-slate-700"
+                cena={p.familia === 'enfermagem' ? <CenarioHospitalar /> : <CenarioDomiciliar />}
+              />
+              <div className="flex items-start justify-between gap-2 px-6 pt-2">
                 <h3 className="font-semibold leading-snug">{p.titulo}</h3>
                 <span className={p.familia === 'enfermagem' ? 'badge-blue' : 'badge-green'}>
                   {t(`plantoes.familia.${p.familia}`)}
                 </span>
               </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-slate-500 dark:text-slate-400 px-6">
                 {t('plantoes.duracao', { horas: p.horas })}
               </p>
-              <div className="mt-auto flex items-end justify-between gap-2">
+              <div className="mt-auto flex items-end justify-between gap-2 px-6 pb-6">
                 <div>
                   <p className="text-2xl font-bold text-slate-900 dark:text-white">{p.preco_formatado}</p>
                   <p className="text-xs text-slate-400">{t('plantoes.pagamentoUnico')}</p>

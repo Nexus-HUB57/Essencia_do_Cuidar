@@ -642,6 +642,7 @@
     "statusPendente": "Pending",
     "statusPago": "Paid",
     "statusCancelado": "Cancelled",
-    "precoValor": "R$ {{valor}}"
+    "precoValor": "R$ {{valor}}",
+    "semCatalogo": "No shifts published yet — please check back soon."
   }
 }

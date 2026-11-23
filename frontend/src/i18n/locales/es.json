@@ -642,6 +642,7 @@
     "statusPendente": "Pendiente",
     "statusPago": "Pagado",
     "statusCancelado": "Cancelado",
-    "precoValor": "R$ {{valor}}"
+    "precoValor": "R$ {{valor}}",
+    "semCatalogo": "Todavía no hay guardias publicados — vuelve pronto."
   }
 }

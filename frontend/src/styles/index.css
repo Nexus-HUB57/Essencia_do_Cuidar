@@ -64,3 +64,58 @@
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ==========================================================================
+   Ilustrações "essência" — fauna, flora, avatares e cenários em SVG.
+   Toda animação aqui é decorativa e desligada para quem prefere
+   movimento reduzido (prefers-reduced-motion), sem quebrar o layout.
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  .ilustracao-animada {
+    animation: essenciaFlutuar 6s ease-in-out infinite;
+  }
+  .ilustracao-planar  { animation: essenciaPlanar 5s ease-in-out infinite; }
+  .ilustracao-oscilar { animation: essenciaOscilar 7s ease-in-out infinite; transform-origin: 50% 100%; }
+  .ilustracao-asas    { animation: essenciaAsas 0.9s ease-in-out infinite; }
+  .ilustracao-brilhar { animation: essenciaBrilhar 3.5s ease-in-out infinite; }
+
+  @keyframes essenciaFlutuar {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-8px); }
+  }
+  @keyframes essenciaPlanar {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    30%      { transform: translate(6px, -10px) rotate(3deg); }
+    65%      { transform: translate(-5px, -4px) rotate(-2deg); }
+  }
+  @keyframes essenciaOscilar {
+    0%, 100% { transform: rotate(0deg); }
+    35%      { transform: rotate(1.6deg); }
+    70%      { transform: rotate(-1.4deg); }
+  }
+  @keyframes essenciaAsas {
+    0%, 100% { transform: scaleY(1); }
+    50%      { transform: scaleY(0.55); }
+  }
+  @keyframes essenciaBrilhar {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 1; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ilustracao-animada,
+  .ilustracao-planar,
+  .ilustracao-oscilar,
+  .ilustracao-asas,
+  .ilustracao-brilhar {
+    animation: none !important;
+  }
+}
+
+/* Moldura padrão das cenas: cantos suaves, fundo creme e profundidade leve.
+   O <svg> em si é inline (zero requisições); a moldura é CSS para poder
+   variar por contexto (card, hero, empty-state) sem duplicar arte. */
+.moldura-cenario {
+  @apply rounded-2xl shadow-card overflow-hidden bg-gradient-to-br from-essencia-creme-50 to-essencia-salvia-50
+         dark:from-slate-800 dark:to-slate-800;
+}

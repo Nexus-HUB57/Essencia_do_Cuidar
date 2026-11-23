@@ -7,6 +7,68 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.6.0] — 2026-11-23 — Sistema de ilustrações essência (fauna, flora, avatares, cenários)
+
+### Adicionado — Ilustrações vetoriais da identidade dos roteiros
+
+- **Novo módulo `frontend/src/components/ilustracoes/`** — todo o universo
+  visual dos roteiros oficiais (verde sálvia, dourado, creme) virou SVG
+  inline, com uma paleta única (`paleta.ts`) e um vocabulário só de
+  animação (`index.css`):
+  - **Flora**: `RamoBotanico` (ramo dourado em pares opostos, com `flip`),
+    `DivisorBotanico` (ornamento central das artes), `VinhaCanto`,
+    `FolhaSolta` e o emblema `CoracaoMaos` ("Cuidar com amor é a nossa
+    essência" desenhado).
+  - **Fauna**: `BeijaFlor` (asas em batida sutil), `Borboleta` e
+    `Passarinho`.
+  - **Avatares**: `AvatarCuidadora`, `AvatarEnfermeira`, `AvatarMedico`,
+    `AvatarIdoso`, `AvatarIdosa` e `AvatarFamilia` — busto circular com
+    recorte comum, dois tons de pele por prop `tom`, sem emojis.
+  - **Cenários**: `CenarioDomiciliar` (cuidadora oferecendo chá à idosa),
+    `CenarioHospitalar` (enfermeira, leito, soro e monitor), 
+    `CenarioConsulta` (caminhada acompanhada até a unidade),
+    `CenarioJardim` (beija-flor entre as flores) e `CenarioVazio`
+    (sala quieta para estados sem registro).
+- **Integrações**: hero da landing (vinhas nos cantos, beija-flor planando
+  sobre o card, avatar da cuidadora no lugar do emoji 👵), divisor
+  botânico entre seções, emblema no CTA final, faixas de cenário no topo
+  dos cards de plantão (hospital = enfermagem, casa = cuidador),
+  `EstadoVazio` nos 6 estados vazios dos dois painéis, 404 com beija-flor
+  e emblema/divisor no "Como funciona".
+- **Galeria viva** em `/ilustracoes` — documenta fauna, flora, avatares,
+  cenários e paleta renderizando os componentes reais.
+- **Acessibilidade**: decoração `aria-hidden`; ilustrações semânticas
+  com `role="img"` + `<title>`; toda animação desliga em
+  `prefers-reduced-motion: reduce` (media queries no `index.css`).
+- **Tailwind**: nova paleta `essencia.*` (floresta/salvia/dourado/creme)
+  e keyframes `flutuar/planar/oscilar/asas/brilhar`.
+
+### Alterado — Otimização de payload e limpeza
+
+- **25 MB fora do deploy**: os 6 avatares 3D `.glb` (4,1–4,6 MB cada) em
+  `frontend/public/avatars/` nunca foram referenciados por nenhuma tela e
+  eram copiados para o `dist` a cada build. Agora vivem em
+  `arte-3d/avatares-glb/` (fora do caminho da Netlify, com o
+  `manifest.json` e o `.netlifyignore` atualizados). Build do frontend:
+  **~27 MB → 1,9 MB**.
+- Cards de plantão usam `!p-0` + faixa de cenário em vez de padding fixo;
+  nova chave i18n `plantoes.semCatalogo` em pt-BR/es/en para o estado
+  vazio do catálogo.
+
+### Verificado
+
+- vitest **222 testes / 18 arquivos** · `smoke-test.sh` **57/57** ·
+  `smoke-test-v2.sh` 31/31 · `smoke-test-matching.sh` 40/40 ·
+  `smoke-test-custodia.py` jornada completa · `tsc --noEmit` limpo ·
+  `vite build` ok · validação visual no navegador (landing, /plantoes,
+  /ilustracoes, 404, dark-ready nos estados vazios).
+- Observação de ambiente: com `DATABASE_URL` apontando para um Postgres
+  ausente (sandbox local), o contador de webhooks do `smoke-test.sh`
+  conecta no Postgres e marca as seções [14]/[26] como falha — CI e
+  máquina local sem essa variável seguem 57/57.
+
+---
+
 ## [1.5.0] — 2026-11-23 — Plantões via Mercado Pago e retirada de candidatura
 
 ### Adicionado — Plantões avulsos com checkout por Payment Link (Mercado Pago)

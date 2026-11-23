@@ -24,3 +24,4 @@ backend/.dockerignore
 frontend/.env.example
 frontend/.env.production
 frontend/.env.local
+arte-3d/**

@@ -14,6 +14,7 @@ import {
   CabecalhoRecomendacoes,
   VazioRecomendacoes
 } from '../components/Recomendacoes';
+import { EstadoVazio } from '../components/ilustracoes';
 
 const DISPONIBILIDADE_OPCOES = [
   { v: 'manha', l: 'manha' },
@@ -229,8 +230,8 @@ export default function DashboardProfissional() {
           {loading ? (
             <p className="text-center text-slate-400 py-12">{t('common.loadingJobs')}</p>
           ) : vagas.length === 0 ? (
-            <div className="card text-center py-12 text-slate-500">
-              {t('dashboard.noJobsFound')}
+            <div className="card">
+              <EstadoVazio mensagem={t('dashboard.noJobsFound')} />
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-4">
@@ -339,8 +340,8 @@ export default function DashboardProfissional() {
           {loading ? (
             <p className="text-center text-slate-400 py-12">{t('common.loading')}</p>
           ) : cands.length === 0 ? (
-            <div className="card text-center py-12 text-slate-500">
-              {t('dashboard.noApplications')}
+            <div className="card">
+              <EstadoVazio mensagem={t('dashboard.noApplications')} />
             </div>
           ) : (
             <div className="space-y-3">
@@ -391,8 +392,11 @@ export default function DashboardProfissional() {
           {loading ? (
             <p className="text-center text-slate-400 py-12">{t('common.loading')}</p>
           ) : favoritas.length === 0 ? (
-            <div className="card text-center py-12 text-slate-500">
-              Você ainda não favoritou nenhuma vaga. Clique no 🤍 em uma vaga para salvar.
+            <div className="card">
+              <EstadoVazio
+                mensagem="Você ainda não favoritou nenhuma vaga."
+                dica="Clique no 🤍 em uma vaga para salvar."
+              />
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-4">
