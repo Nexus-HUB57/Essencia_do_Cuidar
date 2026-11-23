@@ -1,10 +1,41 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import fs from 'node:fs';
+import path from 'node:path';
+
+/**
+ * Remove os avatares 3D do bundle publicado.
+ *
+ * `frontend/public/avatars/` tem 6 arquivos .glb (25 MB) que NENHUM código
+ * do frontend usa — não há three.js, react-three-fiber nem componente que
+ * carregue `/avatars/*.glb` (a única referência é o manifest.json ao lado).
+ *
+ * Como o Vite copia `public/` inteiro para `dist/`, esses 25 MB iam parar
+ * no bundle: 93% do payload do deploy, o que estourava a memória do runner
+ * do GitHub Actions (7 GB em repositório público) e matava o job de deploy
+ * com "Out of memory".
+ *
+ * Os arquivos continuam versionados no repo (frontend/public/avatars/) —
+ * só não são publicados. Se a feature 3D entrar, é só remover este plugin.
+ */
+function removeUnusedAvatars(): Plugin {
+  return {
+    name: 'remove-unused-avatars',
+    closeBundle() {
+      const dir = path.resolve(__dirname, 'dist/avatars');
+      if (fs.existsSync(dir)) {
+        fs.rmSync(dir, { recursive: true, force: true });
+        console.log('  [avatars] .glb não utilizados removidos do dist/ (25 MB fora do deploy)');
+      }
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
     react(),
+    removeUnusedAvatars(),
     VitePWA({
       registerType: 'autoUpdate',
       // O registro é feito em src/main.tsx (registro manual, com log de erro).

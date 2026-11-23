@@ -1,0 +1,26 @@
+# .netlifyignore — o que a Netlify NÃO deve publicar.
+#
+# Nome correto: com o ponto. Um arquivo chamado "netlifyignore" (sem o
+# ponto) é ignorado pela Netlify — o nome certo é ".netlifyignore".
+#
+# Na prática, o publish dir já é "frontend/dist" (ver netlify.toml), então
+# backend/ e scripts/ nunca chegam ao bundle. Estas regras são uma rede de
+# segurança para o caso de o base directory mudar para a raiz do repo.
+#
+# ATENÇÃO: NÃO exclua frontend/package-lock.json aqui. A Netlify roda
+# `npm ci` e precisa do lockfile, senão o build falha com EUSAGE.
+#
+# Também NÃO exclua netlify.toml: é dele que a Netlify lê base, publish,
+# command, redirects e headers do site.
+
+backend/**
+scripts/**
+.github/**
+*.md
+.gitignore
+docker-compose.yml
+backend/Dockerfile
+backend/.dockerignore
+frontend/.env.example
+frontend/.env.production
+frontend/.env.local
