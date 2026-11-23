@@ -58,29 +58,29 @@ export default function OnboardingConnectModal({ onClose }: { onClose: () => voi
 
         {connect && (
           <>
-            <p className="text-xs text-slate-500 mb-2">Conta: <span className="font-mono">{connect.stripe_account_id}</span></p>
+            <p className="text-xs text-slate-500 mb-2">{t('connect.account')} <span className="font-mono">{connect.stripe_account_id}</span></p>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
-                <span>Detalhes submetidos</span>
+                <span>{t('connect.detailsSubmitted')}</span>
                 <span className={connect.detalhes_submetidos ? 'text-emerald-600' : 'text-amber-600'}>
-                  {connect.detalhes_submetidos ? '✓' : 'pendente'}
+                  {connect.detalhes_submetidos ? '✓' : t('connect.pending')}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Pagamentos habilitados</span>
+                <span>{t('connect.paymentsEnabled')}</span>
                 <span className={connect.charges_enabled ? 'text-emerald-600' : 'text-amber-600'}>
-                  {connect.charges_enabled ? '✓' : 'pendente'}
+                  {connect.charges_enabled ? '✓' : t('connect.pending')}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Repasses habilitados</span>
+                <span>{t('connect.payoutsEnabled')}</span>
                 <span className={connect.payouts_enabled ? 'text-emerald-600' : 'text-amber-600'}>
-                  {connect.payouts_enabled ? '✓' : 'pendente'}
+                  {connect.payouts_enabled ? '✓' : t('connect.pending')}
                 </span>
               </div>
             </div>
             <button onClick={onboarding} className="btn-primary w-full mt-4">
-              {connect.detalhes_submetidos ? 'Reabrir onboarding' : 'Completar onboarding'}
+              {connect.detalhes_submetidos ? t('connect.reopenOnboarding') : t('connect.completeOnboarding')}
             </button>
           </>
         )}

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "postinstall": "bash ../scripts/netlify-deploy-guard.sh --install",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0"
   },

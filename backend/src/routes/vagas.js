@@ -1,9 +1,46 @@
 import express from 'express';
 import { createRouter } from '../middleware/async.js';
+import jwt from 'jsonwebtoken';
 import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { notifyNetlify } from '../services/netlify.js';
+import { recomendarParaVaga, resolverProfissao } from '../services/matching.js';
+import { notificarVagaStatus } from '../services/event-bus.js';
+import { buscarVagas, isFtsEnabled } from '../services/search-fts.js';
+import { PROFISSOES } from '../services/profissoes.js';
+
+/**
+ * Grafias que devem casar com cada profissão canônica quando o usuário
+ * filtra a listagem de vagas.
+ *
+ * Derivado de `PROFISSOES[].sinonimos` (fonte única de verdade) + alguns
+ * radicais extras que aparecem em `vagas.profissional_desejado` (texto
+ * livre) mas não constam como sinônimo literal na taxonomia.
+ */
+const RADICAIS_EXTRAS = {
+  cuidador: ['cuidador', 'cuidadora', 'acompanhante', 'idosos', 'geriatria', 'alzheimer'],
+  fisioterapeuta: ['fisioterapeuta', 'fisioterapia', 'fisio'],
+  enfermeiro: ['enfermeiro', 'enfermeira', 'enfermagem'],
+  tecnico_enfermagem: ['tecnico de enfermagem', 'tecnica de enfermagem', 'auxiliar de enfermagem', 'tecnico_enfermagem'],
+  psicologo: ['psicologo', 'psicologa', 'psicologia', 'psicoterapia'],
+  terapeuta_ocupacional: ['terapeuta ocupacional', 'ocupacional', 'terapia ocupacional'],
+  fonoaudiologo: ['fonoaudiologo', 'fonologia'],
+  nutricionista: ['nutricionista', 'nutricao', 'nutrição'],
+  medico: ['medico', 'medica', 'medicina'],
+  dentista: ['dentista', 'odontologo', 'odontologia']
+};
+
+const PADROES_PROFISSAO = (() => {
+  const out = {};
+  for (const p of PROFISSOES) {
+    const extras = RADICAIS_EXTRAS[p.id] || [];
+    const todos = new Set([...(p.sinonimos || []), ...extras]);
+    // Só entram padrões com 4+ caracteres — "to" casaria com "Todo".
+    out[p.id] = Array.from(todos).filter(s => s && s.length >= 4);
+  }
+  return out;
+})();
 
 const router = createRouter(express);
 
@@ -19,59 +56,189 @@ const vagaSchema = {
   tipo_contrato:        { type: 'enum', values: ['PJ', 'CLT'] },
   remuneracao_tipo:     { type: 'enum', values: ['plantao', 'hora'] },
   remuneracao_valor:    { type: 'number', min: 0 },
-  regiao:               { type: 'string', max: 80 }
+  regiao:               { type: 'string', max: 80 },
+  regiao_uf:            { type: 'string', min: 2, max: 2 },
+  cidade:               { type: 'string', max: 100 },
+  carga_horaria:        { type: 'string', max: 100 }
 };
 
-// Critérios de ordenação aceitos em ?ordenar=
-const ORDENACOES = {
-  remuneracao: 'v.remuneracao_valor',
-  complexidade: 'v.complexidade',
-  regiao: 'v.regiao',
-  recentes: 'v.criado_em'
-};
-
+/**
+ * GET /api/vagas
+ *
+ * Listagem de vagas ativas com filtros combináveis.
+ *
+ * Filtros do matching simplificado (Sprint 2 / #26): `cidade`,
+ * `cargaHoraria`.
+ *
+ * Filtros de listagem (restaurados): `profissional`, `complexidade`,
+ * `regiao`, `remuneracaoMin`, `tipoContrato`, `remuneracaoTipo`,
+ * `jornadaEscala`. O frontend (DashboardProfissional e VagasPublicas) já
+ * enviava parte deles desde antes do #26 — quando foram removidos do
+ * backend, os campos de filtro continuaram na UI mas passaram a ser
+ * ignorados, e a resposta trazia a lista inteira.
+ *
+ * Todos os filtros são somados (AND). Paginação e ordenação mantidas.
+ */
 router.get('/', async (req, res) => {
-  const { profissional, complexidade, regiao, remuneracaoMin, ordenar, limite, offset } = req.query;
+  const {
+    // Filtros do matching simplificado (Sprint 2 / #26)
+    cidade, cargaHoraria,
+    // Filtros de listagem clássicos (restaurados — o frontend já os enviava)
+    profissional, complexidade, regiao, remuneracaoMin,
+    tipoContrato, remuneracaoTipo, jornadaEscala,
+    ordenar, limite, offset
+  } = req.query;
   const filters = ["v.status = 'ativa'"];
   const params = [];
 
-  if (profissional) { filters.push('v.profissional_desejado LIKE ?'); params.push(`%${profissional}%`); }
-  if (complexidade) { filters.push('v.complexidade = ?'); params.push(complexidade); }
-  if (regiao)       { filters.push('v.regiao LIKE ?');       params.push(`%${regiao}%`); }
-  if (remuneracaoMin) { filters.push('v.remuneracao_valor >= ?'); params.push(Number(remuneracaoMin)); }
+  // ── Filtros do matching simplificado (cidade + carga horaria) ──────────
+  if (cidade) {
+    filters.push('v.cidade LIKE ?');
+    params.push(`%${cidade}%`);
+  }
+  if (cargaHoraria) {
+    filters.push('v.carga_horaria LIKE ?');
+    params.push(`%${cargaHoraria}%`);
+  }
 
-  // Ordenação — whitelist para não permitir injeção via nome de coluna
-  const colunaOrdem = ORDENACOES[ordenar] || 'v.criado_em';
-  const direcao = String(req.query.dir || (ordenar === 'remuneracao' ? 'DESC' : 'DESC')).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-  // LIMIT/OFFSET — clamp para evitar abuse
-  const lim = Math.min(Math.max(parseInt(limite, 10) || 100, 1), 200);
-  const off = Math.max(parseInt(offset, 10) || 0, 0);
+  // ── Filtros de listagem ────────────────────────────────────────────────
+  // Estes filtros JÁ ERAM enviados pelo frontend (DashboardProfissional e
+  // VagasPublicas montam `params.profissional`, `params.complexidade`,
+  // `params.regiao` e `params.remuneracaoMin`), mas o #26 os removeu do
+  // backend quando o matching foi reduzido a 2 filtros. O resultado era
+  // uma UI com 4 campos de filtro que não filravam nada — a resposta vinha
+  // com a lista inteira. Aqui eles voltam, somados (não substituindo) aos
+  // filtros novos.
+  if (profissional) {
+    // Filtro por profissão é taxonomia-aware: `profissional_desejado` é
+    // texto livre ("Cuidador de Idosos", "Fisioterapeuta", "Fisioterapia"…),
+    // então um LIKE literal não encontra "Fisioterapia" quando o usuário
+    // procura "Fisioterapeuta". Usamos a mesma canonicalização do motor de
+    // matching (services/matching.js → resolverProfissao) para casar
+    // sinônimos e radicais, e caímos no LIKE quando o texto não pertence
+    // à taxonomia (ex.: "Auxiliar de enfermagem domiciliar").
+    const idProf = resolverProfissao(profissional);
+    const padroes = idProf ? PADROES_PROFISSAO[idProf] : null;
+    if (padroes && padroes.length > 0) {
+      // Casamento por taxonomia: um OR de LIKE sobre as grafias aceitas
+      // para aquele id, cobrindo as variantes que aparecem em `vagas`.
+      const ORs = padroes.map(() => 'v.profissional_desejado LIKE ?').join(' OR ');
+      filters.push(`(${ORs})`);
+      for (const p of padroes) params.push(`%${p}%`);
+    } else {
+      filters.push('v.profissional_desejado LIKE ?');
+      params.push(`%${profissional}%`);
+    }
+  }
+  if (complexidade) {
+    filters.push('v.complexidade = ?');
+    params.push(complexidade);
+  }
+  if (regiao) {
+    filters.push('(v.regiao LIKE ? OR v.cidade LIKE ?)');
+    params.push(`%${regiao}%`, `%${regiao}%`);
+  }
+  if (remuneracaoMin) {
+    filters.push('v.remuneracao_valor >= ?');
+    params.push(Number(remuneracaoMin));
+  }
+  if (tipoContrato) {
+    filters.push('v.tipo_contrato = ?');
+    params.push(tipoContrato);
+  }
+  if (remuneracaoTipo) {
+    filters.push('v.remuneracao_tipo = ?');
+    params.push(remuneracaoTipo);
+  }
+  if (jornadaEscala) {
+    filters.push('v.jornada_escala LIKE ?');
+    params.push(`%${jornadaEscala}%`);
+  }
 
   const where = 'WHERE ' + filters.join(' AND ');
+
+  // Ordenação
+  const ordenarCol = ordenar === 'remuneracao' ? 'v.remuneracao_valor' : 'v.criado_em';
+  const ordenarDir = ordenar === 'antigos' ? 'ASC' : 'DESC';
+
+  // Paginação
+  const limit = Math.max(1, Math.min(Number(limite) || 100, 200));
+  const off = Math.max(0, Number(offset) || 0);
+
   const rows = await db.all(
     `SELECT v.*, u.nome AS contratante_nome
        FROM vagas v
        JOIN users u ON u.id = v.id_contratante
        ${where}
-      ORDER BY ${colunaOrdem} ${direcao}, v.id DESC
+      ORDER BY ${ordenarCol} ${ordenarDir}
       LIMIT ? OFFSET ?`,
-    [...params, lim, off]
+    [...params, limit, off]
   );
-  res.json({ vagas: rows, total: rows.length, limite: lim, offset: off, ordenado_por: ordenar || 'recentes' });
+
+  const total = await db.get(
+    `SELECT COUNT(*) AS n FROM vagas v ${where}`,
+    params
+  );
+
+  res.json({
+    vagas: rows,
+    total: total?.n || 0,
+    limite: limit,
+    offset: off,
+    filtros_disponiveis: [
+      'cidade', 'cargaHoraria',
+      'profissional', 'complexidade', 'regiao', 'remuneracaoMin',
+      'tipoContrato', 'remuneracaoTipo', 'jornadaEscala'
+    ]
+  });
+});
+
+/**
+ * GET /api/vagas/buscar?q=<texto>
+ * Busca textual FTS (mantida — busca em servico_descricao + cidade + carga_horaria)
+ */
+router.get('/buscar', async (req, res) => {
+  const { q, limite, offset } = req.query;
+  const rows = await buscarVagas(q || '', { limite, offset });
+  res.json({
+    vagas: rows,
+    total: rows.length,
+    fts_ativo: isFtsEnabled(),
+    query: q || '',
+    limite: Number(limite) || 20,
+    offset: Number(offset) || 0
+  });
+});
+
+/**
+ * GET /api/vagas/:id/recomendar
+ * M1 — Matching automático: top N profissionais recomendados para uma vaga.
+ * Score baseado em: cidade (peso 0.50) + carga_horaria (peso 0.50)
+ */
+router.get('/:id/recomendar', authRequired, requireTipo('contratante'), async (req, res) => {
+  const id = Number(req.params.id);
+  const vaga = await db.get('SELECT id, id_contratante, status FROM vagas WHERE id = ?', [id]);
+  if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
+  if (vaga.id_contratante !== req.user.id) {
+    return res.status(403).json({ error: 'Você não é dono desta vaga' });
+  }
+  const limite = Math.min(Number(req.query.limite) || 10, 50);
+  const minScore = Number(req.query.minScore) || 0.3;
+  const result = await recomendarParaVaga(id, { limite, minScore });
+  res.json(result);
 });
 
 router.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const vaga = await db.get(
-    `SELECT v.*, u.nome AS contratante_nome, u.telefone AS contratante_telefone
+    `SELECT v.*, u.nome AS contratante_nome
        FROM vagas v JOIN users u ON u.id = v.id_contratante
       WHERE v.id = ?`,
     [id]
   );
   if (!vaga) return res.status(404).json({ error: 'Vaga não encontrada' });
 
-  // Registra view
+  // Registra view (best-effort)
   const auth = req.headers.authorization;
   let userId = null;
   if (auth && auth.startsWith('Bearer ')) {
@@ -80,10 +247,14 @@ router.get('/:id', async (req, res) => {
       userId = payload.id;
     } catch {}
   }
-  await db.run('INSERT INTO vaga_visualizacoes (id_vaga, id_user) VALUES (?, ?)', [id, userId]);
-
-  const visRow = await db.get('SELECT COUNT(*) AS n FROM vaga_visualizacoes WHERE id_vaga = ?', [id]);
-  const visualizacoes = visRow?.n || 0;
+  try {
+    await db.run('INSERT INTO vaga_visualizacoes (id_vaga, id_user) VALUES (?, ?)', [id, userId]);
+  } catch {}
+  let visualizacoes = 0;
+  try {
+    const v = await db.get('SELECT COUNT(*) AS n FROM vaga_visualizacoes WHERE id_vaga = ?', [id]);
+    visualizacoes = v?.n || 0;
+  } catch {}
   res.json({ vaga, visualizacoes });
 });
 
@@ -95,18 +266,19 @@ router.post('/', authRequired, requireTipo('contratante'),
         (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
          complexidade, servico_descricao, profissional_desejado,
          jornada_horario, jornada_escala, tipo_contrato, remuneracao_tipo,
-         remuneracao_valor, regiao, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ativa')`,
+         remuneracao_valor, regiao, regiao_uf, cidade, carga_horaria, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ativa')`,
       [
         req.user.id, f.paciente_sexo ?? null, f.paciente_idade ?? null, f.paciente_diagnostico ?? null,
         f.complexidade, f.servico_descricao, f.profissional_desejado,
         f.jornada_horario ?? null, f.jornada_escala ?? null,
         f.tipo_contrato ?? null, f.remuneracao_tipo ?? null,
-        f.remuneracao_valor ?? null, f.regiao ?? null
+        f.remuneracao_valor ?? null, f.regiao ?? null, f.regiao_uf ?? null,
+        f.cidade ?? null, f.carga_horaria ?? null
       ]
     );
     const vaga = await db.get('SELECT * FROM vagas WHERE id = ?', [info.lastInsertRowid]);
-    notifyNetlify('vaga_criada', { vaga_id: vaga.id, contratante_id: req.user.id });
+    notifyNetlify('vaga_criada', { vaga_id: vaga.id, contratante_id: req.user.id }).catch(e => console.warn('[webhook]', e.message));
     res.status(201).json({ vaga });
   }
 );
@@ -133,8 +305,19 @@ router.patch('/:id/status', authRequired, requireTipo('contratante'),
     if (vaga.id_contratante !== req.user.id) {
       return res.status(403).json({ error: 'Você não é dono desta vaga' });
     }
+    const statusAnterior = vaga.status;
     await db.run('UPDATE vagas SET status = ? WHERE id = ?', [req.body.status, id]);
     const updated = await db.get('SELECT * FROM vagas WHERE id = ?', [id]);
+
+    if (statusAnterior !== req.body.status) {
+      notificarVagaStatus({
+        vaga_id: id,
+        status_anterior: statusAnterior,
+        status_novo: req.body.status,
+        contratante_id: req.user.id
+      }).catch(e => console.warn('[event-bus]', e.message));
+    }
+
     res.json({ vaga: updated });
   }
 );

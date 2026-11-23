@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import { useMatchingEvents } from '../hooks/useMatchingEvents';
 
 interface Notif {
   tipo: 'mensagem' | 'candidatura' | 'resposta_candidatura';
@@ -24,6 +26,7 @@ function tempoRelativo(dateStr: string): string {
 }
 
 export default function SinoNotificacoes() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [aberto, setAberto] = useState(false);
@@ -32,7 +35,11 @@ export default function SinoNotificacoes() {
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Polling leve a cada 30s
+  // W4/W5 — Eventos Socket.IO em tempo real (Sprint 2)
+  // Complementa o polling: quando um evento chega, atualiza contador imediatamente.
+  const { totalNaoLidos: totalNaoLidosRealtime, marcarTodosLidos: marcarRealtimeLidos } = useMatchingEvents();
+
+  // Polling leve a cada 30s (mantém — eventos realtime aceleram resposta)
   useEffect(() => {
     if (!user) return;
     let cancelado = false;
@@ -46,6 +53,9 @@ export default function SinoNotificacoes() {
     const t = setInterval(carregar, 30000);
     return () => { cancelado = true; clearInterval(t); };
   }, [user]);
+
+  // Exibe o maior valor entre o polling e o realtime (para não sub-notificar)
+  const totalExibido = Math.max(naoLidas, totalNaoLidosRealtime);
 
   // Fecha ao clicar fora
   useEffect(() => {
@@ -66,6 +76,8 @@ export default function SinoNotificacoes() {
         setNaoLidas(data.nao_lidas || 0);
         // Marca mensagens como lidas após abrir
         await api.post('/notificacoes/marcar-lidas').catch(() => {});
+        // Marca eventos realtime como lidos também
+        marcarRealtimeLidos();
       } catch (e) {
         console.error(e);
       } finally {
@@ -95,9 +107,9 @@ export default function SinoNotificacoes() {
         aria-label="Notificações"
       >
         🔔
-        {naoLidas > 0 && (
+        {totalExibido > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
-            {naoLidas > 9 ? '9+' : naoLidas}
+            {totalExibido > 9 ? '9+' : totalExibido}
           </span>
         )}
       </button>
@@ -106,14 +118,14 @@ export default function SinoNotificacoes() {
         <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-2xl shadow-card border border-slate-200 dark:border-slate-700 z-40 fade-in">
           <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 className="font-semibold text-sm">Notificações</h3>
-            {naoLidas > 0 && (
-              <span className="text-xs text-rose-500 font-semibold">{naoLidas} novas</span>
+            {totalExibido > 0 && (
+              <span className="text-xs text-rose-500 font-semibold">{totalExibido} novas</span>
             )}
           </div>
           {loading ? (
-            <p className="text-center text-slate-400 text-sm py-8">Carregando...</p>
+            <p className="text-center text-slate-400 text-sm py-8">{t('common.loading')}</p>
           ) : items.length === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-8">Nenhuma notificação.</p>
+            <p className="text-center text-slate-400 text-sm py-8">{t('notifications.empty')}</p>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-slate-700">
               {items.map((item) => (

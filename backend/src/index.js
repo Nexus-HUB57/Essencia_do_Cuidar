@@ -1,126 +1,41 @@
+/**
+ * Bootstrap de rede: app Express + Socket.IO.
+ *
+ * A construção do app vive em `src/app.js` (importável pelos testes).
+ * Aqui só abrimos o socket e subimos o servidor.
+ */
 import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import http from 'http';
 import { Server as SocketServer } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import fs from 'fs';
 
 import db from './db/driver.js';
-import { asyncHandler } from './middleware/async.js';
-import authRouter from './routes/auth.js';
-import profissionaisRouter from './routes/profissionais.js';
-import vagasRouter from './routes/vagas.js';
-import candidaturasRouter from './routes/candidaturas.js';
-import mensagensRouter from './routes/mensagens.js';
-import pagamentosRouter from './routes/pagamentos.js';
-import pushRouter from './routes/push.js';
-import adminRouter from './routes/admin.js';
-import i18nRouter from './routes/i18n.js';
-import avaliacoesRouter from './routes/avaliacoes.js';
-import favoritosRouter from './routes/favoritos.js';
-import notificacoesRouter from './routes/notificacoes.js';
-import ragRouter from './routes/rag.js';
-import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
+import { createApp } from './app.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Guardas de processo. O default do Node >= 15 e terminar o processo em
+// qualquer unhandledRejection — um handler async sem try/catch derrubava o
+// backend inteiro. Com createRouter() (middleware/async.js) as rejeicoes
+// chegam ao error handler de app.js; estas guardas sao a rede final para o
+// que escapar (bug em codigo fora de request, timer, etc).
+//
+// Registradas uma unica vez: dois `process.on` para o mesmo evento fariam o
+// mesmo erro ser logado duas vezes.
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+  // Nao sair: o estado pode estar inconsistente, mas derrubar o servico por
+  // uma excecao nao tratada e pior. Em producao, o orquestrador (Render)
+  // reinicia o container se o processo realmente morrer.
+});
 
 const PORT = Number(process.env.PORT || 4000);
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-trocar';
 
-// Inicializa o schema do driver escolhido
-await db.initSchema();
-
-// ─────────────────────────────────────────────────────────────
-// Guarda de processo: o Express 4 NÃO captura rejeições de
-// handlers async. Sem isto, um único request com bug (ex.: query
-// em tabela inexistente) derruba o servidor inteiro — o healthcheck
-// passa a falhar e o container entra em crash-loop.
-// ─────────────────────────────────────────────────────────────
-process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason);
-});
-process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err);
-});
-
-const app = express();
-app.use(securityHeaders);
-app.use(cors({ origin: FRONTEND_URL.split(','), credentials: true }));
-app.use(express.json({ limit: '1mb' }));
-
-app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
-
-app.get('/api/health', asyncHandler(async (req, res) => {
-  const ts = new Date().toISOString();
-  // Tenta uma query leve no DB para confirmar que o driver está vivo.
-  // Falha no DB → retorna 503 (Service Unavailable) para healthchecks
-  // externos (Render, Railway, Docker, k8s) marcarem a instância como
-  // unhealthy em vez de continuar recebendo tráfego.
-  let dbOk = false;
-  let dbError = null;
-  try {
-    const row = await db.get('SELECT 1 AS ok');
-    dbOk = row?.ok === 1;
-  } catch (e) {
-    dbError = e.message;
-  }
-  const status = dbOk ? 200 : 503;
-  res.status(status).json({
-    ok: dbOk,
-    service: 'essencia-do-cuidar',
-    timestamp: ts,
-    db: {
-      driver: db.driver,
-      reachable: dbOk,
-      error: dbError
-    }
-  });
-}));
-
-// Rate limit mais agressivo em /api/auth/* (anti brute-force em login/cadastro)
-app.use('/api/auth', authLimiter, authRouter);
-// Rate limit geral nas demais APIs
-app.use('/api', apiLimiter);
-app.use('/api/profissionais', profissionaisRouter);
-app.use('/api/vagas', vagasRouter);
-app.use('/api/candidaturas', candidaturasRouter);
-app.use('/api/mensagens', mensagensRouter);
-app.use('/api/pagamentos', pagamentosRouter);
-app.use('/api/push', pushRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/i18n', i18nRouter);
-app.use('/api/avaliacoes', avaliacoesRouter);
-app.use('/api/favoritos', favoritosRouter);
-app.use('/api/notificacoes', notificacoesRouter);
-app.use('/api/rag', ragRouter);
-
-// SPA fallback
-const distPath = path.resolve(__dirname, '../../frontend/dist');
-if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath));
-  app.get(/^(?!\/api|\/uploads).*/, (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
-  console.log(`[essencia-do-cuidar] servindo frontend estático de ${distPath}`);
-}
-
-app.use((req, res) => res.status(404).json({ error: 'Rota não encontrada' }));
-
-app.use((err, req, res, _next) => {
-  console.error('[erro]', err);
-  if (res.headersSent) return;
-  // Erros de constraint de FK normalmente indicam id inexistente no body
-  const isFk = /FOREIGN KEY|23503/.test(String(err.code || '') + String(err.message || ''));
-  res.status(isFk ? 400 : 500).json({
-    error: isFk ? 'Referência inválida (id não encontrado)' : 'Erro interno do servidor',
-    detalhe: err.message
-  });
-});
+const app = await createApp();
 
 const server = http.createServer(app);
 const io = new SocketServer(server, {
@@ -164,8 +79,7 @@ if (process.env.RAG_AUTO_INDEX !== 'false') {
   (async () => {
     try {
       const { reindexar } = await import('./services/rag/indexer.js');
-      const { get } = await import('./db/driver.js');
-      const existing = await get('SELECT COUNT(*) AS n FROM rag_chunks');
+      const existing = await db.get('SELECT COUNT(*) AS n FROM rag_chunks');
       if ((existing?.n || 0) > 0) {
         console.log(`[rag] índice já existe (${existing.n} chunks). Use POST /api/rag/indexar para reindexar.`);
         return;
@@ -177,3 +91,5 @@ if (process.env.RAG_AUTO_INDEX !== 'false') {
     }
   })();
 }
+
+export { app, server, io };

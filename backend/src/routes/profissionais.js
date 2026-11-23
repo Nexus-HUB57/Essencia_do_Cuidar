@@ -8,6 +8,9 @@ import db from '../db/driver.js';
 import { authRequired, requireTipo } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { validateRegistro } from '../services/registros.js';
+import { normalize, validate, verifyWithCouncil, EXEMPLOS } from '../services/registroValidator.js';
+import { recomendarParaProfissional, sqlAtendimentosConcluidos } from '../services/matching.js';
+import { PROFISSOES } from '../services/profissoes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,23 +45,49 @@ const router = createRouter(express);
 const detalhesSchema = {
   registro_conselho: { type: 'string', min: 3, max: 30 },
   tipo_registro:     { type: 'enum', values: ['CRM', 'COREN', 'CREFITO', 'CRP', 'CRN', 'OUTRO'] },
+  profissao:         { type: 'enum', values: PROFISSOES.map((p) => p.id) },
+  regiao:            { type: 'string', max: 80 },
   especialidades:    { type: 'array' },
   disponibilidade:   { type: 'array' },
   bio:               { type: 'string', max: 1000 },
-  uf:                { type: 'string', min: 2, max: 2 }
+  uf:                { type: 'string', min: 2, max: 2 },
+  cidade:            { type: 'string', max: 100 }
 };
 
 router.put('/me', authRequired, requireTipo('profissional'),
   validateBody(detalhesSchema), async (req, res) => {
-    const { registro_conselho, tipo_registro, especialidades, disponibilidade, bio, uf } = req.body;
+    const {
+      registro_conselho, tipo_registro, profissao, regiao,
+      especialidades, disponibilidade, bio, uf, cidade
+    } = req.body;
 
-    // Se mudou registro, valida formato + agenda verificação
+    // Normaliza o número de registro (se fornecido) para o formato canônico
+    const normalized = (registro_conselho && tipo_registro)
+      ? normalize(tipo_registro, registro_conselho)
+      : registro_conselho;
+
+    // Valida o formato do registro (síncrono, baseado em regex)
     let registroVerificadoAuto = 0;
     let mensagemVerificacao = null;
-    if (registro_conselho && tipo_registro) {
-      const v = validateRegistro(tipo_registro, registro_conselho, uf);
+    if (normalized && tipo_registro) {
+      // O validador estrutural (registroValidator.js) é a fonte da verdade do
+      // formato — é ele que o README documenta. O validateRegistro
+      // (services/registros.js) usa formatos diferentes e serve apenas como
+      // checagem de UF; misturar os dois gerava mensagens de erro
+      // contraditórias ("Exemplo: 123456-SP" para um formato que aceita
+      // "COREN-SP 123456").
+      const v = validate(tipo_registro, normalized);
       if (!v.ok) {
-        return res.status(400).json({ error: v.motivo });
+        const vUf = validateRegistro(tipo_registro, normalized, uf);
+        // Erro de UF é definitivo (o número pode estar em formato legado).
+        if (!vUf.ok && /UF/i.test(String(vUf.motivo || ''))) {
+          return res.status(400).json({ error: vUf.motivo });
+        }
+        return res.status(400).json({
+          error: v.motivo === 'regex_invalido'
+            ? `Formato inválido para ${tipo_registro}. Exemplo: ${EXEMPLOS[tipo_registro] || '—'}`
+            : v.motivo
+        });
       }
       // Auto-aprova só em modo dev (sem API externa)
       if (process.env.AUTO_VERIFICAR_REGISTROS === 'true') {
@@ -71,31 +100,37 @@ router.put('/me', authRequired, requireTipo('profissional'),
       `UPDATE profissionais_detalhes
           SET registro_conselho = COALESCE(?, registro_conselho),
               tipo_registro     = COALESCE(?, tipo_registro),
+              profissao         = COALESCE(?, profissao),
+              regiao            = COALESCE(?, regiao),
               especialidades    = COALESCE(?, especialidades),
               disponibilidade   = COALESCE(?, disponibilidade),
               bio               = COALESCE(?, bio),
+              cidade            = COALESCE(?, cidade),
               registro_verificado = ?,
               atualizado_em     = datetime('now')
         WHERE id_user = ?`,
       [
-        registro_conselho ?? null,
+        normalized ?? null,
         tipo_registro ?? null,
+        profissao ?? null,
+        regiao ?? null,
         especialidades ? JSON.stringify(especialidades) : null,
         disponibilidade ? JSON.stringify(disponibilidade) : null,
         bio ?? null,
+        cidade ?? null,
         registroVerificadoAuto,
         req.user.id
       ]
     );
 
     // Cria entrada em verificacao_registros para auditoria
-    if (registro_conselho && tipo_registro) {
+    if (normalized && tipo_registro) {
       await db.run(
         `INSERT INTO verificacao_registros
           (id_user, tipo_registro, numero_registro, uf, status, motivo, verificado_em)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
-          req.user.id, tipo_registro, registro_conselho, uf || null,
+          req.user.id, tipo_registro, normalized, uf || null,
           registroVerificadoAuto ? 'aprovado' : 'pendente',
           mensagemVerificacao,
           registroVerificadoAuto ? new Date().toISOString() : null
@@ -103,7 +138,8 @@ router.put('/me', authRequired, requireTipo('profissional'),
       );
     }
 
-    const detalhes = await db.get('SELECT * FROM profissionais_detalhes WHERE id_user = ?', [req.user.id]);
+    const { buscarDetalhes } = await import('../utils/profissional.js');
+    const detalhes = await buscarDetalhes(req.user.id);
     res.json({ detalhes });
   }
 );
@@ -123,27 +159,178 @@ router.post('/me/diploma', authRequired, requireTipo('profissional'),
         WHERE id_user = ?`,
       [url, req.file.originalname, req.user.id]
     );
-    const detalhes = await db.get('SELECT * FROM profissionais_detalhes WHERE id_user = ?', [req.user.id]);
+    const { buscarDetalhes } = await import('../utils/profissional.js');
+    const detalhes = await buscarDetalhes(req.user.id);
     res.json({ detalhes });
   }
 );
 
 /**
+ * POST /api/profissionais/me/verificar-registro
+ *
+ * Dispara a verificação estrutural do número de registro do profissional
+ * logado. Hoje a validação é via regex (services/registroValidator.js),
+ * mas a interface foi desenhada para que um scraper/API oficial de conselho
+ * seja plugado no mesmo endpoint sem quebrar o frontend.
+ *
+ * Possíveis respostas:
+ *   200 { verificado: true,  estado: 1, motivo: "regex_ok",       selo: "✓ Verificado" }
+ *   200 { verificado: false, estado: 2, motivo: "regex_invalido", selo: "⏳ Em análise" }
+ *   400 { error: "..." }                                              (dados faltando)
+ *
+ * Em todos os casos o estado da coluna `registro_verificado` é atualizado
+ * para que a UI reflita imediatamente.
+ *
+ * Nota: o schema do main usa `registro_verificado` como INTEGER (0/1) — adaptamos
+ * o estado 1/2 do Linha A para 1=verificado, 0=pendente (mantendo compat).
+ */
+router.post('/me/verificar-registro', authRequired, requireTipo('profissional'),
+  async (req, res) => {
+    const row = await db.get(
+      'SELECT id_user, registro_conselho, tipo_registro FROM profissionais_detalhes WHERE id_user = ?',
+      [req.user.id]
+    );
+    if (!row) return res.status(404).json({ error: 'Perfil profissional não encontrado' });
+    if (!row.registro_conselho || !row.tipo_registro) {
+      return res.status(400).json({
+        error: 'Informe tipo_registro e registro_conselho antes de verificar.'
+      });
+    }
+
+    let result;
+    try {
+      result = await verifyWithCouncil(row.tipo_registro, row.registro_conselho);
+    } catch (err) {
+      // Falha técnica: marca como pendente (0) e retorna 200 para
+      // que a UI possa mostrar o selo "⏳ Em análise" sem quebrar.
+      await db.run(
+        `UPDATE profissionais_detalhes
+            SET registro_verificado = 0,
+                atualizado_em = datetime('now')
+          WHERE id_user = ?`,
+        [req.user.id]
+      );
+      return res.status(200).json({
+        verificado: false,
+        estado: 2,
+        motivo: 'erro_consulta',
+        selo: '⏳ Em análise',
+        detalhe: String(err?.message || err)
+      });
+    }
+
+    const estado = result.ok ? 1 : 2;
+    const selo = result.ok ? '✓ Verificado' : '⏳ Em análise';
+    const registroVerificadoFlag = result.ok ? 1 : 0;
+
+    await db.run(
+      `UPDATE profissionais_detalhes
+          SET registro_verificado = ?,
+              atualizado_em = datetime('now')
+        WHERE id_user = ?`,
+      [registroVerificadoFlag, req.user.id]
+    );
+
+    // Auditoria: grava a tentativa na tabela webhook_logs (reaproveita o pipeline
+    // de observabilidade que já existe). Tipo="registro_verificacao".
+    try {
+      const payload = JSON.stringify({
+        user_id: req.user.id,
+        tipo_registro: row.tipo_registro,
+        registro_conselho: row.registro_conselho,
+        ok: result.ok,
+        motivo: result.motivo
+      });
+      await db.run(
+        `INSERT INTO webhook_logs (tipo, payload, status_code, resposta, erro)
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          'registro_verificacao',
+          payload,
+          result.ok ? 200 : 422,
+          JSON.stringify({ estado, selo }),
+          result.ok ? null : (result.detalle || result.motivo)
+        ]
+      );
+    } catch {
+      // Não bloquear o fluxo principal se o log falhar.
+    }
+
+    res.json({
+      verificado: result.ok,
+      estado,
+      motivo: result.motivo,
+      selo,
+      detalhe: result.detalle || null
+    });
+  }
+);
+
+/**
  * GET /api/profissionais/:id — perfil público
+ * Inclui estatísticas de avaliação (média e total) do schema do main
+ * (colunas id_profissional, id_contratante, id_vaga, nota).
  */
 router.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
+  // INTERMEDIAÇÃO: telefone NUNCA é exposto em perfil público.
+  // Toda comunicação é feita pelo sistema (chat interno + notificações).
   const user = await db.get(
-    `SELECT id, nome, telefone, criado_em FROM users WHERE id = ? AND tipo_usuario = 'profissional'`,
+    `SELECT id, nome, criado_em FROM users WHERE id = ? AND tipo_usuario = 'profissional'`,
     [id]
   );
   if (!user) return res.status(404).json({ error: 'Profissional não encontrado' });
-  const detalhes = await db.get('SELECT * FROM profissionais_detalhes WHERE id_user = ?', [id]);
-  if (detalhes) {
-    try { detalhes.especialidades = JSON.parse(detalhes.especialidades || '[]'); } catch { detalhes.especialidades = []; }
-    try { detalhes.disponibilidade = JSON.parse(detalhes.disponibilidade || '[]'); } catch { detalhes.disponibilidade = []; }
-  }
-  res.json({ user, detalhes });
+  const { buscarDetalhes } = await import('../utils/profissional.js');
+  const detalhes = await buscarDetalhes(id);
+
+  // Estatísticas de avaliação (schema do main: id_profissional, id_contratante, id_vaga, nota)
+  const stats = await db.get(
+    `SELECT COUNT(*) AS total, COALESCE(ROUND(AVG(nota), 1), 0) AS media
+       FROM avaliacoes
+      WHERE id_profissional = ?`,
+    [id]
+  );
+
+  // Estatísticas de ATUAÇÃO — o que o perfil público exibe nos 3 cards
+  // ("Atendimentos concluídos", "Vagas aceitas", "Candidaturas totais").
+  // `stats.total`/`stats.media` acima são as notas; estas são os contratos.
+  //
+  // "Atendimentos concluídos" usa a mesma métrica do motor de matching:
+  // protocolos que chegaram a checkout_completo / liberado. Contar a vaga
+  // 'fechada' (que fecha no momento do aceite) rotulava como atendimento
+  // concluído um matching que ainda nem começou.
+  const atuacao = await db.get(
+    `SELECT
+        (SELECT COUNT(*) FROM candidaturas WHERE id_profissional = ?) AS total_candidaturas,
+        (SELECT COUNT(*) FROM candidaturas WHERE id_profissional = ? AND status_candidatura = 'aceita') AS aceitas,
+        (SELECT COUNT(DISTINCT id_vaga) FROM candidaturas WHERE id_profissional = ? AND status_candidatura = 'aceita') AS vagas_aceitas,
+        ${sqlAtendimentosConcluidos('?')} AS vagas_concluidas`,
+    [id, id, id, id, id]
+  );
+
+  res.json({
+    user,
+    detalhes,
+    stats: {
+      ...(atuacao || {}),
+      total: stats?.total || 0,
+      media: stats?.media || 0
+    }
+  });
+});
+
+/**
+ * GET /api/profissionais/me/recomendar
+ * M1 — Matching automático: top N vagas recomendadas para o profissional logado.
+ * Apenas o próprio profissional logado pode ver suas recomendações.
+ * Query: limite (default 10, max 50), minScore (default 0.3)
+ */
+router.get('/me/recomendar', authRequired, requireTipo('profissional'), async (req, res) => {
+  const limite = Math.min(Number(req.query.limite) || 10, 50);
+  const minScore = Number(req.query.minScore) || 0.3;
+  const result = await recomendarParaProfissional(req.user.id, { limite, minScore });
+  if (!result) return res.status(404).json({ error: 'Perfil profissional não encontrado' });
+  res.json(result);
 });
 
 /**

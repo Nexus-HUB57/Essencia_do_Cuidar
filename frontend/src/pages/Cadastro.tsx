@@ -4,15 +4,16 @@ import { useAuth, getErrorMessage } from '../context/AuthContext';
 import Wizard from '../components/Wizard';
 import api from '../utils/api';
 import { useTranslation } from 'react-i18next';
+import { useProfissoes } from '../hooks/useProfissoes';
 
 const ESPECIALIDADES_OPCOES = [
   'Idosos', 'Alzheimer', 'Cuidados Paliativos', 'Pós-operatório',
   'Geriatria', 'Fisioterapia', 'Psicologia', 'Acompanhamento Familiar', 'Nutrição'
 ];
 const DISPONIBILIDADE_OPCOES = [
-  { v: 'manha', l: 'Manhã' },
-  { v: 'tarde', l: 'Tarde' },
-  { v: 'noite', l: 'Noite' },
+  { v: 'manha', l: 'manha' },
+  { v: 'tarde', l: 'tarde' },
+  { v: 'noite', l: 'noite' },
   { v: '12h', l: '12h' },
   { v: '24h', l: '24h' }
 ];
@@ -24,13 +25,13 @@ const TIPO_REGISTRO_OPCOES = [
   { v: 'CRN', l: 'CRN (Nutrição)' },
   { v: 'OUTRO', l: 'Outro' }
 ];
-const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
 export default function Cadastro() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { cadastro } = useAuth();
+  const { opcoes: opcoesProfissao, ufs } = useProfissoes();
 
   const tipoInicial = (params.get('tipo') as 'profissional' | 'contratante') || 'contratante';
   const [step, setStep] = useState(0);
@@ -38,6 +39,7 @@ export default function Cadastro() {
   const [form, setForm] = useState({
     nome: '', email: '', senha: '', telefone: '',
     tipo_registro: '', registro_conselho: '', uf: '',
+    profissao: '', regiao: '',
     especialidades: [] as string[], disponibilidade: [] as string[], bio: ''
   });
   const [erro, setErro] = useState('');
@@ -80,6 +82,8 @@ export default function Cadastro() {
           tipo_registro: form.tipo_registro,
           registro_conselho: form.registro_conselho,
           uf: form.uf,
+          profissao: form.profissao || undefined,
+          regiao: form.regiao || undefined,
           especialidades: form.especialidades,
           disponibilidade: form.disponibilidade,
           bio: form.bio
@@ -101,8 +105,8 @@ export default function Cadastro() {
           {step === 0 && (
             <div className="grid sm:grid-cols-2 gap-3">
               {[
-                { v: 'contratante', i: '🏠', t: t('auth.contractor'), d: 'Famílias e clínicas que contratam.' },
-                { v: 'profissional', i: '🩺', t: t('auth.professional'), d: 'Cuidadores, enfermeiros, fisioterapeutas...' }
+                { v: 'contratante', i: '🏠', t: t('auth.contractor'), d: t('auth.contractorDescription') },
+                { v: 'profissional', i: '🩺', t: t('auth.professional'), d: t('auth.professionalDescription') }
               ].map((o) => (
                 <button key={o.v} onClick={() => setTipo(o.v as any)}
                   className={`p-4 rounded-xl border-2 text-left transition ${
@@ -156,7 +160,7 @@ export default function Cadastro() {
                   <label className="label">UF</label>
                   <select className="input" value={form.uf} onChange={(e) => setForm({ ...form, uf: e.target.value })}>
                     <option value="">-</option>
-                    {UFS.map(u => <option key={u} value={u}>{u}</option>)}
+                    {ufs.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
               </div>
@@ -169,7 +173,24 @@ export default function Cadastro() {
           {step === 3 && tipo === 'profissional' && (
             <div className="space-y-3">
               <div>
-                <label className="label">Especialidades</label>
+                <label className="label">{t('matching.perfil.profissao')}</label>
+                <select className="input" value={form.profissao}
+                  onChange={(e) => setForm({ ...form, profissao: e.target.value })}>
+                  <option value="">{t('matching.perfil.selectProfissao')}</option>
+                  {opcoesProfissao.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">{t('matching.perfil.regiao')}</label>
+                <input className="input" value={form.regiao}
+                  onChange={(e) => setForm({ ...form, regiao: e.target.value })}
+                  placeholder={t('matching.perfil.regiaoPlaceholder')} />
+                <p className="text-[10px] text-slate-400 mt-1">{t('matching.perfil.regiaoHint')}</p>
+              </div>
+              <div>
+                <label className="label">{t('perfil.especialidades')}</label>
                 <div className="flex flex-wrap gap-1.5">
                   {ESPECIALIDADES_OPCOES.map((e) => (
                     <button key={e} type="button" onClick={() => toggleList('especialidades', e)}
@@ -178,13 +199,13 @@ export default function Cadastro() {
                           ? 'bg-serenity-500 text-white border-serenity-500'
                           : 'bg-white text-slate-600 border-slate-200'
                       }`}>
-                      {e}
+                      {t(`especialidades.${e}`)}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="label">Disponibilidade</label>
+                <label className="label">{t('perfil.disponibilidade')}</label>
                 <div className="flex flex-wrap gap-1.5">
                   {DISPONIBILIDADE_OPCOES.map((d) => (
                     <button key={d.v} type="button" onClick={() => toggleList('disponibilidade', d.v)}
@@ -193,7 +214,7 @@ export default function Cadastro() {
                           ? 'bg-emerald-500 text-white border-emerald-500'
                           : 'bg-white text-slate-600 border-slate-200'
                       }`}>
-                      {d.l}
+                      {t(`disponibilidade.${d.l}`)}
                     </button>
                   ))}
                 </div>
@@ -201,7 +222,7 @@ export default function Cadastro() {
               <div>
                 <label className="label">Bio</label>
                 <textarea className="input min-h-[80px]" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })}
-                  placeholder="Conte um pouco sobre sua experiência..." />
+                  placeholder={t('auth.experiencePlaceholder')} />
               </div>
             </div>
           )}

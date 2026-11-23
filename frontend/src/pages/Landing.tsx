@@ -51,19 +51,19 @@ export default function Landing() {
                 <span className="ml-auto badge-green">✓ {t('perfil.verified')}</span>
               </div>
               <p className="text-sm text-slate-600 italic mb-4">
-                "Cuidar com amor é a nossa essência. Cuidado, Acolhimento e Respeito em cada detalhe."
+                {t('landing.quote')}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 <span className="badge-blue">Alzheimer</span>
-                <span className="badge-blue">Cuidados Paliativos</span>
-                <span className="badge-blue">Idosos</span>
+                <span className="badge-blue">{(t('landing.specialties', { returnObjects: true }) as unknown as string[])[1]}</span>
+                <span className="badge-blue">{(t('landing.specialties', { returnObjects: true }) as unknown as string[])[2]}</span>
               </div>
               <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
                 <div>
                   <p className="text-xs text-slate-500">A partir de</p>
                   <p className="text-lg font-bold text-serenity-600">R$ 35<span className="text-xs text-slate-400 font-normal">/hora</span></p>
                 </div>
-                <button className="btn-primary text-xs py-2">Ver perfil</button>
+                <button className="btn-primary text-xs py-2">{t('landing.viewProfile')}</button>
               </div>
             </div>
             <div className="hidden md:block absolute -bottom-6 -left-6 card p-4 z-20 max-w-[200px]">
@@ -90,7 +90,7 @@ export default function Landing() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-2 gap-12 items-center">
           <div>
-            <span className="badge-green mb-3">💚 Nossa história</span>
+            <span className="badge-green mb-3">{t('landing.ourStory')}</span>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Nasceu a Essência do Cuidar</h2>
             <p className="text-slate-600 leading-relaxed mb-4">
               A Essência do Cuidar nasceu do propósito de oferecer cuidado
@@ -98,25 +98,23 @@ export default function Landing() {
               possam contar com apoio de confiança no cuidado de quem amam.
             </p>
             <p className="text-slate-600 leading-relaxed mb-6">
-              Em Campinas e região, conectamos famílias, clínicas e instituições
-              a profissionais de saúde qualificados para atendimento domiciliar
-              de baixa e média complexidade.
+              {t('landing.about')}
             </p>
             <div className="flex flex-wrap gap-2">
-              {['Cuidado humanizado', 'Profissionalismo', 'Atendimento próximo', 'Confiança'].map((t) => (
-                <span key={t} className="badge-blue">{t}</span>
+              {(t('landing.badges', { returnObjects: true }) as unknown as string[]).map((b) => (
+                <span key={b} className="badge-blue">{b}</span>
               ))}
             </div>
           </div>
           <div className="relative">
             <img
               src="/img/sobre-nasceu.jpg"
-              alt="Cuidadora segurando a mão de uma idosa"
+              alt={t('landing.altCaregiver')}
               className="rounded-3xl shadow-card w-full h-auto"
               loading="lazy"
             />
             <div className="absolute -bottom-4 -right-4 bg-amber-500 text-white px-4 py-2 rounded-xl shadow-card text-sm font-semibold">
-              Cuidado • Acolhimento • Respeito
+              {t('landing.motto')}
             </div>
           </div>
         </div>
@@ -131,13 +129,9 @@ export default function Landing() {
           <div className="grid md:grid-cols-2 gap-12">
             <div className="card border-t-4 border-serenity-500">
               <span className="badge-blue mb-3">{t('auth.contractor')}</span>
-              <h3 className="text-xl font-semibold mb-6">3 passos</h3>
+              <h3 className="text-xl font-semibold mb-6">{t('landing.threeSteps')}</h3>
               <ol className="space-y-4">
-                {[
-                  { t: 'Crie sua conta +Saúde', d: 'Cadastro rápido com nome, e-mail e telefone.' },
-                  { t: 'Publique a vaga', d: 'Descreva o paciente, a jornada e o profissional desejado.' },
-                  { t: 'Pague via Pix', d: 'Split automático: 90% profissional, 10% plataforma.' }
-                ].map((s, i) => (
+                {(t('landing.stepsContractor', { returnObjects: true }) as unknown as { t: string; d: string }[]).map((s, i) => (
                   <li key={i} className="flex gap-3">
                     <span className="w-8 h-8 shrink-0 rounded-full bg-serenity-100 text-serenity-700 font-bold flex items-center justify-center text-sm">{i + 1}</span>
                     <div><p className="font-medium">{s.t}</p><p className="text-sm text-slate-500">{s.d}</p></div>
@@ -148,13 +142,9 @@ export default function Landing() {
             </div>
             <div className="card border-t-4 border-emerald-500">
               <span className="badge-green mb-3">{t('auth.professional')}</span>
-              <h3 className="text-xl font-semibold mb-6">3 passos</h3>
+              <h3 className="text-xl font-semibold mb-6">{t('landing.threeSteps')}</h3>
               <ol className="space-y-4">
-                {[
-                  { t: 'Cadastre-se + diploma', d: 'Validação do seu registro (CRM/COREN/CREFITO).' },
-                  { t: 'Conecte sua conta Stripe', d: 'Receba pagamentos via Pix com split.' },
-                  { t: 'Candidate-se e ative push', d: 'Notificações em tempo real no celular.' }
-                ].map((s, i) => (
+                {(t('landing.stepsProfessional', { returnObjects: true }) as unknown as { t: string; d: string }[]).map((s, i) => (
                   <li key={i} className="flex gap-3">
                     <span className="w-8 h-8 shrink-0 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-sm">{i + 1}</span>
                     <div><p className="font-medium">{s.t}</p><p className="text-sm text-slate-500">{s.d}</p></div>
@@ -179,23 +169,7 @@ export default function Landing() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                n: '01', i: '🔍',
-                t: 'Seleção rigorosa',
-                d: 'Avaliação cuidadosa de perfil, experiência e referência de cada profissional antes de entrar na plataforma.'
-              },
-              {
-                n: '02', i: '🎓',
-                t: 'Treinamento técnico',
-                d: 'Capacitação prática e protocolos de cuidado padronizados para garantir qualidade em todo atendimento.'
-              },
-              {
-                n: '03', i: '👨‍👩‍👧',
-                t: 'Acompanhamento da família',
-                d: 'Suporte contínuo, comunicação transparente e ajustes sempre que a família precisar.'
-              }
-            ].map((s, i) => (
+            {(t('landing.differentials', { returnObjects: true }) as unknown as { n: string; i: string; t: string; d: string }[]).map((s, i) => (
               <div key={i} className="card relative">
                 <span className="absolute -top-3 -left-3 w-10 h-10 rounded-full bg-serenity-500 text-white flex items-center justify-center font-bold text-sm shadow-soft">
                   {s.n}
@@ -213,16 +187,11 @@ export default function Landing() {
       <section className="py-16 bg-gradient-to-br from-serenity-50 to-emerald-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-10">
-            <span className="badge-green mb-3">🛡️ Segurança em primeiro lugar</span>
-            <h2 className="text-3xl md:text-4xl font-bold">Por que confiar na {t('common.appName')}</h2>
+            <span className="badge-green mb-3">{t('landing.securityBadge')}</span>
+            <h2 className="text-3xl md:text-4xl font-bold">{t('landing.whyTrust', { app: t('common.appName') })}</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { i: '🔐', t: t('perfil.verified') + ' de registro', d: 'Validamos CRM, COREN, CREFITO, CRP e CRN.' },
-              { i: '📄', t: t('perfil.diploma'), d: 'Profissionais sobem PDF/foto do diploma.' },
-              { i: '💰', t: 'Pix + Stripe Connect', d: 'Pagamento seguro com split automático.' },
-              { i: '🔔', t: 'Notificações push', d: 'Aviso em tempo real de mensagens e vagas.' }
-            ].map((c, i) => (
+            {(t('landing.trustCards', { returnObjects: true }) as unknown as { i: string; t: string; d: string }[]).map((c, i) => (
               <div key={i} className="card text-center">
                 <div className="text-3xl mb-3">{c.i}</div>
                 <h4 className="font-semibold mb-1">{c.t}</h4>
@@ -239,24 +208,22 @@ export default function Landing() {
           <div className="relative order-2 md:order-1">
             <img
               src="/img/agenda-aberta.jpg"
-              alt="Jeane Silva, fundadora da Essência do Cuidar"
+              alt={t('landing.altFounder')}
               className="rounded-3xl shadow-card w-full h-auto"
               loading="lazy"
             />
           </div>
           <div className="order-1 md:order-2">
-            <span className="badge-green mb-3">📅 Agenda aberta</span>
+            <span className="badge-green mb-3">{t('landing.agendaBadge')}</span>
             <h2 className="text-3xl md:text-4xl font-bold mb-3">
-              Fale diretamente com a Jeane
+              {t('landing.agendaTitle')}
             </h2>
             <p className="text-slate-600 leading-relaxed mb-6">
-              Estamos com agenda aberta para novos atendimentos em
-              <strong> Campinas e região</strong>. Agende uma visita gratuita
-              e conheça o cuidado que faz a diferença.
+              {t('landing.agendaText')}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link to="/cadastro?tipo=contratante" className="bg-white text-serenity-600 hover:bg-slate-50 font-medium px-6 py-3 rounded-xl">
-                Quero contratar
+                {t('landing.wantToHire')}
               </Link>
               <Link to="/cadastro?tipo=profissional" className="bg-serenity-700 hover:bg-serenity-800 text-white font-medium px-6 py-3 rounded-xl">
                 {t('home.ctaProfessional')}
@@ -264,7 +231,7 @@ export default function Landing() {
             </div>
 
             <a href={WHATSAPP_URL} target="_blank" rel="noopener" className="btn-primary text-base">
-              📲 Agendar visita gratuita
+              {t('landing.scheduleFree')}
             </a>
           </div>
         </div>
@@ -277,20 +244,20 @@ export default function Landing() {
             Cuidado que acolhe e protege
           </h2>
           <p className="text-xl text-slate-300 mb-3 max-w-2xl mx-auto">
-            Sua família merece tranquilidade.
+            {t('landing.familyDeserves')}
           </p>
           <p className="text-lg text-slate-400 mb-8 max-w-2xl mx-auto">
             Nós garantimos profissionalismo e amor em cada detalhe.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link to="/cadastro?tipo=contratante" className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-6 py-3 rounded-xl">
-              Quero contratar
+              {t('landing.wantToHire')}
             </Link>
             <a href={WHATSAPP_URL} target="_blank" rel="noopener" className="bg-white text-slate-900 hover:bg-slate-100 font-medium px-6 py-3 rounded-xl">
               📲 Falar no WhatsApp
             </a>
           </div>
-          <p className="text-xs text-slate-500 mt-8 italic">"Cuidar com amor é a nossa essência"</p>
+          <p className="text-xs text-slate-500 mt-8 italic">{t('landing.shortQuote')}</p>
         </div>
       </section>
     </div>

@@ -1,6 +1,6 @@
 import express from 'express';
 import { createRouter } from '../middleware/async.js';
-import db from '../db/index.js';
+import db from '../db/driver.js';
 import { authRequired } from '../middleware/auth.js';
 
 const router = createRouter(express);
@@ -56,12 +56,12 @@ router.get('/', authRequired, async (req, res) => {
       `SELECT c.id, c.id_profissional, c.criado_em, c.status_candidatura,
               v.id AS vaga_id, v.profissional_desejado,
               u.nome AS profissional_nome
-         FROM candidaturas c
-         JOIN vagas v ON v.id = c.id_vaga
-         JOIN users u ON u.id = c.id_profissional
-        WHERE v.id_contratante = ? AND c.status_candidatura IN ('pendente', 'visualizada')
-        ORDER BY c.criado_em DESC
-        LIMIT 20`,
+        FROM candidaturas c
+        JOIN vagas v ON v.id = c.id_vaga
+        JOIN users u ON u.id = c.id_profissional
+       WHERE v.id_contratante = ? AND c.status_candidatura IN ('pendente', 'visualizada')
+       ORDER BY c.criado_em DESC
+       LIMIT 20`,
       [userId]
     );
     naoLidas += cands.length;
@@ -77,17 +77,19 @@ router.get('/', authRequired, async (req, res) => {
     }
   } else {
     // 3) Profissional: respostas de candidaturas
+    // Usa COALESCE para compat com bancos que ainda não têm atualizada_em.
     const cands = await db.all(
       `SELECT c.id, c.id_vaga, c.status_candidatura, c.criado_em,
+              COALESCE(c.atualizada_em, c.criado_em) AS atualizada_em,
               v.profissional_desejado, u.nome AS contratante_nome
-         FROM candidaturas c
-         JOIN vagas v ON v.id = c.id_vaga
-         JOIN users u ON u.id = v.id_contratante
-        WHERE c.id_profissional = ?
-          AND c.status_candidatura IN ('aceita', 'recusada')
-          AND c.atualizada_em > datetime('now', '-30 day')
-        ORDER BY c.criado_em DESC
-        LIMIT 20`,
+        FROM candidaturas c
+        JOIN vagas v ON v.id = c.id_vaga
+        JOIN users u ON u.id = v.id_contratante
+       WHERE c.id_profissional = ?
+         AND c.status_candidatura IN ('aceita', 'recusada')
+         AND COALESCE(c.atualizada_em, c.criado_em) > datetime('now', '-30 day')
+       ORDER BY c.criado_em DESC
+       LIMIT 20`,
       [userId]
     );
     for (const c of cands) {
@@ -104,7 +106,7 @@ router.get('/', authRequired, async (req, res) => {
   }
 
   // Ordena por data (mais recente primeiro)
-  items.sort((a, b) => String(b.criado_em).localeCompare(String(a.criado_em)));
+  items.sort((a, b) => b.criado_em.localeCompare(a.criado_em));
 
   res.json({
     nao_lidas: naoLidas,
@@ -118,8 +120,7 @@ router.get('/', authRequired, async (req, res) => {
  */
 router.post('/marcar-lidas', authRequired, async (req, res) => {
   await db.run(
-    `UPDATE mensagens SET lida = 1
-      WHERE id_destinatario = ? AND lida = 0`,
+    'UPDATE mensagens SET lida = 1 WHERE id_destinatario = ? AND lida = 0',
     [req.user.id]
   );
   res.json({ ok: true });
@@ -133,25 +134,24 @@ router.get('/contador', authRequired, async (req, res) => {
   const userId = req.user.id;
   const tipo = req.user.tipo_usuario;
 
-  const msgsRow = await db.get(
+  const msgsNaoLidas = await db.get(
     'SELECT COUNT(*) AS n FROM mensagens WHERE id_destinatario = ? AND lida = 0',
     [userId]
   );
-  const msgsNaoLidas = msgsRow?.n || 0;
 
   let candNaoLidas = 0;
   if (tipo === 'contratante') {
-    const row = await db.get(
+    const r = await db.get(
       `SELECT COUNT(*) AS n
          FROM candidaturas c
          JOIN vagas v ON v.id = c.id_vaga
         WHERE v.id_contratante = ? AND c.status_candidatura IN ('pendente', 'visualizada')`,
       [userId]
     );
-    candNaoLidas = row?.n || 0;
+    candNaoLidas = r?.n || 0;
   }
 
-  res.json({ nao_lidas: msgsNaoLidas + candNaoLidas });
+  res.json({ nao_lidas: (msgsNaoLidas?.n || 0) + candNaoLidas });
 });
 
 export default router;

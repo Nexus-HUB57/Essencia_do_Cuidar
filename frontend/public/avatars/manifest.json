@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "format": "glb",
+  "rig": {
+    "model": "rig/v1.0-20240301",
+    "type": "biped",
+    "skeleton": "mixamo"
+  },
+  "avatars": [
+    {
+      "id": "avatar-m-01",
+      "gender": "male",
+      "rigged": "/avatars/avatar-m-01-rigged.glb",
+      "animated": "/avatars/avatar-m-01-animated.glb",
+      "animations": ["standing_relax", "idle", "walk", "run", "shoot"]
+    },
+    {
+      "id": "avatar-m-02",
+      "gender": "male",
+      "rigged": "/avatars/avatar-m-02-rigged.glb",
+      "animated": null,
+      "animations": []
+    },
+    {
+      "id": "avatar-m-04",
+      "gender": "male",
+      "rigged": "/avatars/avatar-m-04-rigged.glb",
+      "animated": null,
+      "animations": []
+    },
+    {
+      "id": "avatar-f-01",
+      "gender": "female",
+      "rigged": "/avatars/avatar-f-01-rigged.glb",
+      "animated": null,
+      "animations": []
+    },
+    {
+      "id": "avatar-f-03",
+      "gender": "female",
+      "rigged": "/avatars/avatar-f-03-rigged.glb",
+      "animated": null,
+      "animations": []
+    }
+  ]
+}

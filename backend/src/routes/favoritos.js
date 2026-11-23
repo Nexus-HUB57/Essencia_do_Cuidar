@@ -1,6 +1,6 @@
 import express from 'express';
 import { createRouter } from '../middleware/async.js';
-import db from '../db/index.js';
+import db from '../db/driver.js';
 import { authRequired } from '../middleware/auth.js';
 
 const router = createRouter(express);
@@ -90,16 +90,16 @@ router.get('/vagas', authRequired, async (req, res) => {
  */
 router.get('/profissionais', authRequired, async (req, res) => {
   const rows = await db.all(
-    `SELECT u.id, u.nome, u.telefone,
-            d.registro_conselho, d.tipo_registro, d.registro_verificado,
-            d.diploma_verificado, d.especialidades, d.disponibilidade,
-            (SELECT COALESCE(ROUND(AVG(nota), 1), 0) FROM avaliacoes WHERE id_profissional = u.id) AS media,
-            (SELECT COUNT(*) FROM avaliacoes WHERE id_profissional = u.id) AS total_avaliacoes
-       FROM favoritos f
-       JOIN users u ON u.id = f.id_recurso
-       LEFT JOIN profissionais_detalhes d ON d.id_user = u.id
-      WHERE f.id_user = ? AND f.tipo = 'profissional'
-      ORDER BY f.criado_em DESC`,
+    `SELECT u.id, u.nome,
+           d.registro_conselho, d.tipo_registro, d.registro_verificado,
+           d.diploma_verificado, d.especialidades, d.disponibilidade,
+           (SELECT COALESCE(ROUND(AVG(nota), 1), 0) FROM avaliacoes WHERE id_profissional = u.id) AS media,
+           (SELECT COUNT(*) FROM avaliacoes WHERE id_profissional = u.id) AS total_avaliacoes
+      FROM favoritos f
+      JOIN users u ON u.id = f.id_recurso
+      LEFT JOIN profissionais_detalhes d ON d.id_user = u.id
+     WHERE f.id_user = ? AND f.tipo = 'profissional'
+     ORDER BY f.criado_em DESC`,
     [req.user.id]
   );
   for (const r of rows) {

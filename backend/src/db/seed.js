@@ -21,6 +21,51 @@ async function seed() {
 
   const hash = (s) => bcrypt.hashSync(s, 10);
 
+/**
+ * Zera os contadores de id de todas as tabelas.
+ *
+ * SQLite: `sqlite_sequence` guarda o último AUTOINCREMENT por tabela.
+ * Postgres: as sequences são `*_id_seq` e precisam de `setval`.
+ *
+ * O objetivo é simples: `npm run seed` sempre entrega os mesmos ids, para
+ * que demos, tutoriais e testes de smoke possam referenciar ids fixos.
+ */
+async function resetSequences() {
+  if (db.driver === 'sqlite') {
+    try {
+      await db.run('DELETE FROM sqlite_sequence');
+    } catch {
+      // tabela pode não existir (nenhuma coluna AUTOINCREMENT) — sem problema
+    }
+    return;
+  }
+
+  // Postgres
+  try {
+    const rows = await db.all(
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`
+    );
+    for (const { tablename } of rows) {
+      try {
+        await db.run(
+          `SELECT setval(pg_get_serial_sequence(?, 'id'), 1, false)`,
+          [tablename]
+        );
+      } catch {
+        // tabela sem sequence — ignora
+      }
+    }
+  } catch {
+    // sem permissão para ler pg_tables — segue sem reset
+  }
+}
+
+  // Reseta os contadores de id para que o seed seja DETERMINÍSTICO.
+  // Sem isso, rodar o seed duas vezes deixava os ids pulando (o DELETE não
+  // zera o AUTOINCREMENT do SQLite nem as sequences do Postgres) e qualquer
+  // teste ou demo que dependesse de um id fixo quebrava.
+  await resetSequences();
+
   // Contratante
   const contratante = await db.run(
     `INSERT INTO users (tipo_usuario, nome, email, senha_hash, telefone) VALUES (?, ?, ?, ?, ?)`,
@@ -45,65 +90,81 @@ async function seed() {
     ['profissional', 'Beatriz Mendes', 'bia@demo.com', hash('demo1234'), '11999990004']
   );
 
-  // Detalhes profissionais
+  // Detalhes profissionais — com cidade (matching simplificado)
+  //
+  // `profissao` e `regiao` alimentam o motor de matching (services/matching.js).
+  // `cidade` alimenta o fallback geográfico quando não há região textual.
+  // O seed cobre os três casos que interessam:
+  //   Ana      → match exato de profissão (vaga "Cuidador de Idosos"), mesma região
+  //   João     → match exato de profissão (vaga "Fisioterapeuta"), mesma região
+  //   Beatriz  → profession sem vaga correspondente + região diferente (demo do caso "sem match")
   const insertProf = async (id, args) => {
     return db.run(
       `INSERT INTO profissionais_detalhes
         (id_user, diploma_url, diploma_nome_original, diploma_verificado,
          registro_conselho, tipo_registro, registro_verificado,
-         especialidades, disponibilidade, bio)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         profissao, regiao, especialidades, disponibilidade, bio, cidade)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args
     );
   };
   await insertProf(prof1.lastInsertRowid, [
     prof1.lastInsertRowid, '/uploads/diploma-demo-ana.pdf', 'diploma-ana.pdf', 1,
     'COREN-SP 123456', 'COREN', 1,
+    'cuidador', 'Zona Sul - SP',
     JSON.stringify(['Idosos', 'Alzheimer', 'Cuidados Paliativos']),
     JSON.stringify(['manha', 'tarde', '12h']),
-    'Cuidadora de idosos há 8 anos, especializada em Alzheimer e cuidados paliativos.'
+    'Cuidadora de idosos há 8 anos, especializada em Alzheimer e cuidados paliativos.',
+    'São Paulo'
   ]);
   await insertProf(prof2.lastInsertRowid, [
     prof2.lastInsertRowid, '/uploads/diploma-demo-joao.pdf', 'diploma-joao.pdf', 1,
-    'CREFITO-3/98765', 'CREFITO', 1,
+    'CREFITO-12345-F', 'CREFITO', 1,
+    'fisioterapeuta', 'Zona Oeste - SP',
     JSON.stringify(['Fisioterapia', 'Pós-operatório', 'Geriatria']),
     JSON.stringify(['manha', 'tarde']),
-    'Fisioterapeuta com foco em reabilitação pós-cirúrgica e geriátrica.'
+    'Fisioterapeuta com foco em reabilitação pós-cirúrgica e geriátrica.',
+    'São Paulo'
   ]);
   await insertProf(prof3.lastInsertRowid, [
     prof3.lastInsertRowid, '/uploads/diploma-demo-bia.pdf', 'diploma-bia.pdf', 0,
-    'CRP-06/54321', 'CRP', 0,
+    '06/12345', 'CRP', 0,
+    'psicologo', 'Centro - SP',
     JSON.stringify(['Psicologia', 'Idosos', 'Acompanhamento Familiar']),
     JSON.stringify(['tarde', 'noite']),
-    'Psicóloga clínica com 5 anos de experiência em saúde do idoso.'
+    'Psicóloga clínica com 5 anos de experiência em saúde do idoso.',
+    'São Paulo'
   ]);
 
-  // Vagas
+  // Vagas — com cidade + carga_horaria (matching simplificado: 2 filtros)
   const insertVaga = async (args) => {
     return db.run(
       `INSERT INTO vagas
         (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
          complexidade, servico_descricao, profissional_desejado,
          jornada_horario, jornada_escala, tipo_contrato, remuneracao_tipo,
-         remuneracao_valor, regiao, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         remuneracao_valor, regiao, cidade, carga_horaria, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args
     );
   };
   await insertVaga([
     contratante.lastInsertRowid, 'F', 82, 'Alzheimer moderado',
     'media', 'Acompanhante diurno para idosa com Alzheimer. Auxílio em medicação, alimentação e mobilidade.',
-    'Cuidador de Idosos', '08h às 18h', 'Segunda a Sexta', 'CLT', 'hora', 35, 'Zona Sul - SP', 'ativa'
+    'Cuidador de Idosos', '08h às 18h', 'Segunda a Sexta', 'CLT', 'hora', 35, 'Zona Sul - SP',
+    'São Paulo', '08h às 18h - Segunda a Sexta', 'ativa'
   ]);
   await insertVaga([
     contratante.lastInsertRowid, 'M', 70, 'Pós-operatório de quadril',
     'media', 'Sessões de fisioterapia domiciliar, 3x por semana, foco em mobilidade.',
-    'Fisioterapeuta', '14h às 16h', 'Seg/Qua/Sex', 'PJ', 'hora', 80, 'Zona Oeste - SP', 'ativa'
+    'Fisioterapeuta', '14h às 16h', 'Seg/Qua/Sex', 'PJ', 'hora', 80, 'Zona Oeste - SP',
+    'São Paulo', '14h às 16h - Seg/Qua/Sex', 'ativa'
   ]);
   await insertVaga([
     contratante.lastInsertRowid, 'F', 75, 'Hipertensão e mobilidade reduzida',
     'baixa', 'Cuidador noturno para idosa independente que precisa de companhia e supervisão.',
-    'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP', 'ativa'
+    'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP',
+    'São Paulo', 'Plantão noturno 12x36', 'ativa'
   ]);
 
   // Avaliações demo (de "contratantes" fictícios para popular o perfil)
