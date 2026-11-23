@@ -4,15 +4,30 @@
  */
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DATA_DIR = path.resolve(__dirname, '../../data');
-if (!DATA_DIR) {/* noop, dir is created at driver.js level */}
+// O diretório precisa existir ANTES de abrir o banco.
+// Não vale fazer isso em driver.js — o import de './sqlite.js' no topo
+// dele é avaliado antes de qualquer statement de driver.js, então o mkdir
+// de lá sempre roda tarde demais e `npm run seed` quebra em clone novo.
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
-const dbPath = path.join(DATA_DIR, 'essencia.db');
+// SQLITE_PATH permite apontar para outro arquivo (usado nos testes de
+// integração para isolar o banco de desenvolvimento).
+const dbPath = process.env.SQLITE_PATH
+  ? path.resolve(process.env.SQLITE_PATH)
+  : path.join(DATA_DIR, 'essencia.db');
+if (process.env.SQLITE_PATH) {
+  const dir = path.dirname(dbPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -24,13 +39,33 @@ function adapt(sql) {
 
 export const driver = 'sqlite';
 
+/**
+ * Hook de teste: quando `globalThis.__SQL_TRACE__` é um array, cada SQL
+ * executado é registrado nele.
+ *
+ * Serve ao teste de portabilidade PostgreSQL (`tests/sql-postgres-runtime`),
+ * que valida o SQL REALMENTE executado pela aplicação — com as
+ * interpolações já resolvidas — contra o parser do PostgreSQL. Extrair
+ * strings do código-fonte não funciona: `${where}` vira um token inválido
+ * e o resultado não corresponde ao que o banco executa.
+ *
+ * @param {string} sql
+ */
+function registrar(sql) {
+  const trace = globalThis.__SQL_TRACE__;
+  if (Array.isArray(trace)) trace.push(sql);
+}
+
 export function all(sql, params = []) {
+  registrar(sql);
   return db.prepare(adapt(sql)).all(...params);
 }
 export function get(sql, params = []) {
+  registrar(sql);
   return db.prepare(adapt(sql)).get(...params);
 }
 export function run(sql, params = []) {
+  registrar(sql);
   const info = db.prepare(adapt(sql)).run(...(Array.isArray(params) ? params : [params]));
   return { lastInsertRowid: Number(info.lastInsertRowid), changes: info.changes };
 }
@@ -73,9 +108,12 @@ export function initSchema() {
       registro_conselho TEXT,
       tipo_registro TEXT,
       registro_verificado INTEGER NOT NULL DEFAULT 0,
+      profissao TEXT,
+      regiao TEXT,
       especialidades TEXT NOT NULL DEFAULT '[]',
       disponibilidade TEXT NOT NULL DEFAULT '[]',
       bio TEXT,
+      cidade TEXT,
       atualizado_em TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE
     );
@@ -95,6 +133,8 @@ export function initSchema() {
       remuneracao_tipo TEXT CHECK(remuneracao_tipo IN ('plantao','hora')),
       remuneracao_valor REAL,
       regiao TEXT,
+      cidade TEXT,
+      carga_horaria TEXT,
       status TEXT NOT NULL DEFAULT 'ativa' CHECK(status IN ('ativa','pausada','fechada')),
       criado_em TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (id_contratante) REFERENCES users(id) ON DELETE CASCADE
@@ -290,6 +330,181 @@ export function initSchema() {
       FOREIGN KEY (resolvido_por) REFERENCES users(id) ON DELETE SET NULL
     );
 
+    -- Favoritos: usuario favorita vagas ou profissionais (toggle)
+    CREATE TABLE IF NOT EXISTS favoritos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_user INTEGER NOT NULL,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga', 'profissional')),
+      id_recurso INTEGER NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(id_user, tipo, id_recurso),
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Visualizacoes de vagas (contador de views)
+    CREATE TABLE IF NOT EXISTS vaga_visualizacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_vaga INTEGER NOT NULL,
+      id_user INTEGER,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    -- M11 — Auditoria de transicoes de status de candidatura
+    -- Cada mudanca (pendente → visualizada → aceita|recusada) eh registrada aqui.
+    CREATE TABLE IF NOT EXISTS candidatura_status_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_candidatura INTEGER NOT NULL,
+      status_anterior TEXT,
+      status_novo TEXT NOT NULL,
+      alterado_por INTEGER NOT NULL,
+      motivo TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_candidatura) REFERENCES candidaturas(id) ON DELETE CASCADE,
+      FOREIGN KEY (alterado_por) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- ════════════════════════════════════════════════════════════════════
+    --  SISTEMA DE PROTOCOLOS DE PAGAMENTO (Feature: Protocolos)
+    --
+    --  Fluxo:
+    --    1. PCP (Protocolo de Custodia de Plantao) — criado quando contratante
+    --       aceita uma candidatura (matching). Vaga sai do quadro ativo.
+    --    2. PCM (Protocolo de Confirmacao de Matching) — enviado ao profissional
+    --       para ele confirmar o matching. Pode aceitar ou recusar.
+    --    3. PDC (Protocolo de Debito de Custodia) — gerado quando profissional
+    --       aceita PCM. Contratante paga valor integral (plantao + taxa).
+    --    4. Checkout bidirecional — ambos confirmam execução + avaliação.
+    --    5. Liberação de pagamento ao profissional (até 72h após checkout).
+    -- ════════════════════════════════════════════════════════════════════
+
+    -- Tabela central: registra cada protocolo com seu estado e valores
+    CREATE TABLE IF NOT EXISTS protocolos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL CHECK(tipo IN ('PCP', 'PCM', 'PDC', 'CHECKOUT')),
+      id_vaga INTEGER NOT NULL,
+      id_candidatura INTEGER NOT NULL,
+      id_contratante INTEGER NOT NULL,
+      id_profissional INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pendente'
+        CHECK(status IN ('pendente', 'enviado', 'aceito', 'recusado',
+                         'pago', 'em_custodia', 'checkout_pendente',
+                         'checkout_profissional', 'checkout_contratante',
+                         'checkout_completo', 'liberado', 'liberado_parcial',
+                         'cancelado', 'expirado', 'reembolsado',
+                         'recusado_pnp', 'em_analise_pnp')),
+      valor_plantao_centavos INTEGER NOT NULL,
+      valor_taxa_centavos INTEGER NOT NULL DEFAULT 0,
+      valor_total_centavos INTEGER NOT NULL,
+      moeda TEXT NOT NULL DEFAULT 'brl',
+      -- Timeline
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      enviado_em TEXT,
+      respondido_em TEXT,
+      pago_em TEXT,
+      checkout_profissional_em TEXT,
+      checkout_contratante_em TEXT,
+      liberado_em TEXT,
+      expira_em TEXT,  -- prazo para profissional aceitar PCM ou para contratante pagar PDC
+      -- M3: prazo de 72h para liberação após checkout completo
+      prazo_liberacao_horas INTEGER NOT NULL DEFAULT 72,
+      -- M6: avaliação opcional do profissional pelo contratante (já existe tabela avaliacoes)
+      -- M7: motivos e observações
+      observacoes TEXT,
+      motivo_rejeicao TEXT,
+      FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_candidatura) REFERENCES candidaturas(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_contratante) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_profissional) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Pagamentos em custódia (escrow) — Stripe Connect via Connect Express
+    CREATE TABLE IF NOT EXISTS pagamentos_custodia (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_protocolo INTEGER NOT NULL,
+      stripe_payment_intent_id TEXT,
+      stripe_transfer_id TEXT,
+      valor_centavos INTEGER NOT NULL,
+      moeda TEXT NOT NULL DEFAULT 'brl',
+      status TEXT NOT NULL DEFAULT 'pendente'
+        CHECK(status IN ('pendente', 'em_custodia', 'liberado_profissional',
+                         'reembolsado_contratante', 'falhou')),
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      pago_em TEXT,
+      liberado_em TEXT,
+      erro TEXT,
+      FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE
+    );
+
+    -- Checkouts bidirecionais (profissional + contratante confirmam execução)
+    CREATE TABLE IF NOT EXISTS protocolo_checkouts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_protocolo INTEGER NOT NULL,
+      id_user INTEGER NOT NULL,
+      tipo_user TEXT NOT NULL CHECK(tipo_user IN ('profissional', 'contratante')),
+      confirmado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      nota INTEGER CHECK(nota BETWEEN 1 AND 5),
+      comentario TEXT,
+      UNIQUE(id_protocolo, tipo_user),
+      FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Reivindicação de liberação de pagamento (trava de concorrência).
+    -- A linha é a "cadeia" entre as execuções concorrentes de
+    -- liberarPagamento(): o INSERT com PK atômico faz exatamente uma
+    -- vencedora — as outras percebem a violação e não transferem o
+    -- dinheiro. Sem uma tabela própria não dá para usar um status novo
+    -- ('liberando'), porque a coluna status tem CHECK de valores.
+    CREATE TABLE IF NOT EXISTS protocolo_liberamento_claim (
+      id_protocolo INTEGER PRIMARY KEY,
+      token TEXT NOT NULL,
+      claimado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE
+    );
+
+    -- Log de transições de estado dos protocolos (auditoria, M11-style)
+    CREATE TABLE IF NOT EXISTS protocolo_status_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_protocolo INTEGER NOT NULL,
+      status_anterior TEXT,
+      status_novo TEXT NOT NULL,
+      alterado_por INTEGER,
+      motivo TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE
+    );
+
+    -- ════════════════════════════════════════════════════════════════════
+    --  CHECK-IN / CHECK-OUT DO PLANTÃO
+    --
+    --  O check-in registra a presença do profissional no início do plantão
+    --  (timestamp + geolocalização opcional). O check-out é a confirmação
+    --  de conclusão, que já existia no fluxo de protocolos.
+    --
+    --  Este ledger é append-only e independente do status do protocolo:
+    --  assim não é preciso alterar o CHECK constraint de protocolos.status
+    --  (que no SQLite exigiria rebuild da tabela), e o histórico de
+    --  check-ins sobrevive a qualquer mudança do fluxo.
+    --
+    --  UNIQUE(id_protocolo, tipo_user) garante um check-in por parte.
+    -- ════════════════════════════════════════════════════════════════════
+    CREATE TABLE IF NOT EXISTS protocolo_checkins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_protocolo INTEGER NOT NULL,
+      id_user INTEGER NOT NULL,
+      tipo_user TEXT NOT NULL CHECK(tipo_user IN ('profissional', 'contratante')),
+      confirmado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      latitude REAL,
+      longitude REAL,
+      observacao TEXT,
+      implicito INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(id_protocolo, tipo_user)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_vagas_contratante ON vagas(id_contratante);
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
@@ -300,12 +515,43 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(id_user);
     CREATE INDEX IF NOT EXISTS idx_verify_user ON verificacao_registros(id_user);
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+    CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
+    CREATE INDEX IF NOT EXISTS idx_vaga_views ON vaga_visualizacoes(id_vaga);
+    CREATE INDEX IF NOT EXISTS idx_cand_status_log ON candidatura_status_log(id_candidatura);
+    -- Protocolos
+    CREATE INDEX IF NOT EXISTS idx_protocolos_vaga ON protocolos(id_vaga);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_contratante ON protocolos(id_contratante);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_profissional ON protocolos(id_profissional);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_status ON protocolos(status);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_tipo ON protocolos(tipo);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_expira ON protocolos(expira_em);
+    CREATE INDEX IF NOT EXISTS idx_custodia_protocolo ON pagamentos_custodia(id_protocolo);
+    CREATE INDEX IF NOT EXISTS idx_checkouts_protocolo ON protocolo_checkouts(id_protocolo);
+    CREATE INDEX IF NOT EXISTS idx_proto_log_protocolo ON protocolo_status_log(id_protocolo);
   `);
 
   // Migrações idempotentes para bancos pré-existentes
   safeExec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
   safeExec("ALTER TABLE users ADD COLUMN suspended_at TEXT");
   safeExec("ALTER TABLE users ADD COLUMN suspended_reason TEXT");
+  // Adiciona coluna atualizada_em em candidaturas (usada por notificacoes.js)
+  safeExec("ALTER TABLE candidaturas ADD COLUMN atualizada_em TEXT");
+  // S2 — Idempotência do webhook Stripe: coluna para registrar o último event_id processado
+  safeExec("ALTER TABLE pagamentos ADD COLUMN stripe_event_id TEXT");
+  // M3 — Adiciona coluna regiao_uf em vagas (validação geográfica)
+  safeExec("ALTER TABLE vagas ADD COLUMN regiao_uf TEXT");
+  // Matching simplificado — 2 filtros: cidade + carga_horaria
+  safeExec("ALTER TABLE vagas ADD COLUMN cidade TEXT");
+  safeExec("ALTER TABLE vagas ADD COLUMN carga_horaria TEXT");
+  safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN cidade TEXT");
+  // M1-fix — Matching: profissão canônica e região de atuação do profissional.
+  // Sem `profissao` o matcher não tinha contra o que comparar com o
+  // `profissional_desejado` da vaga (o `tipo_registro` é o conselho, não a profissão).
+  safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN profissao TEXT");
+  safeExec("ALTER TABLE profissionais_detalhes ADD COLUMN regiao TEXT");
+  // Check-in / check-out — timestamps de chegada e de confirmação de presença.
+  safeExec("ALTER TABLE protocolos ADD COLUMN checkin_profissional_em TEXT");
+  safeExec("ALTER TABLE protocolos ADD COLUMN checkin_contratante_em TEXT");
   console.log('[db:sqlite] schema inicializado em', dbPath);
 }
 

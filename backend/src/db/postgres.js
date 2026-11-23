@@ -9,6 +9,7 @@
  *   - índices como CREATE INDEX IF NOT EXISTS (idempotente)
  */
 import pg from 'pg';
+import { toPostgres } from './sql-dialect.js';
 const { Pool } = pg;
 
 let _pool = null;
@@ -42,16 +43,31 @@ function pgPlaceholders(sql) {
   return sql.replace(/\?/g, () => `$${++i}`);
 }
 
+/**
+ * Traduz o SQL do dialeto SQLite para o dialeto PostgreSQL e só então
+ * converte os placeholders.
+ *
+ * A ordem importa: o adaptador precisa ver `datetime('now', ?)` com o
+ * `?` original para reescrever como `(?::interval)`; se os placeholders
+ * fossem convertidos antes, ele veria `$1` e não casaria.
+ *
+ * @param {string} sql
+ * @returns {string}
+ */
+function adapt(sql) {
+  return pgPlaceholders(toPostgres(sql));
+}
+
 export async function all(sql, params = []) {
-  const r = await pool.query(pgPlaceholders(sql), params);
+  const r = await pool.query(adapt(sql), params);
   return toRows(r);
 }
 export async function get(sql, params = []) {
-  const r = await pool.query(pgPlaceholders(sql), params);
+  const r = await pool.query(adapt(sql), params);
   return r.rows[0];
 }
 export async function run(sql, params = []) {
-  const r = await pool.query(pgPlaceholders(sql) + ' RETURNING id', params);
+  const r = await pool.query(adapt(sql) + ' RETURNING id', params);
   const lastInsertRowid = r.rows[0]?.id ? Number(r.rows[0].id) : null;
   return { lastInsertRowid, changes: r.rowCount };
 }
@@ -59,9 +75,12 @@ export async function exec(sql) {
   // pg não tem exec multi-statement nativo; usa query simples.
   // Para migrations completas, recomenda-se pg-migrate ou rodar via psql.
   // Aqui a gente quebra em statements e executa cada um.
+  //
+  // Cada statement é traduzida individualmente: o `ON CONFLICT DO NOTHING`
+  // da forma INSERT...SELECT precisa ser anexado ao fim da statement certa.
   const stmts = sql.split(/;\s*\n/).map(s => s.trim()).filter(Boolean);
   for (const s of stmts) {
-    await pool.query(s);
+    await pool.query(adapt(s));
   }
 }
 
@@ -77,7 +96,7 @@ export async function initSchema() {
       is_admin INTEGER NOT NULL DEFAULT 0,
       suspended_at TEXT,
       suspended_reason TEXT,
-      criado_em TEXT NOT NULL DEFAULT (now()::text)
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     CREATE TABLE IF NOT EXISTS profissionais_detalhes (
@@ -89,10 +108,13 @@ export async function initSchema() {
       registro_conselho TEXT,
       tipo_registro TEXT,
       registro_verificado INTEGER NOT NULL DEFAULT 0,
+      profissao TEXT,
+      regiao TEXT,
       especialidades TEXT NOT NULL DEFAULT '[]',
       disponibilidade TEXT NOT NULL DEFAULT '[]',
       bio TEXT,
-      atualizado_em TEXT NOT NULL DEFAULT (now()::text)
+      cidade TEXT,
+      atualizado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     CREATE TABLE IF NOT EXISTS vagas (
@@ -110,8 +132,10 @@ export async function initSchema() {
       remuneracao_tipo TEXT CHECK(remuneracao_tipo IN ('plantao','hora')),
       remuneracao_valor REAL,
       regiao TEXT,
+      cidade TEXT,
+      carga_horaria TEXT,
       status TEXT NOT NULL DEFAULT 'ativa' CHECK(status IN ('ativa','pausada','fechada')),
-      criado_em TEXT NOT NULL DEFAULT (now()::text)
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     CREATE TABLE IF NOT EXISTS candidaturas (
@@ -121,7 +145,7 @@ export async function initSchema() {
       mensagem TEXT,
       status_candidatura TEXT NOT NULL DEFAULT 'pendente'
         CHECK(status_candidatura IN ('pendente','visualizada','aceita','recusada')),
-      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
       UNIQUE(id_vaga, id_profissional)
     );
 
@@ -132,7 +156,7 @@ export async function initSchema() {
       id_vaga INTEGER REFERENCES vagas(id) ON DELETE SET NULL,
       conteudo TEXT NOT NULL,
       lida INTEGER NOT NULL DEFAULT 0,
-      criado_em TEXT NOT NULL DEFAULT (now()::text)
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     CREATE TABLE IF NOT EXISTS favoritos (
@@ -140,7 +164,7 @@ export async function initSchema() {
       id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       tipo TEXT NOT NULL CHECK(tipo IN ('vaga','profissional')),
       id_recurso INTEGER NOT NULL,
-      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
       UNIQUE(id_user, tipo, id_recurso)
     );
 
@@ -148,7 +172,7 @@ export async function initSchema() {
       id SERIAL PRIMARY KEY,
       id_vaga INTEGER NOT NULL REFERENCES vagas(id) ON DELETE CASCADE,
       id_user INTEGER,
-      criado_em TEXT NOT NULL DEFAULT (now()::text)
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     CREATE TABLE IF NOT EXISTS rag_documentos (
@@ -180,7 +204,7 @@ export async function initSchema() {
       status_code INTEGER,
       resposta TEXT,
       erro TEXT,
-      criado_em TEXT NOT NULL DEFAULT (now()::text)
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     -- Avaliações: contratante → profissional após vaga aceita/fechada
@@ -192,7 +216,7 @@ export async function initSchema() {
       id_vaga INTEGER NOT NULL REFERENCES vagas(id) ON DELETE CASCADE,
       nota INTEGER NOT NULL CHECK (nota BETWEEN 1 AND 5),
       comentario TEXT,
-      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
       UNIQUE(id_contratante, id_vaga)
     );
     CREATE INDEX IF NOT EXISTS idx_av_prof ON avaliacoes(id_profissional);
@@ -212,7 +236,7 @@ export async function initSchema() {
         CHECK(status IN ('pendente','aprovado','rejeitado')),
       motivo TEXT,
       verificado_por INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
       verificado_em TEXT
     );
 
@@ -231,8 +255,8 @@ export async function initSchema() {
       pix_txid TEXT,
       pix_qr_code TEXT,
       erro TEXT,
-      criado_em TEXT NOT NULL DEFAULT (now()::text),
-      atualizado_em TEXT NOT NULL DEFAULT (now()::text)
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
+      atualizado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     CREATE TABLE IF NOT EXISTS stripe_connect (
@@ -241,8 +265,8 @@ export async function initSchema() {
       charges_enabled INTEGER NOT NULL DEFAULT 0,
       payouts_enabled INTEGER NOT NULL DEFAULT 0,
       detalhes_submetidos INTEGER NOT NULL DEFAULT 0,
-      criado_em TEXT NOT NULL DEFAULT (now()::text),
-      atualizado_em TEXT NOT NULL DEFAULT (now()::text)
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
+      atualizado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     CREATE TABLE IF NOT EXISTS push_subscriptions (
@@ -251,7 +275,7 @@ export async function initSchema() {
       endpoint TEXT NOT NULL UNIQUE,
       p256dh TEXT NOT NULL,
       auth TEXT NOT NULL,
-      criado_em TEXT NOT NULL DEFAULT (now()::text)
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     CREATE TABLE IF NOT EXISTS admin_audit (
@@ -261,7 +285,7 @@ export async function initSchema() {
       alvo_tipo TEXT NOT NULL,
       alvo_id INTEGER,
       detalhes TEXT,
-      criado_em TEXT NOT NULL DEFAULT (now()::text)
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
     );
 
     CREATE TABLE IF NOT EXISTS reports (
@@ -272,8 +296,142 @@ export async function initSchema() {
       motivo TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'aberto' CHECK(status IN ('aberto','analisando','resolvido','descartado')),
       resolvido_por INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      criado_em TEXT NOT NULL DEFAULT (now()::text),
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
       resolvido_em TEXT
+    );
+
+    -- Favoritos: usuario favorita vagas ou profissionais (toggle)
+    CREATE TABLE IF NOT EXISTS favoritos (
+      id SERIAL PRIMARY KEY,
+      id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga', 'profissional')),
+      id_recurso INTEGER NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
+      UNIQUE(id_user, tipo, id_recurso)
+    );
+
+    -- Visualizacoes de vagas (contador de views)
+    CREATE TABLE IF NOT EXISTS vaga_visualizacoes (
+      id SERIAL PRIMARY KEY,
+      id_vaga INTEGER NOT NULL REFERENCES vagas(id) ON DELETE CASCADE,
+      id_user INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+    );
+
+    -- M11 — Auditoria de transicoes de status de candidatura
+    CREATE TABLE IF NOT EXISTS candidatura_status_log (
+      id SERIAL PRIMARY KEY,
+      id_candidatura INTEGER NOT NULL REFERENCES candidaturas(id) ON DELETE CASCADE,
+      status_anterior TEXT,
+      status_novo TEXT NOT NULL,
+      alterado_por INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      motivo TEXT,
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+    );
+
+    -- ════════════════════════════════════════════════════════════════════
+    --  SISTEMA DE PROTOCOLOS DE PAGAMENTO (Feature: Protocolos)
+    -- ════════════════════════════════════════════════════════════════════
+
+    CREATE TABLE IF NOT EXISTS protocolos (
+      id SERIAL PRIMARY KEY,
+      tipo TEXT NOT NULL CHECK(tipo IN ('PCP', 'PCM', 'PDC', 'CHECKOUT')),
+      id_vaga INTEGER NOT NULL REFERENCES vagas(id) ON DELETE CASCADE,
+      id_candidatura INTEGER NOT NULL REFERENCES candidaturas(id) ON DELETE CASCADE,
+      id_contratante INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id_profissional INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pendente'
+        CHECK(status IN ('pendente', 'enviado', 'aceito', 'recusado',
+                         'pago', 'em_custodia', 'checkout_pendente',
+                         'checkout_profissional', 'checkout_contratante',
+                         'checkout_completo', 'liberado', 'liberado_parcial',
+                         'cancelado', 'expirado', 'reembolsado',
+                         'recusado_pnp', 'em_analise_pnp')),
+      valor_plantao_centavos INTEGER NOT NULL,
+      valor_taxa_centavos INTEGER NOT NULL DEFAULT 0,
+      valor_total_centavos INTEGER NOT NULL,
+      moeda TEXT NOT NULL DEFAULT 'brl',
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
+      enviado_em TEXT,
+      respondido_em TEXT,
+      pago_em TEXT,
+      checkout_profissional_em TEXT,
+      checkout_contratante_em TEXT,
+      liberado_em TEXT,
+      expira_em TEXT,
+      prazo_liberacao_horas INTEGER NOT NULL DEFAULT 72,
+      observacoes TEXT,
+      motivo_rejeicao TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS pagamentos_custodia (
+      id SERIAL PRIMARY KEY,
+      id_protocolo INTEGER NOT NULL REFERENCES protocolos(id) ON DELETE CASCADE,
+      stripe_payment_intent_id TEXT,
+      stripe_transfer_id TEXT,
+      valor_centavos INTEGER NOT NULL,
+      moeda TEXT NOT NULL DEFAULT 'brl',
+      status TEXT NOT NULL DEFAULT 'pendente'
+        CHECK(status IN ('pendente', 'em_custodia', 'liberado_profissional',
+                         'reembolsado_contratante', 'falhou')),
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
+      pago_em TEXT,
+      liberado_em TEXT,
+      erro TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS protocolo_checkouts (
+      id SERIAL PRIMARY KEY,
+      id_protocolo INTEGER NOT NULL REFERENCES protocolos(id) ON DELETE CASCADE,
+      id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      tipo_user TEXT NOT NULL CHECK(tipo_user IN ('profissional', 'contratante')),
+      confirmado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
+      nota INTEGER CHECK(nota BETWEEN 1 AND 5),
+      comentario TEXT,
+      UNIQUE(id_protocolo, tipo_user)
+    );
+
+    -- Reivindicação de liberação de pagamento (trava de concorrência).
+    -- Ver a explicação equivalente em db/sqlite.js.
+    CREATE TABLE IF NOT EXISTS protocolo_liberamento_claim (
+      id_protocolo INTEGER PRIMARY KEY REFERENCES protocolos(id) ON DELETE CASCADE,
+      token TEXT NOT NULL,
+      claimado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+    );
+
+    CREATE TABLE IF NOT EXISTS protocolo_status_log (
+      id SERIAL PRIMARY KEY,
+      id_protocolo INTEGER NOT NULL REFERENCES protocolos(id) ON DELETE CASCADE,
+      status_anterior TEXT,
+      status_novo TEXT NOT NULL,
+      alterado_por INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      motivo TEXT,
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+    );
+
+    -- ════════════════════════════════════════════════════════════════════
+    --  CHECK-IN / CHECK-OUT DO PLANTÃO
+    --
+    --  Ledger append-only de presenças: o check-in marca a chegada do
+    --  profissional (timestamp + geo opcional); o check-out é a
+    --  confirmação de conclusão, que já existia no fluxo de protocolos.
+    --
+    --  Fica fora do status do protocolo de propósito: alterar o CHECK
+    --  constraint de protocolos.status no PG exigiria dropar e recriar a
+    --  constraint, e no SQLite exigiria rebuild da tabela. Um ledger
+    --  separado preserva o histórico de presenças e não toca no fluxo.
+    -- ════════════════════════════════════════════════════════════════════
+    CREATE TABLE IF NOT EXISTS protocolo_checkins (
+      id SERIAL PRIMARY KEY,
+      id_protocolo INTEGER NOT NULL REFERENCES protocolos(id) ON DELETE CASCADE,
+      id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      tipo_user TEXT NOT NULL CHECK(tipo_user IN ('profissional', 'contratante')),
+      confirmado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
+      latitude DOUBLE PRECISION,
+      longitude DOUBLE PRECISION,
+      observacao TEXT,
+      implicito INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(id_protocolo, tipo_user)
     );
 
     CREATE INDEX IF NOT EXISTS idx_vagas_contratante ON vagas(id_contratante);
@@ -286,7 +444,72 @@ export async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(id_user);
     CREATE INDEX IF NOT EXISTS idx_verify_user ON verificacao_registros(id_user);
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+    CREATE INDEX IF NOT EXISTS idx_fav_user ON favoritos(id_user);
+    CREATE INDEX IF NOT EXISTS idx_vaga_views ON vaga_visualizacoes(id_vaga);
+    CREATE INDEX IF NOT EXISTS idx_cand_status_log ON candidatura_status_log(id_candidatura);
+    -- Protocolos
+    CREATE INDEX IF NOT EXISTS idx_protocolos_vaga ON protocolos(id_vaga);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_contratante ON protocolos(id_contratante);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_profissional ON protocolos(id_profissional);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_status ON protocolos(status);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_tipo ON protocolos(tipo);
+    CREATE INDEX IF NOT EXISTS idx_protocolos_expira ON protocolos(expira_em);
+    CREATE INDEX IF NOT EXISTS idx_custodia_protocolo ON pagamentos_custodia(id_protocolo);
+    CREATE INDEX IF NOT EXISTS idx_checkouts_protocolo ON protocolo_checkouts(id_protocolo);
+    CREATE INDEX IF NOT EXISTS idx_proto_log_protocolo ON protocolo_status_log(id_protocolo);
   `);
+
+  // S2 — Idempotência do webhook Stripe (idempotente — IF NOT EXISTS via DO block)
+  // Note: PG não suporta "ALTER TABLE ... ADD COLUMN IF NOT EXISTS" em todas as versões;
+  // usamos um bloco DO anônimo para capturar o erro.
+  try {
+    await pool.query(`ALTER TABLE pagamentos ADD COLUMN stripe_event_id TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+  // M3 — Adiciona coluna regiao_uf em vagas
+  try {
+    await pool.query(`ALTER TABLE vagas ADD COLUMN regiao_uf TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+  // Matching simplificado — 2 filtros: cidade + carga_horaria
+  try {
+    await pool.query(`ALTER TABLE vagas ADD COLUMN cidade TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+  try {
+    await pool.query(`ALTER TABLE vagas ADD COLUMN carga_horaria TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+  try {
+    await pool.query(`ALTER TABLE profissionais_detalhes ADD COLUMN cidade TEXT`);
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+
+  // M1-fix — Matching: profissão canônica e região de atuação do profissional.
+  // Sem `profissao` o matcher não tem contra o que comparar com o
+  // `profissional_desejado` da vaga (o `tipo_registro` é o conselho, não a profissão).
+  for (const col of ['profissao', 'regiao']) {
+    try {
+      await pool.query(`ALTER TABLE profissionais_detalhes ADD COLUMN ${col} TEXT`);
+    } catch (e) {
+      if (!/already exists/i.test(String(e.message))) throw e;
+    }
+  }
+
+  // Check-in / check-out — timestamps de chegada e de confirmação de presença.
+  for (const col of ['checkin_profissional_em', 'checkin_contratante_em']) {
+    try {
+      await pool.query(`ALTER TABLE protocolos ADD COLUMN ${col} TEXT`);
+    } catch (e) {
+      if (!/already exists/i.test(String(e.message))) throw e;
+    }
+  }
+
   console.log('[db:postgres] schema inicializado');
 }
 
