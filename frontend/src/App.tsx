@@ -13,6 +13,7 @@ import DashboardProfissional from './pages/DashboardProfissional';
 import DashboardContratante from './pages/DashboardContratante';
 import ProfissionalPerfil from './pages/ProfissionalPerfil';
 import Admin from './pages/Admin';
+import Plantoes from './pages/Plantoes';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/vagas" element={<VagasPublicas />} />
           <Route path="/vagas/:id" element={<VagaDetalhe />} />
+          <Route path="/plantoes" element={<Plantoes />} />
           <Route path="/como-funciona" element={<ComoFunciona />} />
           <Route path="/profissional/:id" element={<ProfissionalPerfil />} />
           <Route

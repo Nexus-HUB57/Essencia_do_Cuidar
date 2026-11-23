@@ -146,7 +146,7 @@ export function initSchema() {
       id_profissional INTEGER NOT NULL,
       mensagem TEXT,
       status_candidatura TEXT NOT NULL DEFAULT 'pendente'
-        CHECK(status_candidatura IN ('pendente','visualizada','aceita','recusada')),
+        CHECK(status_candidatura IN ('pendente','visualizada','aceita','recusada','cancelada')),
       criado_em TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(id_vaga, id_profissional),
       FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE CASCADE,
@@ -470,6 +470,23 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
     CREATE INDEX IF NOT EXISTS idx_cand_prof ON candidaturas(id_profissional);
+    -- Plantões avulsos via Payment Link do Mercado Pago (services/mercadopago-links.js)
+    CREATE TABLE IF NOT EXISTS pagamentos_link (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      external_reference TEXT NOT NULL UNIQUE,
+      id_plantao TEXT NOT NULL,
+      link_id TEXT,
+      id_user INTEGER NOT NULL,
+      titulo TEXT,
+      valor_centavos INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pendente' CHECK(status IN ('pendente','pago','cancelado')),
+      mp_payment_id TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      pago_em TEXT,
+      FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_plink_user ON pagamentos_link(id_user);
+    CREATE INDEX IF NOT EXISTS idx_plink_ref ON pagamentos_link(external_reference);
     CREATE INDEX IF NOT EXISTS idx_msg_remetente ON mensagens(id_remetente);
     CREATE INDEX IF NOT EXISTS idx_msg_destinatario ON mensagens(id_destinatario);
     CREATE INDEX IF NOT EXISTS idx_pag_vaga ON pagamentos(id_vaga);
@@ -513,7 +530,63 @@ export function initSchema() {
   // Check-in / check-out — timestamps de chegada e de confirmação de presença.
   safeExec("ALTER TABLE protocolos ADD COLUMN checkin_profissional_em TEXT");
   safeExec("ALTER TABLE protocolos ADD COLUMN checkin_contratante_em TEXT");
+  // Permite 'cancelada' em candidaturas (profissional retira a candidatura).
+  // O SQLite não sabe alterar CHECK constraints — só recriando a tabela.
+  patchCandidaturasStatusCancelada();
   console.log('[db:sqlite] schema inicializado em', dbPath);
+}
+
+/**
+ * Recria a tabela `candidaturas` com o CHECK de status ampliado para
+ * aceitar 'cancelada'. Banco novo já nasce certo (veja initSchema); aqui
+ * tratamos bancos criados antes da feature existirem.
+ *
+ * O SQLite não altera CHECK constraints — a única saída é criar a tabela
+ * nova, copiar os dados e renomear, com foreign_keys desligada durante a
+ * cópia (as FKs apontam para vagas/users, que não mudam de id).
+ */
+function patchCandidaturasStatusCancelada() {
+  const ddl = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'candidaturas'")
+    .get();
+  if (!ddl?.sql) return; // tabela ainda não existe (nada a migrar)
+  if (ddl.sql.includes("'cancelada'")) return; // já nasceu certo
+
+  db.pragma('foreign_keys = OFF');
+  const copiar = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE candidaturas_nova (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_vaga INTEGER NOT NULL,
+        id_profissional INTEGER NOT NULL,
+        mensagem TEXT,
+        status_candidatura TEXT NOT NULL DEFAULT 'pendente'
+          CHECK(status_candidatura IN ('pendente','visualizada','aceita','recusada','cancelada')),
+        criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+        atualizada_em TEXT,
+        UNIQUE(id_vaga, id_profissional),
+        FOREIGN KEY (id_vaga) REFERENCES vagas(id) ON DELETE CASCADE,
+        FOREIGN KEY (id_profissional) REFERENCES users(id) ON DELETE CASCADE
+      );
+      INSERT INTO candidaturas_nova SELECT * FROM candidaturas;
+      DROP TABLE candidaturas;
+      ALTER TABLE candidaturas_nova RENAME TO candidaturas;
+    `);
+  });
+  try {
+    copiar();
+    // O DROP TABLE acima derruba os índices junto — recria.
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
+      CREATE INDEX IF NOT EXISTS idx_cand_prof ON candidaturas(id_profissional);
+    `);
+    console.log('[db:sqlite] candidaturas migradas: status agora aceita cancelada');
+  } catch (err) {
+    console.error('[db:sqlite] falha ao migrar candidaturas:', err.message);
+    throw err;
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
 }
 
 export function close() {

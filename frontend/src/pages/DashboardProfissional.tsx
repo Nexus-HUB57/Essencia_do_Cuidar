@@ -157,6 +157,18 @@ export default function DashboardProfissional() {
     }
   }
 
+  // Retira a própria candidatura (pendente/visualizada → cancelada).
+  async function retirar(candidaturaId: number) {
+    if (!window.confirm(t('dashboard.confirmRetirar'))) return;
+    try {
+      await api.post(`/candidaturas/${candidaturaId}/retirar`);
+      alert(t('dashboard.candidaturaRetirada'));
+      carregarCands();
+    } catch (err) {
+      alert(getErrorMessage(err));
+    }
+  }
+
   if (!user) return null;
 
   return (
@@ -348,6 +360,12 @@ export default function DashboardProfissional() {
                     {c.status_candidatura === 'visualizada' && <span className="badge-blue">Visualizada</span>}
                     {c.status_candidatura === 'aceita' && <span className="badge-green">✓ Aceita</span>}
                     {c.status_candidatura === 'recusada' && <span className="badge-rose">Recusada</span>}
+                    {c.status_candidatura === 'cancelada' && <span className="badge-slate">{t('dashboard.statusRetirada')}</span>}
+                    {(c.status_candidatura === 'pendente' || c.status_candidatura === 'visualizada') && (
+                      <button onClick={() => retirar(c.id)} className="btn-ghost text-xs text-rose-600">
+                        {t('dashboard.retirarCandidatura')}
+                      </button>
+                    )}
                     {c.status_candidatura === 'aceita' && c.id_contratante && (
                       <button onClick={() => setChatCom({ id: c.id_contratante!, nome: c.contratante_nome || 'Contratante' })}
                         className="btn-ghost text-xs">

@@ -359,6 +359,105 @@ assert_eq 404 "$CODE_CAND" "candidatura a vaga inexistente → 404"
 SAUDE_FINAL=$(http_body "$BASE/api/health")
 assert_true "$(echo "$SAUDE_FINAL" | grep -q '"reachable":true' && echo 1 || echo 0)" "API ainda de pé no fim do smoke test"
 
+# --- 28. Candidatura pode ser retirada pelo profissional (status 'cancelada')
+echo "[28] Retirada de candidatura"
+RESP=$(http_body -X POST "$BASE/api/vagas" \
+  -H "Authorization: Bearer $CONT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"complexidade\":\"baixa\",\"servico_descricao\":\"Smoke: vaga para teste de retirada de candidatura.\",\"profissional_desejado\":\"Cuidador de Idosos\",\"jornada_horario\":\"08h às 12h\",\"regiao\":\"Smoke Test\",\"remuneracao_valor\":90,\"remuneracao_tipo\":\"hora\"}")
+VAGA_RET=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['vaga']['id'])" 2>/dev/null || echo "")
+RESP=$(http_body -X POST "$BASE/api/candidaturas" \
+  -H "Authorization: Bearer $PROF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"id_vaga\":$VAGA_RET}")
+CAND_ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['candidatura']['id'])" 2>/dev/null || echo "")
+echo "  candidatura: $CAND_ID na vaga $VAGA_RET"
+[ -n "$CAND_ID" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+CODE_RET=$(http_code -X POST "$BASE/api/candidaturas/$CAND_ID/retirar" \
+  -H "Authorization: Bearer $PROF_TOKEN")
+assert_eq 200 "$CODE_RET" "profissional retira a própria candidatura → 200"
+
+STATUS_RET=$(http_body "$BASE/api/candidaturas/$CAND_ID/historico-status" \
+  -H "Authorization: Bearer $PROF_TOKEN" \
+  | python3 -c "import json,sys;h=json.load(sys.stdin)['historico'];print(h[-1]['status_novo'])" 2>/dev/null || echo "")
+assert_eq "cancelada" "$STATUS_RET" "status virou 'cancelada' (auditoria M11)"
+
+CODE_RET2=$(http_code -X POST "$BASE/api/candidaturas/$CAND_ID/retirar" \
+  -H "Authorization: Bearer $PROF_TOKEN")
+assert_eq 409 "$CODE_RET2" "retirar de novo uma já cancelada → 409"
+
+CODE_OUTRO=$(http_code -X POST "$BASE/api/candidaturas/$CAND_ID/retirar" \
+  -H "Authorization: Bearer $CONT_TOKEN")
+assert_eq 403 "$CODE_OUTRO" "contratante não usa o endpoint de retirar → 403"
+
+CODE_RE=$(http_code -X POST "$BASE/api/candidaturas" \
+  -H "Authorization: Bearer $PROF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"id_vaga\":$VAGA_RET}")
+assert_eq 201 "$CODE_RE" "candidatura retirada pode ser reativada → 201"
+
+# --- 29. Plantões avulsos (Mercado Pago Payment Links)
+echo "[29] Plantões (Mercado Pago)"
+TOTAL_PL=$(http_body "$BASE/api/plantoes" | python3 -c "import json,sys;print(len(json.load(sys.stdin)['plantoes']))" 2>/dev/null || echo "0")
+assert_eq 6 "$TOTAL_PL" "catálogo público traz os 6 plantões"
+
+TOTAL_FAM=$(http_body "$BASE/api/plantoes?familia=cuidador" | python3 -c "import json,sys;print(len(json.load(sys.stdin)['plantoes']))" 2>/dev/null || echo "0")
+assert_eq 3 "$TOTAL_FAM" "filtro familia=cuidador traz 3"
+
+CODE_FAM=$(http_code "$BASE/api/plantoes?familia=pedreiro")
+assert_eq 400 "$CODE_FAM" "família inválida → 400"
+
+CKT_NOAUTH=$(http_code -X POST "$BASE/api/plantoes/enfermagem-6h/checkout")
+assert_eq 401 "$CKT_NOAUTH" "checkout sem token → 401"
+
+CKT_404=$(http_code -X POST "$BASE/api/plantoes/enfermagem-99h/checkout" \
+  -H "Authorization: Bearer $CONT_TOKEN")
+assert_eq 404 "$CKT_404" "plantão inexistente → 404"
+
+RESP=$(http_body -X POST "$BASE/api/plantoes/cuidador-8h/checkout" \
+  -H "Authorization: Bearer $CONT_TOKEN")
+PL_REF=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['external_reference'])" 2>/dev/null || echo "")
+PL_URL=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['checkout_url'])" 2>/dev/null || echo "")
+echo "  external_reference: $PL_REF"
+[ -n "$PL_REF" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+assert_true "$(echo "$PL_URL" | grep -q 'https://www.mercadopago.com.br/payment-link/v1/redirect?link-id=' && echo 1 || echo 0)" \
+  "checkout_url aponta para o redirect oficial do Mercado Pago"
+
+assert_true "$(echo "$PL_URL" | grep -q "external_reference=$PL_REF" && echo 1 || echo 0)" \
+  "checkout_url preserva a external_reference (chave de reconciliação)"
+
+STATUS_PL=$(http_body "$BASE/api/plantoes/status/$PL_REF" \
+  -H "Authorization: Bearer $CONT_TOKEN" \
+  | python3 -c "import json,sys;print(json.load(sys.stdin)['pagamento']['status'])" 2>/dev/null || echo "")
+assert_eq "pendente" "$STATUS_PL" "pagamento começa como pendente"
+
+# Confirmação manual só existe no modo mock (CI/dev não têm access token).
+# Em produção (token MP real) o endpoint recusa — a confirmação vem do webhook.
+CODE_CONF=$(http_code -X POST "$BASE/api/plantoes/status/$PL_REF/confirmar" \
+  -H "Authorization: Bearer $CONT_TOKEN")
+if [ "$CODE_CONF" = "403" ]; then
+  echo -e "  ${GREEN}✓${NC} modo live: confirmação manual recusada (403) — webhook confirma"
+  PASS=$((PASS+1))
+else
+  assert_eq 200 "$CODE_CONF" "confirmação (mock) → 200"
+  STATUS_PL2=$(http_body "$BASE/api/plantoes/status/$PL_REF" \
+    -H "Authorization: Bearer $CONT_TOKEN" \
+    | python3 -c "import json,sys;print(json.load(sys.stdin)['pagamento']['status'])" 2>/dev/null || echo "")
+  assert_eq "pago" "$STATUS_PL2" "pagamento reconciliado como pago"
+fi
+
+CODE_ALHEIO=$(http_code "$BASE/api/plantoes/status/$PL_REF" \
+  -H "Authorization: Bearer $PROF_TOKEN")
+assert_eq 404 "$CODE_ALHEIO" "pagamento alheio não é acessível → 404"
+
+MEUS_PL=$(http_body "$BASE/api/plantoes/meus" \
+  -H "Authorization: Bearer $CONT_TOKEN" \
+  | python3 -c "import json,sys;print(len(json.load(sys.stdin)['pagamentos']))" 2>/dev/null || echo "0")
+[ "$MEUS_PL" -ge 1 ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+echo "  histórico do usuário: $MEUS_PL pagamento(s)"
+
 
 echo ""
 echo "============================================================"

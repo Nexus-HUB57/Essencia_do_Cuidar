@@ -334,6 +334,39 @@ https://api.seu-site.com/api/openapi.json
 | `DATABASE_URL`           | (vazio)                  | Se ausente, usa SQLite em ./data   |
 | `PGSSL`                  | (vazio)                  | `true` se servidor PG exigir SSL   |
 | `BACKEND_URL`            | `http://localhost:4000`  | P10 — URL base para OpenAPI spec   |
+| `MERCADOPAGO_ACCESS_TOKEN` | (vazio)                | Custódia (PDC) — Pix via API MP (se ausente, mock) |
+| `MERCADOPAGO_WEBHOOK_URL`  | (vazio)                | URL pública que o MP chama de volta |
+| `MERCADOPAGO_LINK_ENF_12H` | (vazio)                | Plantões — link-id do MP p/ enfermagem 12h |
+| `MERCADOPAGO_LINK_ENF_8H`  | (vazio)                | Plantões — link-id do MP p/ enfermagem 8h  |
+| `MERCADOPAGO_LINK_ENF_6H`  | (vazio)                | Plantões — link-id do MP p/ enfermagem 6h  |
+| `MERCADOPAGO_LINK_CUI_12H` | (vazio)                | Plantões — link-id do MP p/ cuidador 12h   |
+| `MERCADOPAGO_LINK_CUI_8H`  | (vazio)                | Plantões — link-id do MP p/ cuidador 8h    |
+| `MERCADOPAGO_LINK_CUI_6H`  | (vazio)                | Plantões — link-id do MP p/ cuidador 6h    |
+
+### 💼 Plantões avulsos via Payment Link (Mercado Pago)
+
+A página `/plantoes` vende 6 plantões fixos por Payment Link do Mercado
+Pago. Sem env config o fluxo funciona com **ids de demonstração** — bom
+para dev/teste, mas **em produção configure os 6 link-ids reais** criados
+no painel do MP (Criar link de pagamento → one-time → preço publicado).
+
+1. Crie os 6 links no painel do MP com os preços do catálogo
+   (`backend/src/services/mercadopago-links.js`): enfermagem
+   12/8/6h = R$ 250/200/150, cuidador 12/8/6h = R$ 200/180/120.
+2. Copie o **link-id** de cada um (é o valor `link-id` que aparece na URL
+   de redirect `mpago.la/...` → `/payment-link/v1/redirect?link-id=XXX`)
+   e coloque nas env vars `MERCADOPAGO_LINK_*` acima.
+3. No painel do MP, configure a **URL de notificação (webhook)** da conta
+   para `https://<seu-backend>/api/webhooks/mercadopago`. Payment Links não
+   levam `notification_url` na query — e o MP recusa `notification_url`
+   apontando para host não público.
+4. Não use o short link `mpago.la` no código: ele responde 301 e **descarta
+   a query string**, perdendo a `external_reference` que o backend usa para
+   reconciliar o pagamento. O catálogo monta sempre a URL de redirect
+   oficial, que preserva.
+
+Sem essas env vars o checkout aponta para `DEMO-*` — o checkout real do MP
+não vai existir; útil só para demonstrar o fluxo.
 
 ---
 

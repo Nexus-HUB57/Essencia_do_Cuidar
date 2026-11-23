@@ -144,7 +144,7 @@ export async function initSchema() {
       id_profissional INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       mensagem TEXT,
       status_candidatura TEXT NOT NULL DEFAULT 'pendente'
-        CHECK(status_candidatura IN ('pendente','visualizada','aceita','recusada')),
+        CHECK(status_candidatura IN ('pendente','visualizada','aceita','recusada','cancelada')),
       criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
       UNIQUE(id_vaga, id_profissional)
     );
@@ -406,6 +406,23 @@ export async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_vagas_status ON vagas(status);
     CREATE INDEX IF NOT EXISTS idx_cand_vaga ON candidaturas(id_vaga);
     CREATE INDEX IF NOT EXISTS idx_cand_prof ON candidaturas(id_profissional);
+
+    -- Plantões avulsos via Payment Link do Mercado Pago (services/mercadopago-links.js)
+    CREATE TABLE IF NOT EXISTS pagamentos_link (
+      id SERIAL PRIMARY KEY,
+      external_reference TEXT NOT NULL UNIQUE,
+      id_plantao TEXT NOT NULL,
+      link_id TEXT,
+      id_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      titulo TEXT,
+      valor_centavos INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pendente' CHECK(status IN ('pendente','pago','cancelado')),
+      mp_payment_id TEXT,
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')),
+      pago_em TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_plink_user ON pagamentos_link(id_user);
+    CREATE INDEX IF NOT EXISTS idx_plink_ref ON pagamentos_link(external_reference);
     CREATE INDEX IF NOT EXISTS idx_msg_remetente ON mensagens(id_remetente);
     CREATE INDEX IF NOT EXISTS idx_msg_destinatario ON mensagens(id_destinatario);
     CREATE INDEX IF NOT EXISTS idx_pag_vaga ON pagamentos(id_vaga);
@@ -476,6 +493,21 @@ export async function initSchema() {
     } catch (e) {
       if (!/already exists/i.test(String(e.message))) throw e;
     }
+  }
+
+  // Permite 'cancelada' em candidaturas (profissional retira a candidatura).
+  // Bancos criados antes da feature carregam o CHECK antigo com o nome
+  // automático `candidaturas_status_candidatura_check` — troca por outro que
+  // aceita 'cancelada'. Banco novo já nasce certo (initSchema acima).
+  try {
+    await pool.query(
+      'ALTER TABLE candidaturas DROP CONSTRAINT IF EXISTS candidaturas_status_candidatura_check'
+    );
+    await pool.query(`ALTER TABLE candidaturas ADD CONSTRAINT
+      candidaturas_status_candidatura_check
+      CHECK (status_candidatura IN ('pendente','visualizada','aceita','recusada','cancelada'))`);
+  } catch (e) {
+    if (!/already exists|duplicate/i.test(String(e.message))) throw e;
   }
 
   console.log('[db:postgres] schema inicializado');

@@ -7,6 +7,83 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.5.0] — 2026-11-23 — Plantões via Mercado Pago e retirada de candidatura
+
+### Adicionado — Plantões avulsos com checkout por Payment Link (Mercado Pago)
+
+- **A oferta de plantão virou produto.** Seis plantões (enfermagem e cuidador
+  de pessoa idosa, em 6/8/12 horas) estão à venda por Payment Link do
+  Mercado Pago: cartão de crédito/débito, Pix e outros meios, com o
+  checkout hospedado no MP. Os preços conferidos contra o checkout real de
+  cada link (não presumidos): enfermagem 12/8/6h = R$ 250/200/150 e
+  cuidador 12/8/6h = R$ 200/180/120.
+- Novo `services/mercadopago-links.js` (catálogo) e `routes/plantoes.js`:
+  `GET /api/plantoes` (catálogo público, com preço), filtro por
+  `?familia=`, `POST /api/plantoes/:id/checkout`, `GET /api/plantoes/meus`,
+  `GET /api/plantoes/status/:ref` e `POST /api/plantoes/status/:ref/confirmar`
+  (só em modo mock). O preço aparece antes de qualquer cadastro — quem
+  decide precisa ver o valor.
+- Nova tabela `pagamentos_link` (SQLite e PostgreSQL) para reconciliar
+  cada intenção de compra com o pagamento confirmado.
+- O webhook do Mercado Pago agora reconhece pagamentos de plantão pela
+  `external_reference` (`PLANTAO-...`) e marca como pago; os PDCs de
+  custódia seguem no caminho de sempre, casados pelo `payment_id`.
+  Idempotente: webhook repetido não duplica.
+- Frontend: página `/plantoes` com filtro por família, botão Contratar que
+  abre o checkout em nova aba e acompanha o status até confirmar, além do
+  histórico "Meus plantões". Link na navbar e i18n em pt-BR, es e en.
+- **Duas descobertas que definiram a implementação** (ambas verificadas
+  contra o checkout real do MP): o short link `mpago.la/<slug>` responde
+  301 e descarta a query string — a `external_reference` só sobrevive pela
+  URL de redirect oficial (`/payment-link/v1/redirect?link-id=...`); e o
+  MP recusa `notification_url` com host não público, por isso o webhook do
+  link é configurado no painel do MP, não na query do checkout.
+- Os 6 link-ids reais entram por env (`MERCADOPAGO_LINK_ENF_12H` …
+  `MERCADOPAGO_LINK_CUI_6H`, ver DEPLOY.md); sem env, o fluxo roda com ids
+  de demonstração para dev/teste.
+
+### Adicionado — O profissional pode retirar a própria candidatura
+
+- **Antes, uma candidatura era uma mão única.** O contratante recusava, mas
+  o profissional não tinha como desistir — a única saída era esperar o
+  fechamento da vaga. Agora existe `POST /api/candidaturas/:id/retirar`:
+  o dono da candidatura (e só ele) move `pendente`/`visualizada` →
+  `cancelada`, com auditoria completa na trilha de status (M11).
+- Depois de `aceita` não se retira (a vaga fechou e o protocolo de custódia
+  pode existir) nem depois de `recusada` (a decisão já foi do contratante):
+  ambos viram 409. Repetir a retirada também — 409 idempotente.
+- **E pode voltar atrás:** candidatar-se de novo à mesma vaga reativa a
+  mesma linha (UNIQUE id_vaga+id_profissional preservado), voltando a
+  `pendente` com a nova mensagem — a trilha de auditoria guarda o ciclo
+  completo (`pendente→cancelada→pendente`).
+- O contratante é avisado em tempo real (Socket.IO + web push) quando uma
+  candidatura da vaga dele é retirada.
+- UI: botão "Retirar candidatura" no painel do profissional e badge do novo
+  status "Retirada". PostgreSQL ganhou o CHECK ampliado com o mesmo nome de
+  constraint; SQLite recria a tabela em bancos antigos.
+
+### Corrigido — Ícones oficiais do PWA e imagem social
+
+- O PWA usava o `logo.jpg` de 640×640 como ícone único (e o `og:image`
+  nem existia). Agora há `pwa-192x192.png`, `pwa-512x512.png`,
+  `pwa-maskable-512x512.png` (arte dentro da zona segura de 80%),
+  `apple-touch-icon.png` (180×180) e `og-image.png` 1200×630 com título,
+  descrição e pilares, todos gerados da paleta real do app
+  (serenity #4A90E2 → emerald #50E3C2). O `index.html` ganhou o bloco
+  Open Graph/Twitter e ficou com um único `apple-touch-icon`.
+
+### Verificado
+
+- vitest **222 testes / 18 arquivos** (era 197/16)
+- `smoke-test.sh` **57/57** (novas seções 28 e 29) · `smoke-test-v2.sh`
+  31/31 · `smoke-test-matching.sh` 40/40 — as três na ordem do CI, com o
+  banco re-semeado
+- `tsc --noEmit` sem erros · `vite build` OK (11 entradas no precache,
+  ícones incluídos)
+- Teste de dicionário i18n garante as chaves novas nos três idiomas
+
+---
+
 ## [1.4.2] — 2026-11-23 — Demonstração da custódia e correção de idioma
 
 ### Corrigido — O seletor de idioma mentia sobre o idioma atual

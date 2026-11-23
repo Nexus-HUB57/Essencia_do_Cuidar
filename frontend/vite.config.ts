@@ -48,7 +48,14 @@ export default defineConfig({
       devOptions: {
         enabled: true
       },
-      includeAssets: ['favicon.svg', 'img/logo.jpg'],
+      includeAssets: [
+        'favicon.svg',
+        'apple-touch-icon.png',
+        'pwa-192x192.png',
+        'pwa-512x512.png',
+        'pwa-maskable-512x512.png',
+        'og-image.png'
+      ],
       manifest: {
         name: 'Essência do Cuidar',
         short_name: 'Essência',
@@ -60,10 +67,22 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'img/logo.jpg',
-            sizes: '640x640',
-            type: 'image/jpeg',
-            purpose: 'any maskable'
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       },
