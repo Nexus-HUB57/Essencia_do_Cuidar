@@ -148,24 +148,43 @@ async function resetSequences() {
       args
     );
   };
-  await insertVaga([
+  const vMaria1 = (await insertVaga([
     contratante.lastInsertRowid, 'F', 82, 'Alzheimer moderado',
     'media', 'Acompanhante diurno para idosa com Alzheimer. Auxílio em medicação, alimentação e mobilidade.',
     'Cuidador de Idosos', '08h às 18h', 'Segunda a Sexta', 'CLT', 'hora', 35, 'Zona Sul - SP',
     'São Paulo', '08h às 18h - Segunda a Sexta', 'ativa'
-  ]);
-  await insertVaga([
+  ])).lastInsertRowid;
+  const vMaria2 = (await insertVaga([
     contratante.lastInsertRowid, 'M', 70, 'Pós-operatório de quadril',
     'media', 'Sessões de fisioterapia domiciliar, 3x por semana, foco em mobilidade.',
     'Fisioterapeuta', '14h às 16h', 'Seg/Qua/Sex', 'PJ', 'hora', 80, 'Zona Oeste - SP',
     'São Paulo', '14h às 16h - Seg/Qua/Sex', 'ativa'
-  ]);
-  await insertVaga([
+  ])).lastInsertRowid;
+  const vMaria3 = (await insertVaga([
     contratante.lastInsertRowid, 'F', 75, 'Hipertensão e mobilidade reduzida',
     'baixa', 'Cuidador noturno para idosa independente que precisa de companhia e supervisão.',
     'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP',
     'São Paulo', 'Plantão noturno 12x36', 'ativa'
-  ]);
+  ])).lastInsertRowid;
+
+  // Vagas extras da Maria, usadas pelos protocolos de demonstracao.
+  //
+  // Ficam SEPARADAS de vMaria1..vMaria3 de proposito: o smoke test de
+  // matching depende de a vaga 1 ("Cuidador de Idosos") continuar sem
+  // candidatura da Ana, senao o matcher a exclui da recomendacao — que e o
+  // comportamento correto, mas quebraria a vitrine do matching.
+  const vMaria4 = (await insertVaga([
+    contratante.lastInsertRowid, 'F', 78, 'Demencia em evolucao',
+    'media', 'Cuidador noturno para idosa com demencia. Acompanhamento noturno, medicacao e mobilidade.',
+    'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP',
+    'São Paulo', 'Plantão noturno 12x36', 'ativa'
+  ])).lastInsertRowid;
+  const vMaria5 = (await insertVaga([
+    contratante.lastInsertRowid, 'F', 34, 'Ansiedade e luto',
+    'baixa', 'Acompanhamento psicologico semanal para mulher em processo de luto.',
+    'Psicólogo', '17h às 18h', 'Quarta', 'PJ', 'hora', 120, 'Zona Sul - SP',
+    'São Paulo', 'Sessão semanal', 'ativa'
+  ])).lastInsertRowid;
 
   // Avaliações demo (de "contratantes" fictícios para popular o perfil)
   // Cria 2 contratantes extras só pra popular avaliações.
@@ -264,6 +283,119 @@ async function resetSequences() {
   );
   await insertAv([c5, prof1.lastInsertRowid, v5, 5, null]);
   await insertAv([c6, prof1.lastInsertRowid, v6, 4, 'Muito atenciosa com paciente difícil.']);
+
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Protocolos de plantão + custódia + check-in/check-out
+  //
+  // Sem isto o painel de protocolos abre VAZIO na demonstração: as
+  // funcionalidades existem e estão testadas (smoke-test-custodia.py cobre a
+  // jornada inteira), mas ninguem consegue ver sem criar o fluxo do zero.
+  // Cada protocolo abaixo fica num estagio diferente da jornada, para que o
+  // painel mostre os botoes/selos correspondentes.
+  //
+  // ATENCAO: um protocolo referencia sempre uma candidatura. E o matcher
+  // nao recomenda quem ja se candidatou a vaga. Por isso os protocolos usam
+  // vMaria4/vMaria5 (vagas criadas so para a demo) e as vagas do showcase de
+  // matching (vMaria1..vMaria3) ficam limpas.
+  // ─────────────────────────────────────────────────────────────────────────
+  const insertProtocolo = (args) => db.run(
+    `INSERT INTO protocolos
+       (tipo, id_vaga, id_candidatura, id_contratante, id_profissional, status,
+        valor_plantao_centavos, valor_taxa_centavos, valor_total_centavos, moeda,
+        criado_em, enviado_em, respondido_em, pago_em,
+        checkout_profissional_em, checkout_contratante_em, liberado_em, expira_em)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'brl',
+             datetime('now', ?), datetime('now', ?), datetime('now', ?), datetime('now', ?),
+             datetime('now', ?), datetime('now', ?), datetime('now', ?), datetime('now', ?))`,
+    args
+  );
+  const insertCustodia = (args) => db.run(
+    `INSERT INTO pagamentos_custodia (id_protocolo, valor_centavos, status, criado_em, pago_em, liberado_em)
+     VALUES (?, ?, ?, datetime('now', ?), datetime('now', ?), datetime('now', ?))`,
+    args
+  );
+  const insertCheckin = (args) => db.run(
+    `INSERT INTO protocolo_checkins (id_protocolo, id_user, tipo_user, confirmado_em, observacao)
+     VALUES (?, ?, ?, datetime('now', ?), ?)`,
+    args
+  );
+  const insertCheckout = (args) => db.run(
+    `INSERT INTO protocolo_checkouts (id_protocolo, id_user, tipo_user, confirmado_em, nota, comentario)
+     VALUES (?, ?, ?, datetime('now', ?), ?, ?)`,
+    args
+  );
+
+  const candM1 = (await db.run(
+    `INSERT INTO candidaturas (id_vaga, id_profissional, mensagem, status_candidatura) VALUES (?, ?, ?, 'aceita')`,
+    [vMaria4, prof1.lastInsertRowid, 'Posso iniciar na segunda.']
+  )).lastInsertRowid;
+  const candM2 = (await db.run(
+    `INSERT INTO candidaturas (id_vaga, id_profissional, mensagem, status_candidatura) VALUES (?, ?, ?, 'aceita')`,
+    [vMaria5, prof3.lastInsertRowid, 'Atendimento semanal,boa disponibilidade.']
+  )).lastInsertRowid;
+
+  const candM3 = (await db.run(
+    `INSERT INTO candidaturas (id_vaga, id_profissional, mensagem, status_candidatura) VALUES (?, ?, ?, 'aceita')`,
+    [vMaria4, prof2.lastInsertRowid, 'Tenho disponibilidade para o plantao noturno.']
+  )).lastInsertRowid;
+
+  // 1) Plantao EM CUSTODIA — o contratante pagou, o dinheiro esta retido
+  //    aguardando o profissional fazer o check-in.
+  const pdc1 = (await insertProtocolo([
+    'PDC', vMaria4, candM1, contratante.lastInsertRowid, prof1.lastInsertRowid, 'em_custodia',
+    35000, 3500, 38500,
+    '-2 days', '-2 days', '-2 days', '-1 day',
+    null, null, null, null
+  ])).lastInsertRowid;
+  await insertCustodia([pdc1, 38500, 'em_custodia', '-1 day', '-1 day', null]);
+
+  // 2) Plantao com CHECK-IN feito — o botao "Finalizar plantao" aparece.
+  const pdc2 = (await insertProtocolo([
+    'PDC', vMaria5, candM2, contratante.lastInsertRowid, prof3.lastInsertRowid, 'checkout_pendente',
+    28000, 2800, 30800,
+    '-1 day', '-1 day', '-1 day', '-6 hours',
+    null, null, null, null
+  ])).lastInsertRowid;
+  await insertCustodia([pdc2, 30800, 'em_custodia', '-6 hours', '-6 hours', null]);
+  await insertCheckin([pdc2, prof3.lastInsertRowid, 'profissional', '-2 hours', 'Cheguei as 17h, tudo em ordem.']);
+
+  // 3) Plantao com CHECK-OUT dos dois lados — aguardando a liberacao em 72h
+  //    (e o que o cron processa).
+  const pdc3 = (await insertProtocolo([
+    'PDC', vMaria4, candM1, contratante.lastInsertRowid, prof1.lastInsertRowid, 'checkout_completo',
+    22000, 2200, 24200,
+    '-5 days', '-5 days', '-5 days', '-4 days',
+    '-1 day', '-1 day', null, null
+  ])).lastInsertRowid;
+  await insertCustodia([pdc3, 24200, 'em_custodia', '-4 days', '-4 days', null]);
+  await insertCheckin([pdc3, prof1.lastInsertRowid, 'profissional', '-2 days', 'Inicio do plantao.']);
+  await insertCheckin([pdc3, contratante.lastInsertRowid, 'contratante', '-1 day', 'Presenca confirmada.']);
+  await insertCheckout([pdc3, prof1.lastInsertRowid, 'profissional', '-1 day', 5, 'Plantao concluido sem intercorrencias.']);
+  await insertCheckout([pdc3, contratante.lastInsertRowid, 'contratante', '-1 day', 5, 'Atendimento excelente.']);
+
+  // 4) Plantao LIBERADO — a jornada completa, com a custodia transferida ao
+  //    profissional. E o que da reputacao (atendimentos concluidos).
+  const pdc4 = (await insertProtocolo([
+    'PDC', vMaria4, candM1, contratante.lastInsertRowid, prof1.lastInsertRowid, 'liberado',
+    40000, 4000, 44000,
+    '-12 days', '-12 days', '-12 days', '-11 days',
+    '-10 days', '-10 days', '-9 days', null
+  ])).lastInsertRowid;
+  await insertCustodia([pdc4, 44000, 'liberado_profissional', '-11 days', '-11 days', '-9 days']);
+  await insertCheckin([pdc4, prof1.lastInsertRowid, 'profissional', '-10 days', null]);
+  await insertCheckout([pdc4, prof1.lastInsertRowid, 'profissional', '-10 days', 5, 'Excelente atendimento.']);
+  await insertCheckout([pdc4, contratante.lastInsertRowid, 'contratante', '-10 days', 5, 'Muito atenciosa.']);
+
+  // 5) PCM aguardando aceite do profissional — a primeira etapa do fluxo.
+  const pcm1 = (await insertProtocolo([
+    'PCM', vMaria4, candM3, contratante.lastInsertRowid, prof2.lastInsertRowid, 'enviado',
+    22000, 2200, 24200,
+    '-1 day', '-1 day', null, null,
+    null, null, null, '+1 day'
+  ])).lastInsertRowid;
+
+  console.log('[seed] protocolos de plantao: PDC', pdc1, pdc2, pdc3, pdc4, '| PCM', pcm1);
 
   console.log('[seed] dados demo criados:');
   console.log('   - contratante: maria@demo.com / demo1234');
