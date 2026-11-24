@@ -121,6 +121,9 @@ export async function consultarPagamento(payment_id) {
     status: data.status,
     aprovado_em: data.date_approved || null,
     valor_reais: data.transaction_amount,
+    // Chave de reconciliação dos plantões (Payment Links): vem no objeto do
+    // pagamento quando a URL de checkout carrega external_reference.
+    external_reference: data.external_reference || null,
     mock: false
   };
 }
@@ -140,6 +143,32 @@ export async function processarWebhook(payload) {
   const info = await consultarPagamento(paymentId);
   if (info.status !== 'approved') {
     return { processado: true, status: info.status, aprovado: false };
+  }
+
+  // ─── Plantões (Payment Links): reconciliação por external_reference ───
+  // O pagamento de plantão vem com external_reference 'PLANTAO-...'; os PDCs
+  // de custódia são casados pelo payment_id no banco (caminho abaixo).
+  // A reference pode chegar no próprio corpo da notificação (MP payment link)
+  // ou no objeto do pagamento consultado na API — usamos a primeira que houver.
+  const externalReference = info.external_reference || payload?.external_reference || null;
+  if (externalReference && externalReference.startsWith('PLANTAO-')) {
+    const link = await db.get(
+      'SELECT * FROM pagamentos_link WHERE external_reference = ?',
+      [externalReference]
+    );
+    if (!link) {
+      console.warn('[mercadopago] webhook PLANTAO com reference não encontrada:', externalReference);
+      return { processado: false, erro: 'pagamento de plantão não encontrado' };
+    }
+    if (link.status === 'pago') {
+      return { processado: true, aprovado: true, plantao: link.id_plantao, ja_estava_pago: true };
+    }
+    await db.run(
+      `UPDATE pagamentos_link SET status = 'pago', pago_em = datetime('now'), mp_payment_id = ?
+        WHERE external_reference = ?`,
+      [String(paymentId), externalReference]
+    );
+    return { processado: true, aprovado: true, plantao: link.id_plantao, external_reference: externalReference };
   }
 
   // Busca o pagamento na nossa DB pelo payment_id

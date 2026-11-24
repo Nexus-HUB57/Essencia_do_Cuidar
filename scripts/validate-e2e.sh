@@ -62,6 +62,12 @@ python3 "scripts/smoke-test-custodia.py" http://localhost:4000 > /tmp/val-smoke-
   && ok "smoke-test-custodia.py — jornada completa OK" \
   || { bad "smoke-test-custodia.py (exit $?)"; grep -E "✗|FALHAS" /tmp/val-smoke-test-custodia.out; }
 
+# Sincronização Netfly (autocontida: levanta receptor HTTP e instância própria
+# do backend em :4010 — entrega dos 9 eventos, falha best-effort, retry e health).
+python3 "scripts/smoke-test-netfly.py" > /tmp/val-smoke-test-netfly.out 2>&1 \
+  && ok "smoke-test-netfly.py — sincronização OK" \
+  || { bad "smoke-test-netfly.py (exit $?)"; grep -E "FAIL|FALHAS" /tmp/val-smoke-test-netfly.out; }
+
 step "3b. Limpeza — banco de volta ao estado de demo"
 # As suítes de smoke gravam no mesmo banco de desenvolvimento (usuários
 # "Smoke", vagas "Smoke Test"...). Sem este reseed, quem abre a API logo

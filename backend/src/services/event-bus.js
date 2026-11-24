@@ -126,6 +126,21 @@ export async function notificarCandidaturaVisualizada(dados) {
  */
 export async function notificarCandidaturaStatus(dados) {
   const { candidatura_id, vaga_id, profissional_id, contratante_id, status, motivo } = dados;
+  // 'cancelada' = o próprio profissional retirou a candidatura — o evento
+  // vai para o contratante (a vaga dele perdeu um candidato), não para quem
+  // retirou. Os demais seguem o caminho clássico (contratante → profissional).
+  if (status === 'cancelada') {
+    emitirParaUsuario(contratante_id, 'candidatura:cancelada', {
+      candidatura_id, vaga_id, status, por: profissional_id
+    });
+    notifyUser(contratante_id, {
+      title: 'Candidatura retirada',
+      body: motivo ? motivo.slice(0, 100) : 'Um profissional retirou a candidatura na sua vaga.',
+      data: { url: '/dashboard/contratante' }
+    }).catch(() => {});
+    return;
+  }
+
   const evento = status === 'aceita' ? 'candidatura:aceita' : 'candidatura:recusada';
 
   // Socket.IO para o profissional

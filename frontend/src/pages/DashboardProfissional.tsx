@@ -14,6 +14,7 @@ import {
   CabecalhoRecomendacoes,
   VazioRecomendacoes
 } from '../components/Recomendacoes';
+import { EstadoVazio } from '../components/ilustracoes';
 
 const DISPONIBILIDADE_OPCOES = [
   { v: 'manha', l: 'manha' },
@@ -157,6 +158,18 @@ export default function DashboardProfissional() {
     }
   }
 
+  // Retira a própria candidatura (pendente/visualizada → cancelada).
+  async function retirar(candidaturaId: number) {
+    if (!window.confirm(t('dashboard.confirmRetirar'))) return;
+    try {
+      await api.post(`/candidaturas/${candidaturaId}/retirar`);
+      alert(t('dashboard.candidaturaRetirada'));
+      carregarCands();
+    } catch (err) {
+      alert(getErrorMessage(err));
+    }
+  }
+
   if (!user) return null;
 
   return (
@@ -217,8 +230,8 @@ export default function DashboardProfissional() {
           {loading ? (
             <p className="text-center text-slate-400 py-12">{t('common.loadingJobs')}</p>
           ) : vagas.length === 0 ? (
-            <div className="card text-center py-12 text-slate-500">
-              {t('dashboard.noJobsFound')}
+            <div className="card">
+              <EstadoVazio mensagem={t('dashboard.noJobsFound')} />
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-4">
@@ -327,8 +340,8 @@ export default function DashboardProfissional() {
           {loading ? (
             <p className="text-center text-slate-400 py-12">{t('common.loading')}</p>
           ) : cands.length === 0 ? (
-            <div className="card text-center py-12 text-slate-500">
-              {t('dashboard.noApplications')}
+            <div className="card">
+              <EstadoVazio mensagem={t('dashboard.noApplications')} />
             </div>
           ) : (
             <div className="space-y-3">
@@ -348,6 +361,12 @@ export default function DashboardProfissional() {
                     {c.status_candidatura === 'visualizada' && <span className="badge-blue">Visualizada</span>}
                     {c.status_candidatura === 'aceita' && <span className="badge-green">✓ Aceita</span>}
                     {c.status_candidatura === 'recusada' && <span className="badge-rose">Recusada</span>}
+                    {c.status_candidatura === 'cancelada' && <span className="badge-slate">{t('dashboard.statusRetirada')}</span>}
+                    {(c.status_candidatura === 'pendente' || c.status_candidatura === 'visualizada') && (
+                      <button onClick={() => retirar(c.id)} className="btn-ghost text-xs text-rose-600">
+                        {t('dashboard.retirarCandidatura')}
+                      </button>
+                    )}
                     {c.status_candidatura === 'aceita' && c.id_contratante && (
                       <button onClick={() => setChatCom({ id: c.id_contratante!, nome: c.contratante_nome || 'Contratante' })}
                         className="btn-ghost text-xs">
@@ -373,8 +392,11 @@ export default function DashboardProfissional() {
           {loading ? (
             <p className="text-center text-slate-400 py-12">{t('common.loading')}</p>
           ) : favoritas.length === 0 ? (
-            <div className="card text-center py-12 text-slate-500">
-              Você ainda não favoritou nenhuma vaga. Clique no 🤍 em uma vaga para salvar.
+            <div className="card">
+              <EstadoVazio
+                mensagem="Você ainda não favoritou nenhuma vaga."
+                dica="Clique no 🤍 em uma vaga para salvar."
+              />
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-4">

@@ -8,6 +8,7 @@ import type { Vaga } from '../types';
 import Chat from '../components/Chat';
 import PaymentModal from '../components/PaymentModal';
 import ProtocolosPanel from '../components/ProtocolosPanel';
+import { EstadoVazio } from '../components/ilustracoes';
 
 interface Candidato {
   id: number;
@@ -274,8 +275,11 @@ export default function DashboardContratante() {
 
         <h2 className="font-semibold mb-3">Candidatos ({candidatos.length})</h2>
         {candidatos.length === 0 ? (
-          <div className="card text-center py-12 text-slate-500">
-            Nenhum candidato ainda. Profissionais verão sua vaga na busca.
+          <div className="card">
+            <EstadoVazio
+              mensagem="Nenhum candidato ainda."
+              dica="Profissionais verão sua vaga na busca."
+            />
           </div>
         ) : (
           <div className="space-y-3">
@@ -380,8 +384,8 @@ export default function DashboardContratante() {
       {tab === 'vagas' && (
         loading ? <p className="text-center py-12 text-slate-400">{t('common.loading')}</p> :
         vagas.length === 0 ? (
-          <div className="card text-center py-12 text-slate-500">
-            <Trans i18nKey="contractor.noJobs" components={{ strong: <strong /> }} />
+          <div className="card">
+            <EstadoVazio mensagem={<Trans i18nKey="contractor.noJobs" components={{ strong: <strong /> }} />} />
           </div>
         ) : (
           <div className="space-y-3">
@@ -540,9 +544,11 @@ export default function DashboardContratante() {
       {tab === 'historico' && (
         loading ? <p className="text-center py-12 text-slate-400">{t('common.loadingHistory')}</p> :
         historico.length === 0 ? (
-          <div className="card text-center py-12 text-slate-500">
-            <p className="mb-1">{t('contractor.noHires')}</p>
-            <p className="text-xs">{t('vaga.closedWithAccepted')}</p>
+          <div className="card">
+            <EstadoVazio
+              mensagem={t('contractor.noHires')}
+              dica={t('vaga.closedWithAccepted')}
+            />
           </div>
         ) : (
           <div className="space-y-3">

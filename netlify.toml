@@ -141,7 +141,11 @@
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     # CSP — permite self + CDN do Swagger UI (para /api/docs proxy) +
     # unpkg (PWA + Swagger UI CDN). Ajuste conforme suas fontes.
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https:; font-src 'self' https://unpkg.com data:; connect-src 'self' wss: https: http://localhost:*; frame-ancestors 'self'"
+    # ⚠️ style-src precisa de fonts.googleapis.com (o <link> das fontes da
+    # marca) e font-src de fonts.gstatic.com (os arquivos .woff2). Sem os
+    # dois, o navegador bloqueia as fontes e o site renderiza na fonte do
+    # sistema — o console acusava "violates Content Security Policy".
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' https://unpkg.com https://fonts.gstatic.com data:; connect-src 'self' wss: https: http://localhost:*; frame-ancestors 'self'"
 
 # --------------------------------------------------------------------------
 # 5) PLUGINS (opcional — descomente para ativar)

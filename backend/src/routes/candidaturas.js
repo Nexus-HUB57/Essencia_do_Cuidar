@@ -39,6 +39,28 @@ router.post('/', authRequired, requireTipo('profissional'),
     }
 
     try {
+      // Candidatura retirada (cancelada) pode ser reativada: a linha antiga
+      // fica como trilha de auditoria, mas o profissional volta a 'pendente'
+      // na mesma vaga sem violar o UNIQUE(id_vaga, id_profissional).
+      const anterior = await db.get(
+        'SELECT id, status_candidatura FROM candidaturas WHERE id_vaga = ? AND id_profissional = ?',
+        [id_vaga, req.user.id]
+      );
+      if (anterior && anterior.status_candidatura === 'cancelada') {
+        await db.run(
+          `UPDATE candidaturas
+              SET status_candidatura = 'pendente', mensagem = ?, atualizada_em = datetime('now')
+            WHERE id = ?`,
+          [mensagem || null, anterior.id]
+        );
+        await logarTransicaoCandidatura(anterior.id, 'cancelada', 'pendente', req.user.id, 'candidatura reativada');
+        notifyNetlify('candidatura_enviada', {
+          candidatura_id: anterior.id, vaga_id: id_vaga, profissional_id: req.user.id
+        }).catch(e => console.warn('[webhook]', e.message));
+        const cand = await db.get('SELECT * FROM candidaturas WHERE id = ?', [anterior.id]);
+        return res.status(201).json({ candidatura: cand, reativada: true });
+      }
+
       const info = await db.run(
         `INSERT INTO candidaturas (id_vaga, id_profissional, mensagem)
          VALUES (?, ?, ?)`,
@@ -211,6 +233,63 @@ router.patch('/:id', authRequired, requireTipo('contratante'),
     res.json({ candidatura: updated });
   }
 );
+
+/**
+ * POST /api/candidaturas/:id/retirar
+ * O profissional retira a própria candidatura (status → 'cancelada').
+ *
+ * Regras:
+ *   - só o dono da candidatura (403 para os outros, inclusive o contratante);
+ *   - só enquanto 'pendente'/'visualizada' — depois de aceita a vaga já
+ *     fechou (e o protocolo de custódia pode existir), e 'recusada' já era
+ *     a decisão do contratante: ambas viram 409;
+ *   - idempotente pela porta errada: repetir numa já cancelada → 409.
+ */
+router.post('/:id/retirar', authRequired, requireTipo('profissional'), async (req, res) => {
+  const id = Number(req.params.id);
+  const cand = await db.get(
+    `SELECT c.*, v.id_contratante
+       FROM candidaturas c
+       JOIN vagas v ON v.id = c.id_vaga
+      WHERE c.id = ?`,
+    [id]
+  );
+  if (!cand) return res.status(404).json({ error: 'Candidatura não encontrada' });
+  if (cand.id_profissional !== req.user.id) {
+    return res.status(403).json({ error: 'Você só pode retirar as suas próprias candidaturas' });
+  }
+
+  const statusAnterior = cand.status_candidatura;
+  if (statusAnterior === 'cancelada') {
+    return res.status(409).json({ error: 'Candidatura já está cancelada' });
+  }
+  if (statusAnterior === 'aceita' || statusAnterior === 'recusada') {
+    return res.status(409).json({
+      error: `Candidatura já está ${statusAnterior} — não pode mais ser retirada`
+    });
+  }
+
+  await db.run(
+    "UPDATE candidaturas SET status_candidatura = 'cancelada', atualizada_em = datetime('now') WHERE id = ?",
+    [id]
+  );
+
+  // M11 — auditoria da transição (ex.: pendente → cancelada, motivo explícito)
+  await logarTransicaoCandidatura(id, statusAnterior, 'cancelada', req.user.id, 'retirada pelo profissional');
+
+  // W4 — o contratante da vaga fica sabendo em tempo real (Socket.IO + push)
+  notificarCandidaturaStatus({
+    candidatura_id: id,
+    vaga_id: cand.id_vaga,
+    profissional_id: req.user.id,
+    contratante_id: cand.id_contratante,
+    status: 'cancelada',
+    motivo: null
+  }).catch(e => console.warn('[event-bus]', e.message));
+
+  const updated = await db.get('SELECT * FROM candidaturas WHERE id = ?', [id]);
+  res.json({ candidatura: updated });
+});
 
 /**
  * GET /api/candidaturas/:id/historico-status

@@ -810,6 +810,53 @@ export async function iniciarPagamentoCustodia(pdc_id, contratante_id) {
  * @param {number} pdc_id
  * @returns {Promise<Object>}
  */
+/**
+ * Reivindica (de forma atômica) a liberação de um protocolo.
+ *
+ * O INSERT numa tabela com PRIMARY KEY em `id_protocolo` é serializado
+ * pelo próprio banco: quando duas execuções tentam reivindicar o mesmo
+ * protocolo ao mesmo tempo, apenas uma consegue inserir — a outra leva
+ * violação de unicidade e sabe que não deve mexer no dinheiro.
+ *
+ * @param {number} pdc_id
+ * @param {string} token — identificador da tentativa (para poder soltar)
+ * @returns {Promise<boolean>} true se esta execução venceu a reivindicação
+ */
+export async function reivindicarLiberacao(pdc_id, token) {
+  try {
+    await db.run(
+      `INSERT INTO protocolo_liberamento_claim (id_protocolo, token) VALUES (?, ?)`,
+      [pdc_id, token]
+    );
+    return true;
+  } catch (err) {
+    const msg = String(err?.message || '');
+    const code = String(err?.code || '');
+    const violacao = /UNIQUE|PRIMARY KEY|duplicate key|23505/i.test(msg + ' ' + code);
+    if (!violacao) throw err;
+    return false;
+  }
+}
+
+/**
+ * Solta a reivindicação — só a execução que a fez pode soltá-la
+ * (o token confere), para não desabilitar a trava de uma execução
+ * que ainda está em curso.
+ *
+ * @param {number} pdc_id
+ * @param {string} token
+ */
+export async function soltarReivindicacao(pdc_id, token) {
+  try {
+    await db.run(
+      `DELETE FROM protocolo_liberamento_claim WHERE id_protocolo = ? AND token = ?`,
+      [pdc_id, token]
+    );
+  } catch (err) {
+    console.warn(`[protocolos] falha ao soltar reivindicação do protocolo #${pdc_id}:`, err.message);
+  }
+}
+
 export async function liberarPagamento(pdc_id) {
   const pdc = await db.get('SELECT * FROM protocolos WHERE id = ?', [pdc_id]);
   if (!pdc) throw new Error('Protocolo não encontrado');
@@ -822,8 +869,33 @@ export async function liberarPagamento(pdc_id) {
     throw new Error(`Protocolo não está em checkout_completo (status: ${pdc.status})`);
   }
 
+  // ── 0. Reivindica a liberação ANTES de mover dinheiro ─────────────────
+  // `liberarPagamento` é chamado por três caminhos independentes (rota
+  // admin, cron de 72h e fluxo PPP/PNP). Sem esta reivindicação, duas
+  // execuções simultâneas (o admin clicando no botão enquanto o cron
+  // roda) leem ambas 'checkout_completo' e ambas transferem o dinheiro —
+  // o profissional recebia o valor em dobro.
+  //
+  // A reivindicação é um INSERT numa tabela com PK em `id_protocolo`:
+  // o banco serializa as duas tentativas e apenas uma passa. O status
+  // não pode servir de trava (`protocolos.status` tem CHECK de valores
+  // válidos e não comporta um estado intermediário como 'liberando').
+  const token = `lib_${pdc_id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const reivindicou = await reivindicarLiberacao(pdc_id, token);
+  if (!reivindicou) {
+    // Perdeu a corrida — outra execução já está cuidando deste protocolo.
+    const atual = await db.get('SELECT status FROM protocolos WHERE id = ?', [pdc_id]);
+    if (atual?.status === 'liberado') {
+      return { ok: true, ja_liberado: true, valor_liberado_centavos: pdc.valor_plantao_centavos };
+    }
+    return {
+      ok: true, ja_liberado: true, em_processamento: true,
+      valor_liberado_centavos: pdc.valor_plantao_centavos
+    };
+  }
+
   // ── 1. Move o dinheiro ANTES de marcar como liberado ──────────────────
-  // Se a transferência falhar, o protocolo continua em 'checkout_completo'
+  // Se a transferência falhar, o protocolo volta para 'checkout_completo'
   // e o cron tenta de novo. O inverso — marcar como liberado e depois
   // falhar a transferência — deixaria o profissional sem receber sem
   // nenhuma fila de reprocessamento.
@@ -831,8 +903,8 @@ export async function liberarPagamento(pdc_id) {
   const rail = detectarRail(pagamento?.stripe_payment_intent_id);
   let transfer = null;
 
-  if (rail === 'stripe') {
-    try {
+  try {
+    if (rail === 'stripe') {
       const { transferirParaProfissional } = await import('./stripe.js');
       transfer = await transferirParaProfissional({
         profissional_id: pdc.id_profissional,
@@ -843,25 +915,36 @@ export async function liberarPagamento(pdc_id) {
         `UPDATE pagamentos_custodia SET stripe_transfer_id = ? WHERE id_protocolo = ?`,
         [transfer.transfer_id, pdc_id]
       );
-    } catch (err) {
-      await logarTransicaoProtocolo(
-        pdc_id, pdc.status, pdc.status, null,
-        `Falha na transferência ao profissional: ${err.message}`
-      );
-      notifyUser(pdc.id_profissional, {
-        title: '⚠️ Pagamento pendente de liberação',
-        body: 'Conclua o cadastro de recebimento para liberar seu pagamento.',
-        data: { url: '/dashboard/profissional', protocolo_id: pdc_id }
-      }).catch(() => {});
-      throw new Error(`Falha ao transferir o pagamento ao profissional: ${err.message}`);
+    } else {
+      // Pix/Mercado Pago: bookkeeping. O payout sai pela agenda de payouts
+      // da conta da plataforma — não há Transfer nosso, então nada é
+      // gravado em stripe_transfer_id. A idempotência dessa trilha é
+      // garantida pela reivindicação (protocolo_liberamento_claim) e pelo
+      // status 'liberado', que barra qualquer segunda liberação do mesmo
+      // plantão.
     }
+  } catch (err) {
+    // Solta a reivindicação — o cron tenta de novo.
+    await soltarReivindicacao(pdc_id, token);
+    await logarTransicaoProtocolo(
+      pdc_id, pdc.status, pdc.status, null,
+      `Falha na transferência ao profissional: ${err.message}`
+    );
+    notifyUser(pdc.id_profissional, {
+      title: '⚠️ Pagamento pendente de liberação',
+      body: 'Conclua o cadastro de recebimento para liberar seu pagamento.',
+      data: { url: '/dashboard/profissional', protocolo_id: pdc_id }
+    }).catch(() => {});
+    throw new Error(`Falha ao transferir o pagamento ao profissional: ${err.message}`);
   }
 
   // ── 2. Registra a liberação ───────────────────────────────────────────
   await db.run(
-    `UPDATE protocolos SET status = 'liberado', liberado_em = datetime('now') WHERE id = ?`,
+    `UPDATE protocolos SET status = 'liberado', liberado_em = datetime('now')
+      WHERE id = ? AND status = 'checkout_completo'`,
     [pdc_id]
   );
+  await soltarReivindicacao(pdc_id, token);
   await logarTransicaoProtocolo(pdc_id, 'checkout_completo', 'liberado', null, 'Pagamento liberado ao profissional');
 
   // Atualiza pagamento_custodia para 'liberado_profissional'
