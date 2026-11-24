@@ -15,6 +15,7 @@ import ProfissionalPerfil from './pages/ProfissionalPerfil';
 import Admin from './pages/Admin';
 import Plantoes from './pages/Plantoes';
 import Ilustracoes from './pages/Ilustracoes';
+import AssistenteRag from './pages/AssistenteRag';
 import { BeijaFlor, DivisorBotanico } from './components/ilustracoes';
 
 export default function App() {
