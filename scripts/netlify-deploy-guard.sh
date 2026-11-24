@@ -180,6 +180,84 @@ if [ -z "$netlify_bin" ]; then
   exit 1
 fi
 
+# ─────────────────────────────────────────────────────────────────────────
+# Resolve o site alvo pela API (e corrige o siteId obsoleto sozinho).
+#
+# O "Project not found" do CLI vinha do siteId guardado no
+# .netlify/state.json: ele apontava para um site que a conta do token não
+# enxerga (site recriado ou token de outra conta). Em vez de depender do
+# arquivo, consultamos a API: /api/v1/user mostra com quem estamos
+# autenticados e /api/v1/sites lista os sites dessa conta.
+#
+# Se o siteId configurado não estiver na lista, procuramos pelo nome
+# (ecuidar) e usamos o id encontrado — assim o deploy se corrige sozinho.
+# ─────────────────────────────────────────────────────────────────────────
+resolver_site() {
+  local token="$1" id nome alvo
+  local user_json sites_json
+
+  user_json=$(curl -s -m 20 -H "Authorization: Bearer $token" \
+    "https://api.netlify.com/api/v1/user" 2>/dev/null || true)
+
+  if echo "$user_json" | grep -q '"id"'; then
+    echo "→ token autenticado como: $(echo "$user_json" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("email") or d.get("slug") or d.get("id"))' 2>/dev/null || echo "?")"
+  else
+    echo "→ API: o token NÃO foi aceito (401). O secret TOKEN_NETFLY está ausente, expirado ou é de outra conta."
+    return 1
+  fi
+
+  sites_json=$(curl -s -m 30 -H "Authorization: Bearer $token" \
+    "https://api.netlify.com/api/v1/sites?per_page=100" 2>/dev/null || true)
+
+  if ! echo "$sites_json" | grep -q '"id"'; then
+    echo "→ API: não foi possível listar os sites (usando o siteId do state.json)"
+    return 0
+  fi
+
+  alvo=$(echo "$sites_json" | python3 -c '
+import json, sys
+sites = json.load(sys.stdin)
+alvo = sys.argv[1]; nome = sys.argv[2]
+achei = None
+for s in sites:
+    if s.get("id") == alvo:
+        achei = s
+        break
+if not achei:
+    for s in sites:
+        if (s.get("name") or "").lower() == nome.lower() or (s.get("ssl_url") or "").lower().startswith("https://" + nome.lower()):
+            achei = s
+            break
+if achei:
+    print(achei["id"], (achei.get("name") or "")[:40])
+else:
+    print("NONE", "")
+' "$SITE_ID" "$SITE_NAME" 2>/dev/null || echo "NONE ")
+
+  id=$(echo "$alvo" | awk '{print $1}')
+  nome=$(echo "$alvo" | cut -d' ' -f2-)
+
+  if [ "$id" = "NONE" ] || [ -z "$id" ]; then
+    echo "→ API: o site '$SITE_NAME' ($SITE_ID) não está na conta do token."
+    echo "   Sites visíveis: $(echo "$sites_json" | python3 -c 'import json,sys; print(", ".join((s.get("name") or "?")+" ("+(s.get("id") or "")[:8]+")" for s in json.load(sys.stdin)[:12]) or "nenhum")' 2>/dev/null)"
+    return 1
+  fi
+
+  if [ "$id" != "$SITE_ID" ]; then
+    echo "→ siteId do state.json obsoleto — usando o id real da API: $id ($nome)"
+  fi
+  SITE_ID="$id"
+  [ -n "$nome" ] && SITE_NAME="$nome"
+  return 0
+}
+
+if [ -n "${NETLIFY_AUTH_TOKEN:-}" ]; then
+  if ! resolver_site "$NETLIFY_AUTH_TOKEN"; then
+    echo "ERRO: não foi possível resolver o site alvo — nada foi publicado." >&2
+    exit 1
+  fi
+fi
+
 cmd=("$netlify_bin" "$@")
 
 echo "→ site alvo: ${SITE_NAME} (id ${SITE_ID})"
