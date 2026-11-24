@@ -90,6 +90,35 @@ expandida com 4 Sprints de melhorias + 12 itens de robustez pós-merge.
 - Tokenizer `unicode61 remove_diacritics 2` (acentos ignorados)
 - Fallback para LIKE se FTS indisponível (banco antigo sem migration)
 
+### 🤖 Assistente RAG (busca semântica + geração)
+- `services/rag/embeddings.js` — embeddings **locais** via transformers.js
+  (`multilingual-e5-small`, 384 dims, multilíngue para PT-BR/ES/EN).
+  Sem chave de API. Se o modelo não carregar, cai num embedding
+  determinístico (hash de n-gramas) — a busca segue funcionando.
+- `services/rag/indexer.js` — indexa vagas, profissionais e a base de
+  conhecimento (regras, FAQ, formatos dos conselhos, fluxos de pagamento).
+- `services/rag/retriever.js` — busca **híbrida**: cosseno (65%) + BM25 (35%),
+  com bônus para vagas ativas e dados concretos.
+- `services/rag/generator.js` — usa LLM (OpenAI/Anthropic) se houver chave;
+  sem chave, monta a resposta de forma **extrativa** a partir das fontes.
+- Endpoints: `GET /api/rag/status`, `POST /api/rag/consultar`,
+  `POST /api/rag/indexar` (admin), `GET /api/rag/documentos` (admin).
+- Frontend: `/assistente` — chat com fontes expansíveis e score.
+
+```bash
+# Variáveis do RAG (todas opcionais)
+OPENAI_API_KEY=sk-...          # ou ANTHROPIC_API_KEY — só para redigir a resposta
+RAG_MODEL=Xenova/multilingual-e5-small
+RAG_DIM=384
+RAG_CHUNK_SIZE=800
+RAG_CHUNK_OVERLAP=120
+RAG_TOP_K=5
+RAG_AUTO_INDEX=true            # indexa sozinho no boot
+
+# Indexar sob demanda (admin)
+curl -X POST http://localhost:4000/api/rag/indexar -H "Authorization: Bearer $TOKEN"
+```
+
 ### Variáveis de ambiente novas (Sprint 1-3 + 12 itens)
 ```bash
 # Segurança crítica (P2)

@@ -31,6 +31,7 @@ export default function App() {
           <Route path="/plantoes" element={<Plantoes />} />
           <Route path="/ilustracoes" element={<Ilustracoes />} />
           <Route path="/como-funciona" element={<ComoFunciona />} />
+          <Route path="/assistente" element={<AssistenteRag />} />
           <Route path="/profissional/:id" element={<ProfissionalPerfil />} />
           <Route
             path="/dashboard/profissional"

@@ -426,6 +426,41 @@ export function initSchema() {
     );
 
     -- Log de transições de estado dos protocolos (auditoria, M11-style)
+    -- Assistente RAG — documentos indexados e seus chunks (busca semântica).
+    CREATE TABLE IF NOT EXISTS rag_documentos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga', 'profissional', 'conhecimento')),
+      ref_id INTEGER,
+      titulo TEXT NOT NULL,
+      conteudo TEXT NOT NULL,
+      origem TEXT,
+      embedding TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS rag_chunks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_documento INTEGER NOT NULL,
+      ordem INTEGER NOT NULL DEFAULT 0,
+      conteudo TEXT NOT NULL,
+      embedding TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_documento) REFERENCES rag_documentos(id) ON DELETE CASCADE
+    );
+
+    -- Reivindicação de liberação de pagamento (trava de concorrência).
+    -- A linha é a "cadeia" entre as execuções concorrentes de
+    -- liberarPagamento(): o INSERT com PK atômico faz exatamente uma
+    -- vencedora — as outras percebem a violação e não transferem o
+    -- dinheiro. Sem uma tabela própria não dá para usar um status novo
+    -- ('liberando'), porque a coluna status tem CHECK de valores.
+    CREATE TABLE IF NOT EXISTS protocolo_liberamento_claim (
+      id_protocolo INTEGER PRIMARY KEY,
+      token TEXT NOT NULL,
+      claimado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (id_protocolo) REFERENCES protocolos(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS protocolo_status_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       id_protocolo INTEGER NOT NULL,

@@ -138,7 +138,7 @@ assert_true "$(echo "$REC" | grep -q '"nivel"' && echo 1 || echo 0)" "recomenda�
 echo ""
 echo "[7] Match exato de profissão ranqueia primeiro"
 TOPO=$(echo "$REC" | json "d['recomendacoes'][0]['profissional']['profissao'] if d['recomendacoes'] else ''")
-VAGA_PROF=$(http_body "$BASE/api/vagas/1" | json "d['vaga']['profissional_desejado']")
+VAGA_PROF=$(http_body "$BASE/api/vagas/$VAGA_ID" | json "d['vaga']['profissional_desejado']")
 echo "  vaga pede: $VAGA_PROF | topo: $TOPO"
 assert_eq "cuidador" "$TOPO" "topo é o profissional com a profissão da vaga"
 
@@ -181,7 +181,12 @@ echo ""
 echo "[10] Filtros minScore e limite"
 REC_ALTO=$(http_body "$BASE/api/vagas/$VAGA_ID/recomendar?minScore=0.8" -H "Authorization: Bearer $TOKEN_C")
 N_ALTO=$(echo "$REC_ALTO" | json "len(d['recomendacoes'])")
-assert_eq 1 "$N_ALTO" "minScore=0.8 mantém só o match alto"
+# O número esperado é derivado dos PRÓPRIOS scores da resposta sem filtro —
+# senão o teste acopla ao estado do banco (quantos profissionais têm
+# avaliação, região coincidente, etc.) e quebra a cada re-seed.
+ESPERADO_ALTO=$(echo "$REC" | json "sum(1 for r in d['recomendacoes'] if r['score'] >= 0.8)")
+echo "  com minScore=0.8: $N_ALTO (esperado $ESPERADO_ALTO)"
+assert_eq "$ESPERADO_ALTO" "$N_ALTO" "minScore=0.8 devolve exatamente os matches acima do corte"
 # Corte acima de qualquer score devolve lista vazia — o filtro realmente
 # descarta, não só reordena.
 REC_CORTADO=$(http_body "$BASE/api/vagas/$VAGA_ID/recomendar?minScore=0.99" -H "Authorization: Bearer $TOKEN_C")
@@ -206,10 +211,22 @@ TOKEN_O=$(echo "$OUTRO" | json "d.get('token','')")
 assert_eq 403 "$(http_code "$BASE/api/vagas/$VAGA_ID/recomendar" -H "Authorization: Bearer $TOKEN_O")" "contratante que não é dono → 403"
 
 # ── 12. Persistência de profissão e região ───────────────────────────────
+# IMPORTANTE: este teste grava no perfil do profissional. Usar o demo
+# (joao@demo.com) para isso POLUÍA o seed: a profissão dele virava
+# 'fisioterapeuta' para sempre, e na execução seguinte não existia mais
+# nenhum 'cuidador' no banco — o check [7] ("match exato de profissão")
+# passava a falhar. Por isso o teste cria um profissional DESCARTÁVEL.
 echo ""
 echo "[12] PUT /api/profissionais/me persiste profissão e região"
+EMAIL_TESTE="smoke-matching-$(date +%s)@teste.local"
+NOVO=$(http_body -X POST "$BASE/api/auth/cadastro" -H "Content-Type: application/json" \
+  -d "{\"tipo_usuario\":\"profissional\",\"nome\":\"Smoke Matching\",\"email\":\"$EMAIL_TESTE\",\"senha\":\"demo1234\"}")
+TOKEN_TESTE=$(echo "$NOVO" | json "d.get('token','')")
+NOVO_ID=$(echo "$NOVO" | json "d['user']['id']")
+assert_true "$([ -n "$TOKEN_TESTE" ] && echo 1 || echo 0)" "profissional descartável criado para o teste"
+
 SAVE=$(http_body -X PUT "$BASE/api/profissionais/me" \
-  -H "Authorization: Bearer $TOKEN_P" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_TESTE" -H "Content-Type: application/json" \
   -d '{"profissao":"fisioterapeuta","regiao":"Zona Oeste - SP"}')
 PROF_SALVA=$(echo "$SAVE" | json "d['detalhes'].get('profissao','')")
 REG_SALVA=$(echo "$SAVE" | json "d['detalhes'].get('regiao','')")
@@ -217,7 +234,7 @@ assert_eq "fisioterapeuta" "$PROF_SALVA" "profissão persistida"
 assert_eq "Zona Oeste - SP" "$REG_SALVA" "região persistida"
 
 # O perfil público também expõe os campos
-PUB=$(http_body "$BASE/api/profissionais/4")
+PUB=$(http_body "$BASE/api/profissionais/$NOVO_ID")
 assert_true "$(echo "$PUB" | grep -q '"profissao"' && echo 1 || echo 0)" "perfil público inclui 'profissao'"
 assert_true "$(echo "$PUB" | grep -q '"regiao"' && echo 1 || echo 0)" "perfil público inclui 'regiao'"
 

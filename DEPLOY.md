@@ -60,6 +60,23 @@ UPLOAD_DIR       = ./uploads
 MAX_UPLOAD_MB    = 5
 ```
 
+**Assistente RAG (opcional — funciona sem nenhuma uma delas):**
+
+```
+# Embeddings são LOCAIS (multilingual-e5-small). Sem chave, o assistente
+# responde de forma extrativa a partir das fontes recuperadas.
+OPENAI_API_KEY      = sk-...       # OU ANTHROPIC_API_KEY — só para redigir
+ANTHROPIC_API_KEY   = sk-ant-...
+RAG_MODEL           = Xenova/multilingual-e5-small
+RAG_DIM             = 384
+RAG_TOP_K           = 5
+RAG_AUTO_INDEX      = true         # indexa vagas/profissionais/base no boot
+```
+
+> O modelo de embeddings (~120 MB) é baixado no **primeiro boot** e fica em
+> cache. Sem internet nesse momento, o assistente cai no embedding
+> determinístico de fallback — a API continua no ar.
+
 5. Deploy. Anote a URL: `https://essencia-backend.onrender.com`
 
 > ⚠️ **Free tier do Render dorme.** A primeira request pode demorar ~50s.

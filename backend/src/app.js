@@ -237,6 +237,7 @@ app.use('/api/plantoes', plantoesRouter);
 app.use('/api/favoritos', favoritosRouter);
 app.use('/api/notificacoes', notificacoesRouter);
 app.use('/api/protocolos', protocolosRouter);
+app.use('/api/rag', ragRouter);
 
 // SPA fallback
 const distPath = path.resolve(__dirname, '../../frontend/dist');

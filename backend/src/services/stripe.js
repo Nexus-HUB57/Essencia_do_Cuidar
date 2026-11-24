@@ -216,7 +216,10 @@ export async function transferirParaProfissional({ profissional_id, valor_centav
   if (STRIPE_MOCK || !stripe) {
     // Mock — garante a conta (registro fake) e simula a transferência.
     if (!conn) await criarConnectAccount(profissional_id);
-    const transferId = `tr_mock_${protocolo_id}_${Date.now()}`;
+    // Determinístico por protocolo: reprocessar o mesmo plantão devolve
+    // o MESMO transfer_id, então a guarda de idempotência abaixo funciona
+    // também em modo mock.
+    const transferId = `tr_mock_${protocolo_id}`;
     return { transfer_id: transferId, ja_transferido: false, mock: true };
   }
 
@@ -235,6 +238,12 @@ export async function transferirParaProfissional({ profissional_id, valor_centav
     currency: 'brl',
     destination: conn.stripe_account_id,
     metadata: { protocolo_id: String(protocolo_id) }
+  }, {
+    // Chave de idempotência: se a mesma liberação for tentada de novo
+    // (admin + cron, retry de rede, duplo clique), o Stripe devolve a
+    // MESMA transferência em vez de criar uma segunda. Sem isto, uma
+    // corrida entre as duas chamadas paga o profissional duas vezes.
+    idempotencyKey: `protocolo-${protocolo_id}-transfer`
   });
   return { transfer_id: transfer.id, ja_transferido: false, mock: false };
 }

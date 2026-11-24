@@ -74,4 +74,22 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`[essencia-do-cuidar] DB driver: ${db.driver}`);
 });
 
+// Indexa o RAG em background (não bloqueia o boot). Falha não derruba o servidor.
+if (process.env.RAG_AUTO_INDEX !== 'false') {
+  (async () => {
+    try {
+      const { reindexar } = await import('./services/rag/indexer.js');
+      const existing = await db.get('SELECT COUNT(*) AS n FROM rag_chunks');
+      if ((existing?.n || 0) > 0) {
+        console.log(`[rag] índice já existe (${existing.n} chunks). Use POST /api/rag/indexar para reindexar.`);
+        return;
+      }
+      const stats = await reindexar();
+      console.log(`[rag] pronto: ${stats.documentos} docs, ${stats.chunks} chunks`);
+    } catch (err) {
+      console.warn('[rag] auto-index falhou (API segue funcionando):', err.message?.slice(0, 120));
+    }
+  })();
+}
+
 export { app, server, io };
