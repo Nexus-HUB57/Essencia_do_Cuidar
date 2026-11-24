@@ -275,6 +275,28 @@ if [ -n "${SITE_URL:-}" ]; then
     yellow "GET /api/health → $CODE_API (verifique proxy/redirect no netlify.toml)"
   fi
   rm -f "$API_BODY"
+
+  # ── CORS: o backend precisa liberar o domínio REAL do site ──────────────
+  # O FRONTEND_URL do Render é a allowlist de CORS. Se ele divergir do site
+  # publicado, o login falha com erro de CORS mesmo com a API no ar.
+  # Em 23/11/2026 o render.yaml apontava para ecuidar.netlify.app enquanto o
+  # site publicado era essenciadocuidar.netlify.app — exatamente este bug.
+  echo ""
+  echo "  CORS (o backend precisa liberar o domínio do site):"
+  FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-$(echo "$SITE_URL" | sed 's|/$||')}"
+  CORS_HEADERS=$(curl -sI -m 20 -H "Origin: $FRONTEND_ORIGIN" "$SITE_URL/api/health" 2>/dev/null | tr -d '\r')
+  ACAO=$(echo "$CORS_HEADERS" | grep -i "^access-control-allow-origin:" | head -1 | cut -d: -f2- | sed 's/^ *//')
+  if [ -z "$ACAO" ]; then
+    yellow "sem header Access-Control-Allow-Origin para $FRONTEND_ORIGIN"
+    echo "    O preflight da API vai falhar no navegador. Confira FRONTEND_URL no Render."
+  elif echo "$ACAO" | grep -qi "$(echo "$FRONTEND_ORIGIN" | sed 's|https://||')"; then
+    green "Access-Control-Allow-Origin: $ACAO"
+  else
+    yellow "Access-Control-Allow-Origin: $ACAO (não corresponde a $FRONTEND_ORIGIN)"
+    echo "    O login vai falhar com erro de CORS. FRONTEND_URL no Render precisa conter:"
+    echo "      $FRONTEND_ORIGIN"
+    echo "    Corrija com: bash scripts/render-deploy.sh"
+  fi
 fi
 
 # ───────────────────────────────────────────────────────────────────

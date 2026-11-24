@@ -565,6 +565,12 @@ export function initSchema() {
   // Check-in / check-out — timestamps de chegada e de confirmação de presença.
   safeExec("ALTER TABLE protocolos ADD COLUMN checkin_profissional_em TEXT");
   safeExec("ALTER TABLE protocolos ADD COLUMN checkin_contratante_em TEXT");
+  // RAG — chave natural do documento ("vaga:12", "kb-regras-complexidade").
+  // O código do indexador/retriever foi escrito contra uma tabela com
+  // `doc_id`; sem esta coluna TODA consulta do RAG quebrava com
+  // "no such column: c.doc_id" e a feature devolvia 500.
+  safeExec("ALTER TABLE rag_documentos ADD COLUMN doc_key TEXT");
+  safeExec("CREATE UNIQUE INDEX IF NOT EXISTS idx_rag_documentos_doc_key ON rag_documentos(doc_key)");
   // Permite 'cancelada' em candidaturas (profissional retira a candidatura).
   // O SQLite não sabe alterar CHECK constraints — só recriando a tabela.
   patchCandidaturasStatusCancelada();

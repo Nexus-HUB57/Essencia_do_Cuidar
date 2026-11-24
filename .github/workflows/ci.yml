@@ -82,6 +82,8 @@ jobs:
       # em :4010 com NETLIFY_AI_URL controlado (entrega, falha, retry, health).
       - name: Smoke test — sincronização Netfly (webhook + retry)
         run: python3 scripts/smoke-test-netfly.py
+      - name: Teste do script de deploy no Render (mock da API)
+        run: bash scripts/test-render-deploy.sh
 
       - name: Show backend logs (on failure)
         if: failure()

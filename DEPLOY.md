@@ -54,7 +54,7 @@ NODE_ENV         = production
 PORT             = 10000
 JWT_SECRET       = <gere: openssl rand -hex 32>
 JWT_EXPIRES_IN   = 7d
-FRONTEND_URL     = https://<seu-site>.netlify.app
+FRONTEND_URL     = https://essenciadocuidar.netlify.app   # domínio real do site
 NETLIFY_AI_URL   = https://netlify.ai
 UPLOAD_DIR       = ./uploads
 MAX_UPLOAD_MB    = 5
@@ -114,6 +114,78 @@ O repo já tem `.github/workflows/deploy-netlify.yml`. Pra ativar:
    - `VITE_API_URL` = `/api`
 
 Agora cada push mostra o deploy no GitHub em **Actions** e gera comentário com o resumo.
+
+---
+
+## 🧪 Deploy end-to-end (backend + frontend, com verificação)
+
+### Por que isso existe
+
+Publicar o frontend e publicar o backend são dois passos em provedores
+diferentes. Em 23/11/2026 o site foi publicado com sucesso (HTTP 200) e
+**todas** as chamadas de API devolviam 404 — o backend no Render respondia
+`Cannot GET /api/health`, ou seja, não estava servindo esta API. Nenhum
+passo do deploy ficou vermelho: o app nasceu quebrado.
+
+O workflow `deploy-e2e.yml` inverte a ordem e verifica o resultado real:
+
+```
+backend no Render  →  /api/health respondendo JSON
+     ↓
+frontend na Netlify
+     ↓
+no site publicado: proxy /api, login e rota autenticada
+```
+
+### Secrets necessários
+
+| Secret | Onde criar | Para quê |
+|---|---|---|
+| `RENDER_API_KEY` | Render → Account Settings → API Keys | configurar/publicar o backend |
+| `TOKEN_NETFLY` | Netlify → Personal access tokens | publicar o frontend |
+
+Sem o `RENDER_API_KEY` o job do backend **falha com mensagem explícita** —
+o frontend não é publicado, para não existir site sem API.
+
+### Uso local
+
+```bash
+export RENDER_API_KEY=rend_xxx
+export NETLIFY_AUTH_TOKEN=nfp_xxx
+
+bash scripts/deploy-e2e.sh              # backend + frontend + verificação
+bash scripts/deploy-e2e.sh --dry-run    # só diagnostica
+bash scripts/deploy-e2e.sh --skip-backend
+```
+
+### Corrigindo o backend na Render
+
+O `render.yaml` é a fonte da verdade (repo, branch, rootDir, start command,
+env vars). O script `scripts/render-deploy.sh` compara o serviço no Render
+com esse arquivo e corrige o que divergir:
+
+```bash
+export RENDER_API_KEY=rend_xxx
+
+bash scripts/render-deploy.sh --dry-run   # diagnóstico, sem mudar nada
+bash scripts/render-deploy.sh             # corrige, publica e verifica
+bash scripts/render-deploy.sh --generate-jwt   # cria JWT_SECRET se faltar
+```
+
+Sintomas que ele diagnostica:
+
+| Sintoma | Causa | Correção |
+|---|---|---|
+| `404` + `Cannot GET /api/health` | serviço no ar sem as rotas montadas | `rootDir`/`branch`/`repo` errados — o script corrige |
+| `502` / `504` | serviço caiu (start command ou env vars) | logs no dashboard do Render |
+| login falha com erro de CORS | `FRONTEND_URL` não inclui o domínio real do site | o script reescreve o `FRONTEND_URL` |
+
+O script tem teste próprio, rodado contra um mock da API do Render
+(`tests/mock-render.py`), sem gastar deploy real:
+
+```bash
+bash scripts/test-render-deploy.sh
+```
 
 ---
 
