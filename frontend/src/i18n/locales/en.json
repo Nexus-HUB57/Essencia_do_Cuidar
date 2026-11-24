@@ -31,7 +31,8 @@
     "logout": "Sign out",
     "dashboard": "Dashboard",
     "profile": "Profile",
-    "admin": "Admin"
+    "admin": "Admin",
+    "plantoes": "Shifts"
   },
   "home": {
     "hero": "Home health care with trust and empathy",
@@ -304,7 +305,11 @@
     "registroLabel": "Registration:",
     "profileSummary": "Profile summary",
     "viewPublicProfile": "👁️ View public profile",
-    "summary": "Profile summary"
+    "summary": "Profile summary",
+    "retirarCandidatura": "Withdraw application",
+    "confirmRetirar": "Withdraw this application? The contractor will be notified and you can apply again later.",
+    "candidaturaRetirada": "Application withdrawn.",
+    "statusRetirada": "Withdrawn"
   },
   "protocolos": {
     "title": "Protocols",
@@ -617,5 +622,27 @@
     "email": "E-mail:",
     "telefone": "Phone:",
     "cidade": "City:"
+  },
+  "plantoes": {
+    "title": "On-demand shifts",
+    "subtitle": "Book a nursing or elderly caregiver shift with Mercado Pago checkout — card, Pix and other methods. Verified professionals.",
+    "familia": {
+      "todas": "All",
+      "enfermagem": "Nursing",
+      "cuidador": "Elderly caregiver"
+    },
+    "duracao": "{{horas}}-hour shift",
+    "pagamentoUnico": "one-time payment",
+    "contratar": "Book now",
+    "aguardando": "Waiting…",
+    "aguardandoPagamento": "Waiting for Mercado Pago to confirm the payment. You can close this page — the shift is recorded in the history below.",
+    "pagamentoConfirmado": "Payment confirmed! Thank you for your trust.",
+    "loginRequired": "Log in to book a shift.",
+    "meusPagamentos": "My shifts",
+    "statusPendente": "Pending",
+    "statusPago": "Paid",
+    "statusCancelado": "Cancelled",
+    "precoValor": "R$ {{valor}}",
+    "semCatalogo": "No shifts published yet — please check back soon."
   }
 }

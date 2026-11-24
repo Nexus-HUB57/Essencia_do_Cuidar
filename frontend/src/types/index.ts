@@ -98,7 +98,7 @@ export interface Candidatura {
   id_vaga: number;
   id_profissional: number;
   mensagem?: string | null;
-  status_candidatura: "pendente" | "visualizada" | "aceita" | "recusada";
+  status_candidatura: "pendente" | "visualizada" | "aceita" | "recusada" | "cancelada";
   criado_em: string;
   profissional_desejado?: string;
   complexidade?: string;

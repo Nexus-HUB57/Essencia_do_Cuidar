@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { AvatarCuidadora, BeijaFlor, DivisorBotanico, VinhaCanto, CoracaoMaos } from '../components/ilustracoes';
 
 const WHATSAPP_URL = 'https://wa.me/5519988322428';
 const WHATSAPP_DISPLAY = '(19) 98832-2428';
@@ -21,6 +22,10 @@ export default function Landing() {
           <div className="absolute inset-0 bg-gradient-to-br from-serenity-50/95 via-white/90 to-emerald-50/95" />
         </div>
 
+        {/* flora dos cantos — identidade dos roteiros */}
+        <VinhaCanto className="hidden md:block absolute -top-2 -left-2 w-40 opacity-70 pointer-events-none ilustracao-oscilar" />
+        <VinhaCanto flip className="hidden md:block absolute -bottom-2 -right-2 w-40 opacity-50 pointer-events-none" />
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center">
           <div>
             <span className="badge-blue mb-4">🩺 {t('home.subtitle')}</span>
@@ -39,11 +44,15 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Card ilustrativo com logo + Jeane */}
+          {/* Card ilustrativo com avatar da cuidadora + Jeane */}
           <div className="relative">
+            {/* beija-flor planando sobre o card */}
+            <div className="hidden md:block absolute -top-10 -right-6 w-24 z-20 ilustracao-planar pointer-events-none">
+              <BeijaFlor className="w-full h-auto" />
+            </div>
             <div className="card relative z-10 max-w-md mx-auto">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-serenity-400 to-emerald-400 flex items-center justify-center text-white text-xl">👵</div>
+                <AvatarCuidadora className="w-12 h-12 shrink-0 [&>svg]:w-full [&>svg]:h-full" titulo="Avatar ilustrado de cuidadora" />
                 <div>
                   <h3 className="font-semibold text-slate-900">Cuidadora Ana C.</h3>
                   <p className="text-xs text-slate-500">COREN-SP • {t('perfil.verified')}</p>
@@ -88,6 +97,7 @@ export default function Landing() {
 
       {/* SOBRE — Nasceu a Essência do Cuidar */}
       <section className="py-20 bg-white">
+        <DivisorBotanico className="w-full max-w-md mx-auto mb-14 opacity-90" titulo="Divisor botânico da marca" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-2 gap-12 items-center">
           <div>
             <span className="badge-green mb-3">{t('landing.ourStory')}</span>
@@ -240,6 +250,7 @@ export default function Landing() {
       {/* CTA FINAL — "Cuidado que acolhe e protege" */}
       <section className="py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <CoracaoMaos className="w-16 h-16 mx-auto mb-5" titulo="Emblema: mãos acolhendo coração-folha" />
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
             Cuidado que acolhe e protege
           </h2>

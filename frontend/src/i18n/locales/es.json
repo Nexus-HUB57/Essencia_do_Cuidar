@@ -31,7 +31,8 @@
     "logout": "Salir",
     "dashboard": "Panel",
     "profile": "Perfil",
-    "admin": "Admin"
+    "admin": "Admin",
+    "plantoes": "Turnos"
   },
   "home": {
     "hero": "Cuidado de salud en el hogar con confianza y empatía",
@@ -304,7 +305,11 @@
     "registroLabel": "Registro:",
     "profileSummary": "Resumen del perfil",
     "viewPublicProfile": "👁️ Ver perfil público",
-    "summary": "Resumen del perfil"
+    "summary": "Resumen del perfil",
+    "retirarCandidatura": "Retirar postulación",
+    "confirmRetirar": "¿Retirar esta postulación? El contratante será avisado y podrás postularte de nuevo después.",
+    "candidaturaRetirada": "Postulación retirada.",
+    "statusRetirada": "Retirada"
   },
   "protocolos": {
     "title": "Protocolos",
@@ -617,5 +622,27 @@
     "email": "Correo:",
     "telefone": "Teléfono:",
     "cidade": "Ciudad:"
+  },
+  "plantoes": {
+    "title": "Turnos avulsos",
+    "subtitle": "Contrate un turno de enfermería o de cuidador de adultos mayores con pago por Mercado Pago — tarjeta, Pix y otros medios. Profesionales verificados.",
+    "familia": {
+      "todas": "Todos",
+      "enfermagem": "Enfermería",
+      "cuidador": "Cuidador de adultos mayores"
+    },
+    "duracao": "{{horas}} horas de turno",
+    "pagamentoUnico": "pago único",
+    "contratar": "Contratar",
+    "aguardando": "Esperando…",
+    "aguardandoPagamento": "Esperando la confirmación del pago en Mercado Pago. Puedes cerrar esta página — el turno queda registrado en el historial de abajo.",
+    "pagamentoConfirmado": "¡Pago confirmado! Gracias por tu confianza.",
+    "loginRequired": "Inicia sesión para contratar un turno.",
+    "meusPagamentos": "Mis turnos",
+    "statusPendente": "Pendiente",
+    "statusPago": "Pagado",
+    "statusCancelado": "Cancelado",
+    "precoValor": "R$ {{valor}}",
+    "semCatalogo": "Todavía no hay guardias publicados — vuelve pronto."
   }
 }

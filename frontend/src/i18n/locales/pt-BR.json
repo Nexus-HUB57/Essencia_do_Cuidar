@@ -31,7 +31,8 @@
     "logout": "Sair",
     "dashboard": "Painel",
     "profile": "Perfil",
-    "admin": "Admin"
+    "admin": "Admin",
+    "plantoes": "Plantões"
   },
   "home": {
     "hero": "Cuidado de saúde domiciliar com confiança e empatia",
@@ -304,7 +305,11 @@
     "registroLabel": "Registro:",
     "profileSummary": "Resumo do perfil",
     "viewPublicProfile": "👁️ Ver perfil público",
-    "summary": "Resumo do perfil"
+    "summary": "Resumo do perfil",
+    "retirarCandidatura": "Retirar candidatura",
+    "confirmRetirar": "Retirar esta candidatura? O contratante será avisado e você poderá se candidatar de novo depois.",
+    "candidaturaRetirada": "Candidatura retirada.",
+    "statusRetirada": "Retirada"
   },
   "protocolos": {
     "title": "Protocolos",
@@ -617,5 +622,27 @@
     "email": "E-mail:",
     "telefone": "Telefone:",
     "cidade": "Cidade:"
+  },
+  "plantoes": {
+    "title": "Plantões avulsos",
+    "subtitle": "Contrate um plantão de enfermagem ou de cuidador de idoso com pagamento pelo Mercado Pago — cartão, Pix e outros meios. Profissionais verificados.",
+    "familia": {
+      "todas": "Todas",
+      "enfermagem": "Enfermagem",
+      "cuidador": "Cuidador de idoso"
+    },
+    "duracao": "{{horas}} horas de plantão",
+    "pagamentoUnico": "pagamento único",
+    "contratar": "Contratar",
+    "aguardando": "Aguardando…",
+    "aguardandoPagamento": "Aguardando a confirmação do pagamento no Mercado Pago. Você pode fechar esta página — o plantão fica registrado no histórico abaixo.",
+    "pagamentoConfirmado": "Pagamento confirmado! Obrigado pela confiança.",
+    "loginRequired": "Entre na sua conta para contratar um plantão.",
+    "meusPagamentos": "Meus plantões",
+    "statusPendente": "Pendente",
+    "statusPago": "Pago",
+    "statusCancelado": "Cancelado",
+    "precoValor": "R$ {{valor}}",
+    "semCatalogo": "Ainda não há plantões publicados — volte em breve."
   }
 }

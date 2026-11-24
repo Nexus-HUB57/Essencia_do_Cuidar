@@ -25,6 +25,7 @@ export async function resetDb() {
     DELETE FROM candidaturas;
     DELETE FROM avaliacoes;
     DELETE FROM pagamentos;
+    DELETE FROM pagamentos_link;
     DELETE FROM push_subscriptions;
     DELETE FROM verificacao_registros;
     DELETE FROM favoritos;

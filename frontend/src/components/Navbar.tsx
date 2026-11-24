@@ -24,7 +24,7 @@ export default function Navbar() {
 
         <div className="flex items-center gap-1 sm:gap-3 text-sm">
           <Link to="/vagas" className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5">{t('nav.vagas')}</Link>
-          <Link to="/assistente" className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5">🤖 <span className="hidden sm:inline">Assistente</span></Link>
+          <Link to="/plantoes" className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5">{t('nav.plantoes')}</Link>
           <Link to="/como-funciona" className="text-slate-600 hover:text-serenity-600 px-2 sm:px-3 py-1.5 hidden sm:inline">{t('nav.howItWorks')}</Link>
 
           {user ? (
