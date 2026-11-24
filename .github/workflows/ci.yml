@@ -70,10 +70,6 @@ jobs:
           BASE: http://localhost:4000
         run: bash scripts/smoke-test-matching.sh
 
-<<<<<<< HEAD
-      - name: Teste do script de deploy no Render (mock da API)
-        run: bash scripts/test-render-deploy.sh
-=======
       - name: Smoke test — assistente RAG
         env:
           BASE: http://localhost:4000
@@ -86,7 +82,8 @@ jobs:
       # em :4010 com NETLIFY_AI_URL controlado (entrega, falha, retry, health).
       - name: Smoke test — sincronização Netfly (webhook + retry)
         run: python3 scripts/smoke-test-netfly.py
->>>>>>> origin/main
+      - name: Teste do script de deploy no Render (mock da API)
+        run: bash scripts/test-render-deploy.sh
 
       - name: Show backend logs (on failure)
         if: failure()
