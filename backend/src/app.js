@@ -28,6 +28,7 @@ import avaliacoesRouter from './routes/avaliacoes.js';
 import favoritosRouter from './routes/favoritos.js';
 import notificacoesRouter from './routes/notificacoes.js';
 import protocolosRouter from './routes/protocolos.js';
+import ragRouter from './routes/rag.js';
 import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
 import { listarProfissoes, UFS_VALIDAS } from './services/profissoes.js';
 import { getOpenApiSpec, getSwaggerUIHtml } from './services/openapi.js';
@@ -235,6 +236,7 @@ app.use('/api/avaliacoes', avaliacoesRouter);
 app.use('/api/favoritos', favoritosRouter);
 app.use('/api/notificacoes', notificacoesRouter);
 app.use('/api/protocolos', protocolosRouter);
+app.use('/api/rag', ragRouter);
 
 // SPA fallback
 const distPath = path.resolve(__dirname, '../../frontend/dist');

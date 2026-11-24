@@ -27,6 +27,7 @@ import { processarPPP } from './protocolos-ppp-pnp.js';
  * @returns {Promise<Object>} { liberados: number, erros: number }
  */
 export async function liberarPagamentosApos72h() {
+  await recuperarLiberacoesTravadas();
   const protocolos = await buscarProtocolosParaLiberar();
   let liberados = 0, erros = 0;
 
@@ -45,6 +46,60 @@ export async function liberarPagamentosApos72h() {
 
   console.log(`[protocolos-cleanup] Liberação: ${liberados} liberados, ${erros} erros`);
   return { liberados, erros };
+}
+
+/**
+ * Recupera liberações travadas.
+ *
+ * `liberarPagamento()` reivindica o protocolo antes de mover o dinheiro
+ * (INSERT em `protocolo_liberamento_claim`). Se o processo morre entre a
+ * reivindicação e a escrita final, a linha ficaria na tabela e o protocolo
+ * jamais seria liberado — o cron não o pega (só olha 'checkout_completo')
+ * e o profissional nunca receberia.
+ *
+ * Esta rotina remove reivindicações abandonadas há mais de 10 minutos
+ * para que a próxima rodada do cron reprocesse o protocolo. Na trilha
+ * Stripe, o `stripe_transfer_id` já gravado (quando a transferência
+ * chegou a acontecer) impede a transferência de se repetir.
+ *
+ * @returns {Promise<number>} quantidade de reivindicações liberadas
+ */
+export async function recuperarLiberacoesTravadas() {
+  const MINUTOS = 10;
+  const travadas = await db.all(
+    `SELECT c.id_protocolo, c.token FROM protocolo_liberamento_claim c
+      WHERE c.claimado_em < datetime('now', ?)
+      LIMIT 100`,
+    [`-${MINUTOS} minutes`]
+  );
+
+  let recuperadas = 0;
+  for (const c of travadas) {
+    try {
+      // Verifica se o protocolo já foi liberado — nesse caso só limpa a linha.
+      const p = await db.get('SELECT status FROM protocolos WHERE id = ?', [c.id_protocolo]);
+      if (p && p.status !== 'liberado') {
+        await db.run(
+          `UPDATE protocolos SET status = 'checkout_completo'
+            WHERE id = ? AND status = 'checkout_completo'`,
+          [c.id_protocolo]
+        );
+        await logarTransicaoProtocolo(
+          c.id_protocolo, 'liberando', 'checkout_completo', null,
+          'Liberação abandonada — devolvida para nova tentativa'
+        );
+        console.warn(`[protocolos-cleanup] Protocolo #${c.id_protocolo} travado na liberação — devolvido para nova tentativa`);
+      }
+      await db.run(
+        `DELETE FROM protocolo_liberamento_claim WHERE id_protocolo = ? AND token = ?`,
+        [c.id_protocolo, c.token]
+      );
+      recuperadas++;
+    } catch (err) {
+      console.error(`[protocolos-cleanup] Falha ao recuperar liberação do protocolo #${c.id_protocolo}:`, err.message);
+    }
+  }
+  return recuperadas;
 }
 
 /**

@@ -367,6 +367,35 @@ export async function initSchema() {
       UNIQUE(id_protocolo, tipo_user)
     );
 
+    -- Assistente RAG — documentos indexados e seus chunks (busca semântica).
+    CREATE TABLE IF NOT EXISTS rag_documentos (
+      id SERIAL PRIMARY KEY,
+      tipo TEXT NOT NULL CHECK(tipo IN ('vaga', 'profissional', 'conhecimento')),
+      ref_id INTEGER,
+      titulo TEXT NOT NULL,
+      conteudo TEXT NOT NULL,
+      origem TEXT,
+      embedding TEXT,
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+    );
+
+    CREATE TABLE IF NOT EXISTS rag_chunks (
+      id SERIAL PRIMARY KEY,
+      id_documento INTEGER NOT NULL REFERENCES rag_documentos(id) ON DELETE CASCADE,
+      ordem INTEGER NOT NULL DEFAULT 0,
+      conteudo TEXT NOT NULL,
+      embedding TEXT,
+      criado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+    );
+
+    -- Reivindicação de liberação de pagamento (trava de concorrência).
+    -- Ver a explicação equivalente em db/sqlite.js.
+    CREATE TABLE IF NOT EXISTS protocolo_liberamento_claim (
+      id_protocolo INTEGER PRIMARY KEY REFERENCES protocolos(id) ON DELETE CASCADE,
+      token TEXT NOT NULL,
+      claimado_em TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))
+    );
+
     CREATE TABLE IF NOT EXISTS protocolo_status_log (
       id SERIAL PRIMARY KEY,
       id_protocolo INTEGER NOT NULL REFERENCES protocolos(id) ON DELETE CASCADE,
