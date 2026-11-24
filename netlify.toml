@@ -33,6 +33,10 @@
 #   https://api.essencia-do-cuidar.app  (Ingress k8s com TLS)
 
 # Proxy da API REST (todos os endpoints /api/*)
+# O backend tem que ser o mesmo app que serve /api/health com JSON.
+# Se o host responder 404 com o HTML padrão do Express, o serviço no Render
+# não está montando as rotas (rootDir/branch errados) — corrija com:
+#   bash scripts/render-deploy.sh
 [[redirects]]
   from   = "/api/*"
   to     = "https://essencia-backend.onrender.com/api/:splat"

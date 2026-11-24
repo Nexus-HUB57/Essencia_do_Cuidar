@@ -67,6 +67,9 @@ jobs:
           BASE: http://localhost:4000
         run: bash scripts/smoke-test-matching.sh
 
+      - name: Teste do script de deploy no Render (mock da API)
+        run: bash scripts/test-render-deploy.sh
+
       - name: Show backend logs (on failure)
         if: failure()
         run: cat /tmp/backend.log || true

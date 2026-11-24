@@ -29,8 +29,16 @@ services:
         value: production
       - key: JWT_SECRET
         sync: false  # configurar no painel: openssl rand -hex 32
+      # Domínio REAL do site publicado. Este valor é a origem da allowlist
+      # de CORS do backend: se divergir do site no ar, o login falha com
+      # erro de CORS mesmo com a API no ar. (Antes apontava para
+      # ecuidar.netlify.app, que não é o site publicado.)
+      # Allowlist de CORS — aceita vários domínios separados por VÍRGULA
+      # (o backend faz FRONTEND_URL.split(',')). A conta da Netlify tem dois
+      # sites servindo o app (ecuidar e essenciadocuidar); listar os dois
+      # evita que o login quebre em um deles.
       - key: FRONTEND_URL
-        value: https://ecuidar.netlify.app
+        value: https://ecuidar.netlify.app,https://essenciadocuidar.netlify.app
       # Opcionais (defaults funcionam para dev)
       - key: STRIPE_MOCK
         value: 'true'  # setar false + STRIPE_SECRET_KEY em produção real
