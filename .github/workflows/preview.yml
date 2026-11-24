@@ -161,11 +161,15 @@ jobs:
           EOF
           )
           # Atualiza o comentário anterior em vez de empilhar um por commit.
+          # --repo é obrigatório: o checkout usa ref: head.sha, que deixa o
+          # HEAD detached e o `gh` perde o contexto do repositório (404).
           EXISTING=$(gh pr view "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
             --json comments --jq '[.comments[] | select(.body | contains("Preview do PR"))] | .[0].id' 2>/dev/null || true)
           if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
             gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$EXISTING" \
               -f body="$BODY" > /dev/null
           else
-            gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
+            gh pr comment "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" --body "$BODY"
           fi
