@@ -32,7 +32,8 @@
     "dashboard": "Panel",
     "profile": "Perfil",
     "admin": "Admin",
-    "plantoes": "Turnos"
+    "plantoes": "Turnos",
+    "assistant": "Asistente"
   },
   "home": {
     "hero": "Cuidado de salud en el hogar con confianza y empatía",
