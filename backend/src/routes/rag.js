@@ -65,8 +65,8 @@ router.post('/indexar', authRequired, requireAdmin, async (req, res) => {
 router.get('/documentos', authRequired, requireAdmin, async (req, res) => {
   const { tipo, limite = 100, offset = 0 } = req.query;
   const rows = await db.all(
-    `SELECT doc_id, tipo, titulo, fonte, ref_id, criado_em,
-            (SELECT COUNT(*) FROM rag_chunks c WHERE c.doc_id = d.doc_id) AS chunks
+    `SELECT doc_key AS doc_id, tipo, titulo, origem AS fonte, ref_id, criado_em,
+            (SELECT COUNT(*) FROM rag_chunks c WHERE c.id_documento = d.id) AS chunks
        FROM rag_documentos d
       ${tipo ? 'WHERE tipo = ?' : ''}
       ORDER BY tipo, titulo

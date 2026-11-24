@@ -23,10 +23,10 @@ const BONUS_RECENTE = 0.04;
  */
 export async function buscar(pergunta, { topK = 5, tipo = null } = {}) {
   const rows = await db.all(
-    `SELECT c.id, c.doc_id, c.chunk_index, c.conteudo, c.embedding, c.tokens,
-            d.tipo, d.titulo, d.fonte, d.ref_id
+    `SELECT c.id, d.doc_key AS doc_id, c.ordem AS chunk_index, c.conteudo, c.embedding,
+            d.tipo, d.titulo, d.origem AS fonte, d.ref_id
        FROM rag_chunks c
-       JOIN rag_documentos d ON d.doc_id = c.doc_id
+       JOIN rag_documentos d ON d.id = c.id_documento
       ${tipo ? 'WHERE d.tipo = ?' : ''}
       ORDER BY c.id`,
     tipo ? [tipo] : []
