@@ -75,6 +75,25 @@ if [[ "${1:-}" == "--install" ]]; then
 fi
 
 # ── modo execução (o `npx netlify` do workflow cai aqui) ─────────────────
+#
+# PROTEÇÃO CONTRA RECURSÃO — leia antes de mexer.
+#
+# O `npx` coloca o node_modules/.bin do projeto no PATH do processo que ele
+# spawna, e é lá que este guard é instalado (node_modules/.bin/netlify).
+# Chamar `netlify` por nome dentro do guard chamava o GUARD DE NOVO, numa
+# recursão infinita: cada nível abria um watchdog (bash + sleep) e um
+# netlify-cli. O resultado no runner era centenas de processos órfãos
+# ("Terminate orphan process: bash / sleep"), o job morria com
+# "Out of memory" e o fork do processo seguinte falhava com EAGAIN
+# ("Resource temporarily unavailable"). Era a causa raiz de o deploy nunca
+# publicar.
+if [ -n "${NETLIFY_GUARD_ACTIVE:-}" ]; then
+  echo "ERRO: o guard de deploy foi invocado recursivamente (NETLIFY_GUARD_ACTIVE já está definido)." >&2
+  echo "   Isso significa que o guard está chamando a si mesmo em vez do netlify-cli real." >&2
+  exit 1
+fi
+export NETLIFY_GUARD_ACTIVE=1
+
 for arg in "$@"; do
   if [[ "$arg" == "--allow-anonymous" ]]; then
     echo "❌ Deploy anônimo BLOQUEADO pelo guard de deploy."
@@ -108,8 +127,6 @@ fi
 #   grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log
 # e interpretaria esta linha como "deploy publicado" — mesmo sem ter
 # publicado nada. O nome do site e o ID bastam para diagnóstico.
-echo "→ site alvo: ${SITE_NAME} (id ${SITE_ID})"
-echo "→ executando: netlify $* --site $SITE_ID"
 
 # A saída do CLI vai para um arquivo e depois é exibida no log da Actions
 # (antes ela só ia para /tmp/deploy.log e era grepada por URL, escondendo o
@@ -146,7 +163,28 @@ DEPLOY_TIMEOUT_SEG="${DEPLOY_TIMEOUT_SEG:-300}"
 # ⚠️ `--non-interactive` e `--no-telemetry` NÃO existem no netlify-cli v27
 # (erro: "unknown option") e faziam o deploy falhar sempre. A telemetria
 # se desliga pela variável de ambiente NETLIFY_TELEMETRY_DISABLED.
-cmd=(netlify "$@")
+# O netlify-cli real é o global (o workflow faz `npm install -g netlify-cli`).
+# NÃO chamamos `netlify` pelo PATH: o PATH do `npx` tem o guard na frente
+# (ver a proteção contra recursão acima).
+netlify_bin=""
+for candidato in \
+  "$(npm prefix -g 2>/dev/null)/bin/netlify" \
+  "$(npm root -g 2>/dev/null)/netlify-cli/bin/run.js" ; do
+  if [ -x "$candidato" ]; then
+    netlify_bin="$candidato"
+    break
+  fi
+done
+if [ -z "$netlify_bin" ]; then
+  echo "ERRO: netlify-cli global não encontrado (npm install -g netlify-cli)." >&2
+  exit 1
+fi
+
+cmd=("$netlify_bin" "$@")
+
+echo "→ site alvo: ${SITE_NAME} (id ${SITE_ID})"
+echo "→ cli: $netlify_bin"
+echo "→ executando: ${netlify_bin} $* --site ${SITE_ID}"
 tem_site_explicito=0
 for arg in "$@"; do
   case "$arg" in
@@ -182,7 +220,9 @@ cli_pid=$!
 # O watchdog redireciona a saída: se herdar o stdout do wrapper, ele segura
 # o pipe aberto e quem lê a saída (ex.: `| tail`) fica esperando até o
 # sleep terminar.
-( sleep "$DEPLOY_TIMEOUT_SEG"; kill -TERM "$cli_pid" 2>/dev/null ) > /dev/null 2>&1 &
+# `exec` faz o subshell VIRAR o sleep: assim $watchdog_pid é o PID do sleep
+# e o `kill` realmente o encerra (sem exec, o sleep ficava órfão).
+( exec sleep "$DEPLOY_TIMEOUT_SEG"; kill -TERM "$cli_pid" 2>/dev/null ) > /dev/null 2>&1 &
 watchdog_pid=$!
 
 wait "$cli_pid"
@@ -190,6 +230,9 @@ rc=$?
 
 kill "$watchdog_pid" 2>/dev/null
 wait "$watchdog_pid" 2>/dev/null
+# Garante que nenhum filho do netlify-cli sobreviva (eles segurariam o
+# stdout do passo e o runner os mataria como órfãos no fim).
+kill -- -"$cli_pid" 2>/dev/null || true
 if [ "$rc" -eq 143 ] || [ "$rc" -eq 124 ]; then
   echo "❌ netlify-cli excedeu ${DEPLOY_TIMEOUT_SEG}s e foi interrompido."
   echo "   O passo seria travado indefinidamente (e cancelaria o próximo"
