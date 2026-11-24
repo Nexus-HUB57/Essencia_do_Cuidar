@@ -29,6 +29,7 @@ import favoritosRouter from './routes/favoritos.js';
 import notificacoesRouter from './routes/notificacoes.js';
 import protocolosRouter from './routes/protocolos.js';
 import plantoesRouter from './routes/plantoes.js';
+import ragRouter from './routes/rag.js';
 import { securityHeaders, apiLimiter, authLimiter } from './middleware/security.js';
 import { listarProfissoes, UFS_VALIDAS } from './services/profissoes.js';
 import { getOpenApiSpec, getSwaggerUIHtml } from './services/openapi.js';

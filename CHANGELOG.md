@@ -50,12 +50,28 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
   webhook `netlify.ai` agora documenta os 10 tipos de evento, o retry e o
   health; a árvore de `scripts/` lista todas as 7 ferramentas de validação.
 
+### Corrigido — Merge quebrado do RAG (branch remoto não subia)
+
+- O merge `422a83d` (main → branch) aplicou os **usos** do assistente RAG
+  mas derrubou os **imports** correspondentes, deixando backend e frontend
+  impossíveis de iniciar (`ReferenceError: ragRouter is not defined` no
+  boot do backend; `TS2304: Cannot find name 'AssistenteRag'` no tsc):
+  - `backend/src/app.js` — restaurado `import ragRouter from './routes/rag.js'`;
+  - `frontend/src/App.tsx` — restaurado `import AssistenteRag from './pages/AssistenteRag'`;
+  - `frontend/src/components/Navbar.tsx` — o link `/assistente` se perdeu
+    na versão i18n do merge; restaurado com a nova chave `nav.assistant`
+    em pt-BR/es/en (seguindo o padrão i18n do branch, não o texto fixo
+    do commit original).
+- As demais peças do RAG sobreviveram ao merge e foram auditadas uma a uma
+  (5 serviços em `services/rag/`, rota, tabelas `rag_*` nos dois drivers,
+  auto-indexação no boot, teste de corrida dos protocolos, smoke-test-rag).
+
 ### Verificado
 
 - **Ambiente**: sandbox com `DATABASE_URL` apontando para um Postgres
   inexistente — o driver cai corretamente no SQLite quando a variável é
   removida (comportamento documentado em `src/db/driver.js`).
-- **Unitários**: vitest **222/222** (18 arquivos).
+- **Unitários**: vitest **224/224** (18 arquivos — +2 do RAG).
 - **Matching de Vagas**: `smoke-test-matching.sh` **40/40** — profissão
   pontua, scores ordenados, exclusão de quem já se candidatou, filtros,
   autorização, anti-injeção no `ordenar`.

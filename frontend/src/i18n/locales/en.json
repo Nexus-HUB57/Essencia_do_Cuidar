@@ -32,7 +32,8 @@
     "dashboard": "Dashboard",
     "profile": "Profile",
     "admin": "Admin",
-    "plantoes": "Shifts"
+    "plantoes": "Shifts",
+    "assistant": "Assistant"
   },
   "home": {
     "hero": "Home health care with trust and empathy",
