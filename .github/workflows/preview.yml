@@ -92,16 +92,55 @@ jobs:
             exit 1
           fi
 
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "### Preview: $URL" >> "$GITHUB_STEP_SUMMARY"
+          # Confere que o preview realmente serve o app.
+          #
+          # A conta da Netlify tem proteção de acesso nos DEPLOY PREVIEWS
+          # (respondem 401 com redirect para app.netlify.com/edge-access),
+          # enquanto os sites de produção respondem 200. Quando isso
+          # acontece, tentamos o OUTRO site da conta — se ele não tiver a
+          # proteção, o preview fica público.
+          checar_publico() {
+            local u="$1" code
+            code=$(curl -s -o /tmp/preview.html -w '%{http_code}' -m 30 "$u/" || echo 000)
+            echo "$code"
+          }
 
-          # Confere que o preview realmente serve o app (bundle presente).
           sleep 8
-          CODE=$(curl -s -o /tmp/preview.html -w '%{http_code}' -m 30 "$URL/" || echo 000)
+          CODE=$(checar_publico "$URL")
           BUNDLE=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' /tmp/preview.html | head -1 || true)
-          echo "http=$CODE bundle=${BUNDLE:-<nenhum>}" >> "$GITHUB_OUTPUT"
+          ACESSO="público"
+
           if [ "$CODE" != "200" ]; then
-            echo "::warning::o preview respondeu HTTP $CODE (a propagação no CDN pode levar alguns minutos)"
+            echo "::warning::preview principal respondeu HTTP $CODE — tentando o outro site da conta"
+            ALT_ID="${NETLIFY_SITE_ID_ALT:-783eee3d-6dcf-4859-b598-0ba30798f76b}"
+            ALT_URL=$(cd frontend && npx netlify deploy --dir dist --site "$ALT_ID" \
+              --message "Preview (site alternativo) ${{ github.event.pull_request.number || 'manual' }}" \
+              > /tmp/preview-alt.log 2>&1 || true)
+            ALT_URL=$(grep -oE 'https://[a-z0-9-]+--[a-z0-9-]+\.netlify\.app' /tmp/preview-alt.log | head -1 || true)
+            if [ -n "$ALT_URL" ]; then
+              ALT_CODE=$(checar_publico "$ALT_URL")
+              if [ "$ALT_CODE" = "200" ]; then
+                URL="$ALT_URL"
+                CODE="$ALT_CODE"
+                BUNDLE=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' /tmp/preview.html | head -1 || true)
+                ACESSO="público (site alternativo)"
+                echo "✓ preview público no site alternativo: $URL"
+              else
+                ACESSO="protegido (HTTP $CODE / HTTP $ALT_CODE)"
+              fi
+            else
+              ACESSO="protegido (HTTP $CODE)"
+            fi
+          fi
+
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "acesso=$ACESSO" >> "$GITHUB_OUTPUT"
+          echo "### Preview: $URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Acesso: $ACESSO" >> "$GITHUB_STEP_SUMMARY"
+          echo "http=$CODE bundle=${BUNDLE:-<nenhum>}" >> "$GITHUB_OUTPUT"
+
+          if [ "$CODE" != "200" ]; then
+            echo "::warning::o preview respondeu HTTP $CODE (proteção de acesso da conta Netlify ou propagação do CDN)"
           fi
 
       - name: Comentar o link do preview no PR
@@ -116,7 +155,9 @@ jobs:
           [Abrir o preview]($URL)
 
           Branch: \`${{ github.head_ref }}\` · Commit: \`${GITHUB_SHA::8}\`
-          Bundle: \`${{ steps.preview.outputs.bundle }}\`
+          Bundle: \`${{ steps.preview.outputs.bundle }}\` · Acesso: \`${{ steps.preview.outputs.acesso }}\`
+
+          ${{ steps.preview.outputs.acesso != 'público' && steps.preview.outputs.acesso != 'público (site alternativo)' && '> ⚠️ Este preview exige login na Netlify (a conta tem proteção de acesso em deploy previews). Para revisar sem login, use o site de produção ou desative a proteção em Netlify → Site configuration → Visitor access.' || '' }}
           EOF
           )
           # Atualiza o comentário anterior em vez de empilhar um por commit.
