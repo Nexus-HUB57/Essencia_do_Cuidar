@@ -49,9 +49,12 @@ jobs:
           done
           curl -sf http://localhost:4000/api/health || { cat /tmp/backend.log; exit 1; }
 
-      # As três suítes. `smoke-test.sh` cobre os fluxos gerais, `smoke-test-v2.sh`
-      # as 6 features (PG, registros, Stripe, push, admin, i18n) e
-      # `smoke-test-matching.sh` o sistema de matching Vagas x Profissional.
+      # As seis suítes. `smoke-test.sh` cobre os fluxos gerais,
+      # `smoke-test-v2.sh` as 6 features (PG, registros, Stripe, push, admin,
+      # i18n), `smoke-test-matching.sh` o matching Vagas x Profissional,
+      # `smoke-test-rag.sh` o assistente de busca semântica, a custódia
+      # percorre o caminho completo do dinheiro via HTTP e a Netfly valida
+      # a sincronização do webhook (entrega, falha, retry, health).
       - name: Smoke test — fluxos gerais
         env:
           BASE: http://localhost:4000
@@ -67,14 +70,19 @@ jobs:
           BASE: http://localhost:4000
         run: bash scripts/smoke-test-matching.sh
 
-<<<<<<< HEAD
       - name: Smoke test — assistente RAG
         env:
           BASE: http://localhost:4000
         run: bash scripts/smoke-test-rag.sh
 
-=======
->>>>>>> origin/main
+      - name: Smoke test — custódia de plantão (jornada do dinheiro)
+        run: python3 scripts/smoke-test-custodia.py http://localhost:4000
+
+      # Autocontida: sobe o próprio receptor HTTP e uma instância do backend
+      # em :4010 com NETLIFY_AI_URL controlado (entrega, falha, retry, health).
+      - name: Smoke test — sincronização Netfly (webhook + retry)
+        run: python3 scripts/smoke-test-netfly.py
+
       - name: Show backend logs (on failure)
         if: failure()
         run: cat /tmp/backend.log || true

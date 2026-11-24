@@ -355,7 +355,10 @@ Essencia_do_Cuidar/
 ├── scripts/
 │   ├── smoke-test.sh           # 21+ testes E2E (saúde, auth, vagas, candidatura, etc.)
 │   ├── smoke-test-v2.sh        # 28+ testes E2E com 6 features
-│   ├── smoke-test-matching.sh  # 39 testes E2E do matching (score, pesos, auth, filtros)
+│   ├── smoke-test-matching.sh  # 40 testes E2E do matching (score, pesos, auth, filtros)
+│   ├── smoke-test-custodia.py  # Jornada E2E do dinheiro: matching → custódia → liberação
+│   ├── smoke-test-netfly.py    # Jornada E2E da sync Netfly: entrega, falha, retry, health
+│   ├── validate-e2e.sh         # Roda todas as suítes + typecheck + build de uma vez
 │   ├── cron-webhook-retry.sh   # Cron job: POST /api/admin/webhooks/retry
 │   └── cron-candidatura-cleanup.sh # Cron job: POST /api/admin/candidaturas/limpar-expiradas
 ├── render.yaml                 # Render Blueprint (1 Web + 2 Cron Jobs)
@@ -590,13 +593,11 @@ Eventos (8 no total):
 
 ## 🔗 Webhook netlify.ai
 
-Toda vez que:
-- Uma **vaga é criada** (`POST /api/vagas`)
-- Uma **candidatura é enviada** (`POST /api/candidaturas`)
-- Uma **candidatura é aceita/recusada** (`PATCH /api/candidaturas/:id`)
-- Uma **verificação de registro é executada** (`POST /api/profissionais/me/verificar-registro`)
-
-o backend faz `POST https://netlify.ai` com payload JSON:
+Toda vez que um evento de negócio acontece — **vaga criada**, **candidatura
+enviada**, **candidatura aceita/recusada**, **verificação de registro**, **PCM
+enviado**, **PDC gerado**, **PDC pago** (custódia), **checkout completo**,
+**pagamento liberado** e **avaliação criada** — o backend faz `POST $NETLIFY_AI_URL`
+com payload JSON:
 ```json
 {
   "event": "vaga_criada",
@@ -607,10 +608,14 @@ o backend faz `POST https://netlify.ai` com payload JSON:
 ```
 
 A resposta é registrada na tabela `webhook_logs` (status_code, resposta, erro).
-Falhas são **best-effort** — não bloqueiam o fluxo principal.
+Falhas são **best-effort** — não bloqueiam o fluxo principal. O job de retry
+(`POST /api/admin/webhooks/retry`, cron a cada 30min ou `scripts/cron-webhook-retry.sh`)
+reenvia payloads com falha das últimas 24h; o health
+(`GET /api/admin/webhooks/health`) agrega sucesso/falha por tipo.
 
-> ℹ️ O endpoint `https://netlify.ai` retornou `404` durante os testes E2E no sandbox,
-> o que é o comportamento esperado (o sistema trata graciosamente e mantém o registro).
+> ℹ️ A jornada completa da sincronização (entrega real, falha, retry e health)
+> é validada por `python3 scripts/smoke-test-netfly.py`, que levanta um
+> receptor HTTP local e roda contra instâncias reais do backend.
 
 ---
 
@@ -685,7 +690,7 @@ Para instalar: abra no Chrome mobile, banner aparecerá automaticamente.
 26. ✅ Destinatário inexistente na mensagem → 404 **sem derrubar a API**
 27. ✅ Candidatura a vaga inexistente → 404 sem derrubar a API
 
-### Matching (39 testes — `scripts/smoke-test-matching.sh`)
+### Matching (40 testes — `scripts/smoke-test-matching.sh`)
 
 28. ✅ Taxonomia de profissões retorna as 10 profissões canônicas
 29. ✅ Recomendações por vaga retornam profissionais com score
@@ -699,6 +704,31 @@ Para instalar: abra no Chrome mobile, banner aparecerá automaticamente.
 37. ✅ `PUT /profissionais/me` persiste `profissao` e `regiao`
 38. ✅ Profissão fora da taxonomia → 400
 39. ✅ Filtros expandidos de listagem + anti-injeção no `ordenar`
+
+### Custódia de plantão (jornada do dinheiro — `scripts/smoke-test-custodia.py`)
+
+Percorre via HTTP o caminho completo: matching → candidatura → PCP/PCM → PDC →
+pagamento em custódia → check-ins geolocalizados → check-outs → liberação →
+reputação de volta no matching.
+
+40. ✅ Pagamento entra pela custódia (`via=protocolo`), nunca por fora
+41. ✅ Check-in com geolocalização + idempotente; presença confirmada pelo contratante
+42. ✅ Check-out fora de ordem é bloqueado; os dois check-outs completam o protocolo
+43. ✅ Liberação única e idempotente — custódia vai ao profissional
+44. ✅ Avaliação do check-out vira reputação no perfil público
+45. ✅ O matching enxerga a reputação nas próximas vagas (+0.09 de reputacao)
+
+### Sincronização Netfly (jornada do webhook — `scripts/smoke-test-netfly.py`)
+
+Autocontida: levanta um receptor HTTP real e instâncias do backend com
+`NETLIFY_AI_URL` controlada.
+
+46. ✅ Os 9 eventos de negócio (`vaga_criada` … `avaliacao_criada`) chegam ao receptor
+47. ✅ Payload no envelope `{event, source, timestamp, data}` e auditado em `webhook_logs`
+48. ✅ Destino fora do ar: falha é best-effort — a API segue de pé e registra o erro
+49. ✅ `POST /api/admin/webhooks/retry` reenvia o payload original e recupera o log
+50. ✅ `GET /api/admin/webhooks/health` agrega sucesso/falha por tipo e status
+51. ✅ Endpoints de admin: 401 sem token, 403 com token não-admin
 
 ---
 
