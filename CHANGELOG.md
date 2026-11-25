@@ -7,6 +7,118 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.6.2] — 2026-11-25 — DDL do RAG alcança a camada de serviço do PR #48 (coluna doc_key)
+
+### Corrigido — Auto-index do assistente morria em banco novo com "no column named doc_key"
+
+- **Sintoma**: no boot, `[rag] auto-index falhou … table rag_documentos has no
+  column named doc_key`. O PR #48 alinhou o indexer ao "schema real" (PK
+  numérica `id` + chave natural `doc_key` no upsert `ON CONFLICT (doc_key)`,
+  chunks via `id_documento`), mas o `initSchema()` dos dois drivers continuava
+  criando `rag_documentos` **sem a coluna `doc_key`** — resultado: em qualquer
+  banco novo (CI, dev, produção) o índice semântico não nascia e o assistente
+  subia vazio.
+- **`backend/src/db/sqlite.js`** — `rag_documentos` ganha `doc_key TEXT NOT NULL
+  UNIQUE` (restante do formato inalterado, como o indexer espera) + migração
+  `migraRagDocKey()`: bancos preexistentes sem a coluna são detectados via
+  `table_info` e derrubados antes do DDL — o índice é cache derivado e o
+  auto-index do boot reconstrói tudo (23 docs/23 chunks no re-seed).
+- **`backend/src/db/postgres.js`** — mesma coluna/UNIQUE em dialeto PG + a
+  mesma migração via `information_schema`, para o deploy de produção subir
+  correto também.
+- **Serviço (`routes/rag.js`, `services/rag/indexer.js`, `retriever.js`)**
+  sincronizado com a versão do `main` (PR #48) — o branch carregava a geração
+  anterior (doc_id) depois dos merges cruzados; com DDL + serviço na mesma
+  versão, a árvore volta a ser coerente.
+- **Validação local** (SQLite, como no CI): vitest 224/224; as seis suítes de
+  smoke verdes — gerais 57/57 (webhook `vaga_criada` entregue e auditado),
+  features 31/31, matching 41/41, RAG 13/13, custódia (jornada completa do
+  dinheiro) e Netfly (45 verificações); `tsc --noEmit` limpo; `vite build` +
+  PWA OK.
+
+---
+
+## [1.6.1] — 2026-11-24 — Validação E2E dos três fluxos (matching, custódia, Netfly)
+
+### Adicionado — Smoke test E2E da sincronização Netfly (`scripts/smoke-test-netfly.py`)
+
+- **A sincronização Netfly (webhook `netlify.ai`) agora tem jornada E2E
+  dedicada.** Até então o pipeline era exercitado só de passada (contador
+  genérico dentro do `smoke-test.sh`). A nova suíte é autocontida: levanta um
+  **receptor HTTP real** (`127.0.0.1:49001`) e orquestra instâncias do backend
+  em `:4010` com `NETLIFY_AI_URL` controlada, sem tocar na API de dev:
+  - **Entrega** — os 9 eventos de negócio (`vaga_criada`,
+    `candidatura_enviada`, `candidatura_aceita`, `pcm_enviado`, `pdc_gerado`,
+    `pdc_pago`, `checkout_completo`, `pagamento_liberado`,
+    `avaliacao_criada`) saem no envelope
+    `{event, source, timestamp, data}` e cada envio é auditado em
+    `webhook_logs` com o status do destino (45 verificações no total).
+  - **Resiliência** — com o destino fora do ar (`ECONNREFUSED`), a vaga
+    continua sendo criada (`201`) e a API segue de pé (best-effort); a
+    falha fica registrada em `webhook_logs`.
+  - **Retry** — de volta o destino, `POST /api/admin/webhooks/retry`
+    reenvia o **payload original**, o receptor confirma a reentrega e o log
+    é recuperado (`erro=null`, `status 200`).
+  - **Observabilidade** — `GET /api/admin/webhooks` lista os envios e
+    `GET /api/admin/webhooks/health` agrega sucesso/falha por tipo e status
+    (`healthy`, taxa 0%).
+  - **Autorização** — sem token → 401; contratante → 403 nos quatro
+    endpoints de admin.
+- Detalhe de comportamento coberto pelo teste: o check-out com `nota` grava a
+  avaliação pelo caminho do protocolo; o evento `avaliacao_criada` vem do
+  `POST /api/avaliacoes` — com nota nos dois lugares o POST cairia no
+  `UNIQUE` sem disparar evento (a suíte documenta isso nos comentários).
+
+### Alterado — Integração nos validadores oficiais
+
+- **CI (`.github/workflows/ci.yml`)**: o job de backend passou de 3 para
+  **5 suítes** — incluídas a jornada de custódia (`smoke-test-custodia.py`,
+  que existia mas não rodava no CI) e a nova `smoke-test-netfly.py`.
+- **`scripts/validate-e2e.sh`**: a validação local espelha o CI e também
+  executa as duas suítes python após as três bash.
+- **README**: a checklist de validação ganhou as seções "Custódia de
+  plantão" (itens 40–45) e "Sincronização Netfly" (46–51); a seção do
+  webhook `netlify.ai` agora documenta os 10 tipos de evento, o retry e o
+  health; a árvore de `scripts/` lista todas as 7 ferramentas de validação.
+
+### Corrigido — Merge quebrado do RAG (branch remoto não subia)
+
+- O merge `422a83d` (main → branch) aplicou os **usos** do assistente RAG
+  mas derrubou os **imports** correspondentes, deixando backend e frontend
+  impossíveis de iniciar (`ReferenceError: ragRouter is not defined` no
+  boot do backend; `TS2304: Cannot find name 'AssistenteRag'` no tsc):
+  - `backend/src/app.js` — restaurado `import ragRouter from './routes/rag.js'`;
+  - `frontend/src/App.tsx` — restaurado `import AssistenteRag from './pages/AssistenteRag'`;
+  - `frontend/src/components/Navbar.tsx` — o link `/assistente` se perdeu
+    na versão i18n do merge; restaurado com a nova chave `nav.assistant`
+    em pt-BR/es/en (seguindo o padrão i18n do branch, não o texto fixo
+    do commit original).
+- As demais peças do RAG sobreviveram ao merge e foram auditadas uma a uma
+  (5 serviços em `services/rag/`, rota, tabelas `rag_*` nos dois drivers,
+  auto-indexação no boot, teste de corrida dos protocolos, smoke-test-rag).
+
+### Verificado
+
+- **Ambiente**: sandbox com `DATABASE_URL` apontando para um Postgres
+  inexistente — o driver cai corretamente no SQLite quando a variável é
+  removida (comportamento documentado em `src/db/driver.js`).
+- **Unitários**: vitest **224/224** (18 arquivos — +2 do RAG).
+- **Matching de Vagas**: `smoke-test-matching.sh` **40/40** — profissão
+  pontua, scores ordenados, exclusão de quem já se candidatou, filtros,
+  autorização, anti-injeção no `ordenar`.
+- **Custódia de Plantão**: `smoke-test-custodia.py` jornada completa —
+  pagamento entra pela custódia (`via=protocolo`), check-ins geolocalizados
+  idempotentes, check-out fora de ordem bloqueado, liberação única
+  (`rail` em mock), reputação do check-out alimentando o matching (+0.09).
+- **Sincronização Netfly**: `smoke-test-netfly.py` **45/45** (entrega,
+  envelope, auditoria, falha best-effort, retry com payload original,
+  health, autorização).
+- **Frontend**: `tsc --noEmit` limpo e `vite build` + PWA gerados
+  (precache 11 entradas, 607 KiB).
+- Banco re-seedado ao estado de demo ao fim da validação.
+
+---
+
 ## [1.6.0] — 2026-11-23 — Sistema de ilustrações essência (fauna, flora, avatares, cenários)
 
 ### Adicionado — Ilustrações vetoriais da identidade dos roteiros

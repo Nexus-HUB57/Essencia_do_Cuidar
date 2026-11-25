@@ -85,6 +85,9 @@ function safeExec(sql) {
 }
 
 export function initSchema() {
+  // Migração do RAG (adiciona doc_key) tem de rodar ANTES do DDL:
+  // o CREATE TABLE IF NOT EXISTS abaixo não atualiza tabela preexistente.
+  migraRagDocKey();
   exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -427,8 +430,13 @@ export function initSchema() {
 
     -- Log de transições de estado dos protocolos (auditoria, M11-style)
     -- Assistente RAG — documentos indexados e seus chunks (busca semântica).
+    -- doc_key é a chave natural do documento ('vaga:12', 'kb-pagamento-split'):
+    -- o indexer (PR #48) faz upsert ON CONFLICT (doc_key) e os chunks apontam
+    -- para o id numérico (id_documento). Sem a coluna, o auto-index morre com
+    -- "no column named doc_key" e o assistente sobe com índice vazio.
     CREATE TABLE IF NOT EXISTS rag_documentos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      doc_key TEXT NOT NULL UNIQUE,
       tipo TEXT NOT NULL CHECK(tipo IN ('vaga', 'profissional', 'conhecimento')),
       ref_id INTEGER,
       titulo TEXT NOT NULL,
@@ -575,6 +583,25 @@ export function initSchema() {
   // O SQLite não sabe alterar CHECK constraints — só recriando a tabela.
   patchCandidaturasStatusCancelada();
   console.log('[db:sqlite] schema inicializado em', dbPath);
+}
+
+/**
+ * Migração do RAG (completa o PR #48): bancos criados antes do assistente
+ * carregam rag_documentos sem a coluna doc_key, que o indexer já usa no
+ * upsert (INSERT (doc_key, …) ON CONFLICT (doc_key)) — o auto-index do boot
+ * morria com "no column named doc_key" e o assistente subia com índice vazio.
+ *
+ * O conteúdo do índice é cache derivado — o auto-index reconstrói tudo a
+ * partir de vagas/profissionais/conhecimentos no boot — então a migração
+ * segura é derrubar as tabelas velhas e deixar o DDL nascer com doc_key.
+ */
+function migraRagDocKey() {
+  const cols = db.pragma('table_info(rag_documentos)');
+  if (cols.length && !cols.some((c) => c.name === 'doc_key')) {
+    exec('DROP TABLE IF EXISTS rag_chunks');
+    exec('DROP TABLE IF EXISTS rag_documentos');
+    console.log('[db:sqlite] rag_* sem doc_key derrubadas — serão recriadas no formato do indexer (PR #48)');
+  }
 }
 
 /**
