@@ -189,6 +189,7 @@ step "Localizando o serviço na Render"
 FRONTEND_URL="${FRONTEND_URL:-https://ecuidar.netlify.app,https://essenciadocuidar.netlify.app}"
 SERVICE_ID="${RENDER_SERVICE_ID:-}"
 if [[ -z "$SERVICE_ID" ]]; then
+  # A API devolve [{"service": {...}, "cursor": ...}] e o type é "web_service".
   SERVICE_ID=$(echo "$services_json" | python3 -c "
 import json,sys
 nome='$SERVICE_NAME'
@@ -196,8 +197,10 @@ try: d=json.load(sys.stdin)
 except Exception: sys.exit(0)
 if not isinstance(d,list): sys.exit(0)
 for s in d:
-    if s.get('type')=='web' and (s.get('name')==nome or s.get('slug')==nome):
-        print(s['id']); break
+    svc = s.get('service') if isinstance(s,dict) and isinstance(s.get('service'),dict) else s
+    if not isinstance(svc,dict): continue
+    if svc.get('type') in ('web_service','web') and (svc.get('name')==nome or svc.get('slug')==nome):
+        print(svc['id']); break
 ")
 fi
 
@@ -210,8 +213,10 @@ try: d=json.load(sys.stdin)
 except Exception: sys.exit(0)
 if not isinstance(d,list): sys.exit(0)
 for s in d:
-    if s.get('type')=='web' and 'essencia' in ((s.get('name') or '') + ' ' + (s.get('slug') or '')):
-        print(s['id'])
+    svc = s.get('service') if isinstance(s,dict) and isinstance(s.get('service'),dict) else s
+    if not isinstance(svc,dict): continue
+    if svc.get('type') in ('web_service','web') and 'essencia' in ((svc.get('name') or '') + ' ' + (svc.get('slug') or '')):
+        print(svc['id'])
 " 2>/dev/null); do
     if render_curl GET "/services/$sid/domains" | grep -q 'essencia'; then
       SERVICE_ID="$sid"
@@ -228,22 +233,31 @@ if [[ -z "$SERVICE_ID" ]]; then
     die "serviço '$SERVICE_NAME' não existe na conta desta chave — sem --dry-run eu o criaria agora"
   fi
   warn "serviço '$SERVICE_NAME' não existe nesta conta Render — criando via API"
-  OWNER_ID=$(render_curl GET "/owners" | python3 -c "
+  # GET /owners → [{"owner": {...}, "cursor": ...}] — o id vem embrulhado.
+  # Preferimos o workspace pessoal (type=user) quando houver mais de um.
+  owners_raw=$(render_curl GET "/owners")
+  OWNER_ID=$(echo "$owners_raw" | python3 -c "
 import json,sys
 try: d=json.load(sys.stdin)
 except Exception: sys.exit(0)
 lst = d if isinstance(d,list) else (d.get('data') or [])
-print(lst[0]['id'] if lst else '')" 2>/dev/null)
-  [[ -n "$OWNER_ID" ]] || die "não consegui resolver o workspace (GET /owners vazio ou inacessível)"
+cands=[]
+for x in lst:
+    o = x.get('owner') if isinstance(x,dict) and isinstance(x.get('owner'),dict) else x
+    if isinstance(o,dict) and o.get('id'):
+        cands.append((0 if o.get('type')=='user' else 1, o['id']))
+cands.sort()
+print(cands[0][1] if cands else '')" 2>/dev/null)
+  [[ -n "$OWNER_ID" ]] || die "não consegui resolver o workspace (GET /owners). Resposta bruta: $(echo "$owners_raw" | head -c 300)"
   ok "workspace: $OWNER_ID"
-  JWT_NOVO=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-  payload=$(FRONTEND_URL_CFG="$FRONTEND_URL" JWT_NOVO="$JWT_NOVO" OWNER_ID="$OWNER_ID" \
+  payload=$(FRONTEND_URL_CFG="$FRONTEND_URL" OWNER_ID="$OWNER_ID" \
     BUILD_CMD="$DESIRED_BUILD" START_CMD="$DESIRED_START" ROOT_CMD="$DESIRED_ROOT" HEALTH_CMD="$DESIRED_HEALTH" \
     python3 - <<'PY'
 import json, os
 env = [
     {"key": "NODE_ENV", "value": "production"},
-    {"key": "JWT_SECRET", "value": os.environ["JWT_NOVO"]},
+    # Render gera um segredo forte no servidor — o valor nunca passa pelo repo.
+    {"key": "JWT_SECRET", "generateValue": True},
     {"key": "FRONTEND_URL", "value": os.environ["FRONTEND_URL_CFG"]},
     {"key": "STRIPE_MOCK", "value": "true"},
     {"key": "SEED_ON_BOOT", "value": "true"},
@@ -254,14 +268,18 @@ print(json.dumps({
     "ownerId": os.environ["OWNER_ID"],
     "repo": "https://github.com/Nexus-HUB57/Essencia_do_Cuidar",
     "branch": "main",
-    "autoDeploy": "yes",
+    "autoDeployTrigger": "commit",
     "rootDir": os.environ["ROOT_CMD"],
     "serviceDetails": {
         "plan": "free",
         "runtime": "node",
-        "buildCommand": os.environ["BUILD_CMD"],
-        "startCommand": os.environ["START_CMD"],
         "healthCheckPath": os.environ["HEALTH_CMD"] or "/api/health",
+        # buildCommand/startCommand vivem em envSpecificDetails (spec:
+        # nativeEnvironmentDetailsPOST), não no nível do serviceDetails.
+        "envSpecificDetails": {
+            "buildCommand": os.environ["BUILD_CMD"],
+            "startCommand": os.environ["START_CMD"],
+        },
     },
     "envVars": env,
 }))
@@ -273,7 +291,7 @@ PY
     die "falha ao criar o serviço: $(echo "$criado" | head -c 300)"
   fi
   ok "serviço criado: $SERVICE_ID"
-  unset JWT_NOVO payload criado
+  unset payload criado
 fi
 
 svc=$(render_curl GET "/services/$SERVICE_ID")
@@ -288,21 +306,23 @@ CURRENT_AUTO=$(echo "$svc"     | python3 -c "import json,sys; d=json.load(sys.st
 BUILD_SOURCE=$(echo "$svc"     | python3 -c "import json,sys; print(json.load(sys.stdin).get('buildSourceId') or '')")
 SERVICE_SLUG=$(echo "$svc"     | python3 -c "import json,sys; print(json.load(sys.stdin).get('slug') or '')")
 
-# Host real do serviço: consulta os domínios (o slug pode ter sufixo quando
-# o subdomínio exato pertence a outro serviço — o antigo
-# essencia-backend.onrender.com é um serviço órfão em outra conta).
+# Host real do serviço: varredura profunda na resposta de /domains por
+# qualquer string *.onrender.com (o shape exato variou entre versões da API).
+# O slug é o fallback documentado: o subdomínio padrão é https://<slug>.onrender.com
 HOST_RESOLVIDO=$(render_curl GET "/services/$SERVICE_ID/domains" | python3 -c "
-import json,sys
+import json,sys,re
 try: d=json.load(sys.stdin)
-except Exception: d=[]
-lst = d if isinstance(d,list) else (d.get('data') or [])
-hosts = []
-for x in lst:
-    dom = x.get('domain') if isinstance(x, dict) else None
-    h = dom.get('domain') if isinstance(dom, dict) else (x.get('domain') if isinstance(x, dict) else '')
-    if h: hosts.append(h)
-h = [x for x in hosts if x.endswith('.onrender.com')]
-print(h[0] if h else '')" 2>/dev/null)
+except Exception: sys.exit(0)
+hosts=[]
+def walk(n):
+    if isinstance(n,dict):
+        for v in n.values(): walk(v)
+    elif isinstance(n,list):
+        for v in n: walk(v)
+    elif isinstance(n,str) and re.fullmatch(r'[a-z0-9-]+\.onrender\.com', n):
+        hosts.append(n)
+walk(d)
+print(hosts[0] if hosts else '')" 2>/dev/null)
 if [[ -n "$HOST_RESOLVIDO" ]]; then
   ok "host público: $HOST_RESOLVIDO"
 else
