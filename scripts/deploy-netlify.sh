@@ -137,14 +137,21 @@ echo "$deploy_out" | sed 's/^/  /' | tail -n 15
 
 # ── 4. verificação ───────────────────────────────────────────────────────
 step "Conferindo o site publicado"
-sleep 5
-published=$(curl -s "$site_url/" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1)
-if [ "$published" = "$BUNDLE" ]; then
-  echo -e "  ${GREEN}✓${NC} no ar: $site_url ($published)"
-  exit 0
-fi
+# O CDN da Netlify propaga em 1-3 min; checar uma única vez logo após o
+# deploy dava falso negativo e marcava o deploy como falho (run #11 do
+# deploy-e2e, 25/11). Agora polla até 3 minutos.
+espera=5; limite=180
+while true; do
+  sleep "$espera"
+  published=$(curl -s "$site_url/" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1)
+  if [ "$published" = "$BUNDLE" ]; then
+    echo -e "  ${GREEN}✓${NC} no ar: $site_url ($published)"
+    exit 0
+  fi
+  [ "$espera" -ge "$limite" ] && break
+  espera=$((espera + 10))
+done
 
-echo -e "  ${YELLOW}⚠${NC} o site ainda serve '$published' (esperado '$BUNDLE')."
-echo "    A propagação no CDN da Netlify costuma levar 1-3 minutos."
-echo "    Confira em: $site_url"
+echo -e "  ${YELLOW}⚠${NC} após ${limite}s o site ainda serve '$published' (esperado '$BUNDLE')."
+echo "    Se persistir, confira em: $site_url e em https://app.netlify.com"
 exit 1

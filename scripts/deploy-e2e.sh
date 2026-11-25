@@ -37,7 +37,7 @@ DRY_RUN=0
 FRONTEND_URL="${FRONTEND_URL:-https://ecuidar.netlify.app,https://essenciadocuidar.netlify.app}"
 # Domínio usado nas verificações (o canônico é o "ecuidar").
 SITE_URL="${SITE_URL:-https://ecuidar.netlify.app}"
-BACKEND_URL="${BACKEND_URL:-https://essencia-backend.onrender.com}"
+BACKEND_URL="${BACKEND_URL:-https://essencia-backend-o2mw.onrender.com}"
 
 step() { echo -e "${YELLOW}▶ $*${NC}"; }
 ok()   { echo -e "  ${GREEN}✓${NC} $*"; }

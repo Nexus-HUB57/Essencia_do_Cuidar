@@ -18,7 +18,7 @@
   NODE_VERSION = "20"
   # URL do backend. Default "/api" usa os redirects de proxy abaixo.
   # Se o seu backend estiver em outro domínio sem proxy Netlify, ajuste:
-  #   VITE_API_URL = "https://essencia-backend.onrender.com/api"
+  #   VITE_API_URL = "https://essencia-backend-o2mw.onrender.com/api"
   VITE_API_URL = "/api"
   # NPM_CONFIG_FLAGS = "--no-audit --no-fund"  # build mais rápido
 
@@ -28,7 +28,7 @@
 # --------------------------------------------------------------------------
 # ⚠️ TROQUE o host abaixo pelo seu backend real (Render/Railway/fly.io/k8s).
 # Exemplos:
-#   https://essencia-backend.onrender.com
+#   https://essencia-backend-o2mw.onrender.com
 #   https://essencia-backend.up.railway.app
 #   https://api.essencia-do-cuidar.app  (Ingress k8s com TLS)
 
@@ -39,7 +39,7 @@
 #   bash scripts/render-deploy.sh
 [[redirects]]
   from   = "/api/*"
-  to     = "https://essencia-backend.onrender.com/api/:splat"
+  to     = "https://essencia-backend-o2mw.onrender.com/api/:splat"
   status = 200
   force  = true
   [redirects.headers]
@@ -48,7 +48,7 @@
 # Proxy de uploads (diplomas — agora com auth U3 no backend)
 [[redirects]]
   from   = "/uploads/*"
-  to     = "https://essencia-backend.onrender.com/uploads/:splat"
+  to     = "https://essencia-backend-o2mw.onrender.com/uploads/:splat"
   status = 200
   force  = true
 
@@ -56,7 +56,7 @@
 # para não cair no SPA fallback)
 [[redirects]]
   from   = "/socket.io/*"
-  to     = "https://essencia-backend.onrender.com/socket.io/:splat"
+  to     = "https://essencia-backend-o2mw.onrender.com/socket.io/:splat"
   status = 200
   force  = true
 
@@ -166,5 +166,5 @@
 # Se você NÃO usar os redirects de proxy acima (backend em outro domínio sem
 # proxy Netlify), defina no painel da Netlify:
 #   Site settings → Environment variables → VITE_API_URL
-#   valor: https://essencia-backend.onrender.com/api
+#   valor: https://essencia-backend-o2mw.onrender.com/api
 # (VITE_* é build-time, embutida no bundle — não adianta mudar sem rebuild)

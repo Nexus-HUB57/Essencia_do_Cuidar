@@ -77,7 +77,7 @@ RAG_AUTO_INDEX      = true         # indexa vagas/profissionais/base no boot
 > cache. Sem internet nesse momento, o assistente cai no embedding
 > determinístico de fallback — a API continua no ar.
 
-5. Deploy. Anote a URL: `https://essencia-backend.onrender.com`
+5. Deploy. Anote a URL: `https://essencia-backend-o2mw.onrender.com`
 
 > ⚠️ **Free tier do Render dorme.** A primeira request pode demorar ~50s.
 > Pra production use o plano pago (sempre ligado).

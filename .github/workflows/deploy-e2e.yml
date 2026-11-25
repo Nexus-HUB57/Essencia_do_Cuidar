@@ -97,7 +97,7 @@ jobs:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.TOKEN_NETFLY }}
           FRONTEND_URL: https://essenciadocuidar.netlify.app
-          BACKEND_URL: https://essencia-backend.onrender.com
+          BACKEND_URL: https://essencia-backend-o2mw.onrender.com
         run: |
           args=()
           [ "${{ inputs.skip_backend }}" = "true" ] && args+=(--skip-backend)
@@ -111,11 +111,11 @@ jobs:
             echo "### Deploy E2E"
             echo ""
             echo "- Frontend: https://essenciadocuidar.netlify.app"
-            echo "- Backend:  https://essencia-backend.onrender.com"
+            echo "- Backend:  https://essencia-backend-o2mw.onrender.com"
             echo ""
             echo "| Verificação | Resultado |"
             echo "|---|---|"
             echo "| Site (HTTP) | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essenciadocuidar.netlify.app/ || echo erro) |"
             echo "| Proxy /api/health | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essenciadocuidar.netlify.app/api/health || echo erro) |"
-            echo "| Backend /api/health | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essencia-backend.onrender.com/api/health || echo erro) |"
+            echo "| Backend /api/health | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essencia-backend-o2mw.onrender.com/api/health || echo erro) |"
           } >> "$GITHUB_STEP_SUMMARY"
