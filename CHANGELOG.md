@@ -7,6 +7,37 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.6.2] — 2026-11-25 — DDL do RAG alcança a camada de serviço do PR #48 (coluna doc_key)
+
+### Corrigido — Auto-index do assistente morria em banco novo com "no column named doc_key"
+
+- **Sintoma**: no boot, `[rag] auto-index falhou … table rag_documentos has no
+  column named doc_key`. O PR #48 alinhou o indexer ao "schema real" (PK
+  numérica `id` + chave natural `doc_key` no upsert `ON CONFLICT (doc_key)`,
+  chunks via `id_documento`), mas o `initSchema()` dos dois drivers continuava
+  criando `rag_documentos` **sem a coluna `doc_key`** — resultado: em qualquer
+  banco novo (CI, dev, produção) o índice semântico não nascia e o assistente
+  subia vazio.
+- **`backend/src/db/sqlite.js`** — `rag_documentos` ganha `doc_key TEXT NOT NULL
+  UNIQUE` (restante do formato inalterado, como o indexer espera) + migração
+  `migraRagDocKey()`: bancos preexistentes sem a coluna são detectados via
+  `table_info` e derrubados antes do DDL — o índice é cache derivado e o
+  auto-index do boot reconstrói tudo (23 docs/23 chunks no re-seed).
+- **`backend/src/db/postgres.js`** — mesma coluna/UNIQUE em dialeto PG + a
+  mesma migração via `information_schema`, para o deploy de produção subir
+  correto também.
+- **Serviço (`routes/rag.js`, `services/rag/indexer.js`, `retriever.js`)**
+  sincronizado com a versão do `main` (PR #48) — o branch carregava a geração
+  anterior (doc_id) depois dos merges cruzados; com DDL + serviço na mesma
+  versão, a árvore volta a ser coerente.
+- **Validação local** (SQLite, como no CI): vitest 224/224; as seis suítes de
+  smoke verdes — gerais 57/57 (webhook `vaga_criada` entregue e auditado),
+  features 31/31, matching 41/41, RAG 13/13, custódia (jornada completa do
+  dinheiro) e Netfly (45 verificações); `tsc --noEmit` limpo; `vite build` +
+  PWA OK.
+
+---
+
 ## [1.6.1] — 2026-11-24 — Validação E2E dos três fluxos (matching, custódia, Netfly)
 
 ### Adicionado — Smoke test E2E da sincronização Netfly (`scripts/smoke-test-netfly.py`)

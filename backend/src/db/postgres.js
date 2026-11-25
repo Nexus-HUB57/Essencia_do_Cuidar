@@ -85,6 +85,9 @@ export async function exec(sql) {
 }
 
 export async function initSchema() {
+  // Migração do RAG (adiciona doc_key) tem de rodar ANTES do DDL:
+  // CREATE TABLE IF NOT EXISTS não atualiza tabela preexistente.
+  await migraRagDocKey();
   await exec(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -368,8 +371,13 @@ export async function initSchema() {
     );
 
     -- Assistente RAG — documentos indexados e seus chunks (busca semântica).
+    -- doc_key é a chave natural do documento ('vaga:12', 'kb-pagamento-split'):
+    -- o indexer (PR #48) faz upsert ON CONFLICT (doc_key) e os chunks apontam
+    -- para o id numérico (id_documento). Sem a coluna, o auto-index morre com
+    -- "no column named doc_key" e o assistente sobe com índice vazio.
     CREATE TABLE IF NOT EXISTS rag_documentos (
       id SERIAL PRIMARY KEY,
+      doc_key TEXT NOT NULL UNIQUE,
       tipo TEXT NOT NULL CHECK(tipo IN ('vaga', 'profissional', 'conhecimento')),
       ref_id INTEGER,
       titulo TEXT NOT NULL,
@@ -540,6 +548,32 @@ export async function initSchema() {
   }
 
   console.log('[db:postgres] schema inicializado');
+}
+
+/**
+ * Migração do RAG (completa o PR #48): bancos criados antes do assistente
+ * carregam rag_documentos sem a coluna doc_key, que o indexer já usa no
+ * upsert (INSERT (doc_key, …) ON CONFLICT (doc_key)) — o auto-index do boot
+ * morria com "no column named doc_key" e o assistente subia com índice vazio.
+ *
+ * O conteúdo do índice é cache derivado — o auto-index reconstrói tudo a
+ * partir de vagas/profissionais/conhecimentos no boot — então a migração
+ * segura é derrubar as tabelas velhas e deixar o DDL nascer com doc_key.
+ */
+async function migraRagDocKey() {
+  const tabela = await pool.query(
+    `SELECT 1 FROM information_schema.tables WHERE table_name = 'rag_documentos'`
+  );
+  if (!tabela.rowCount) return;
+  const coluna = await pool.query(
+    `SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'rag_documentos' AND column_name = 'doc_key'`
+  );
+  if (!coluna.rowCount) {
+    await pool.query('DROP TABLE IF EXISTS rag_chunks');
+    await pool.query('DROP TABLE IF EXISTS rag_documentos');
+    console.log('[db:postgres] rag_* sem doc_key derrubadas — serão recriadas no formato do indexer (PR #48)');
+  }
 }
 
 export async function close() {

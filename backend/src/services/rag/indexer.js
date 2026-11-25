@@ -244,31 +244,42 @@ export async function reindexar({ verbose = true } = {}) {
 
   const embeddings = await embedMany(chunksPorDoc.map((c) => c.conteudo), 'passage');
 
-  // O driver expõe apenas run(sql, params) — executa imediatamente.
+  // O schema real (db/sqlite.js e db/postgres.js) usa:
+  //   rag_documentos(id, doc_key, tipo, titulo, conteudo, origem, ref_id, ...)
+  //   rag_chunks(id, id_documento, ordem, conteudo, embedding, ...)
+  // A chave natural do documento vive em `doc_key`; os chunks apontam para
+  // o documento pela FK `id_documento` (com ON DELETE CASCADE) e a ordem do
+  // chunk é `ordem`.
   const upsertDocSql = `
-    INSERT INTO rag_documentos (doc_id, tipo, titulo, fonte, ref_id, conteudo)
+    INSERT INTO rag_documentos (doc_key, tipo, titulo, conteudo, origem, ref_id)
     VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT (doc_id) DO UPDATE SET
-      tipo = excluded.tipo, titulo = excluded.titulo, fonte = excluded.fonte,
-      ref_id = excluded.ref_id, conteudo = excluded.conteudo`;
+    ON CONFLICT (doc_key) DO UPDATE SET
+      tipo = excluded.tipo, titulo = excluded.titulo, conteudo = excluded.conteudo,
+      origem = excluded.origem, ref_id = excluded.ref_id`;
   const upsertChunkSql = `
-    INSERT INTO rag_chunks (doc_id, chunk_index, conteudo, embedding, tokens)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT (doc_id, chunk_index) DO UPDATE SET
-      conteudo = excluded.conteudo, embedding = excluded.embedding, tokens = excluded.tokens`;
+    INSERT INTO rag_chunks (id_documento, ordem, conteudo, embedding)
+    VALUES (?, ?, ?, ?)`;
 
   const docsInseridos = new Set();
+  const idPorDoc = new Map();
   for (let i = 0; i < chunksPorDoc.length; i++) {
     const c = chunksPorDoc[i];
     if (!docsInseridos.has(c.doc.doc_id)) {
       docsInseridos.add(c.doc.doc_id);
       await db.run(upsertDocSql, [
-        c.doc.doc_id, c.doc.tipo, c.doc.titulo, c.doc.fonte, c.doc.ref_id, c.doc.conteudo
+        c.doc.doc_id, c.doc.tipo, c.doc.titulo, c.doc.conteudo, c.doc.fonte, c.doc.ref_id
       ]);
+      // Lê o id de volta: com ON CONFLICT DO UPDATE o lastInsertRowid do
+      // SQLite não é atualizado, então confiar nele daria o id errado.
+      const linha = await db.get(
+        'SELECT id FROM rag_documentos WHERE doc_key = ?',
+        [c.doc.doc_id]
+      );
+      idPorDoc.set(c.doc.doc_id, linha?.id);
     }
     const emb = embeddings[i];
     await db.run(upsertChunkSql, [
-      c.doc.doc_id, c.chunk_index, c.conteudo, JSON.stringify(emb), c.conteudo.length
+      idPorDoc.get(c.doc.doc_id), c.chunk_index, c.conteudo, JSON.stringify(emb)
     ]);
   }
 
