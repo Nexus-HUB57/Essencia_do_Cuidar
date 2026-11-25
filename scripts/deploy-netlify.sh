@@ -137,21 +137,31 @@ echo "$deploy_out" | sed 's/^/  /' | tail -n 15
 
 # ── 4. verificação ───────────────────────────────────────────────────────
 step "Conferindo o site publicado"
-# O CDN da Netlify propaga em 1-3 min; checar uma única vez logo após o
-# deploy dava falso negativo e marcava o deploy como falho (run #11 do
-# deploy-e2e, 25/11). Agora polla até 3 minutos.
-espera=5; limite=180
+# VERIFICAÇÃO FUNCIONAL (não por hash): além do CLI, a integração Git da
+# Netlify também publica em pushes na main — quem publicar por último ganha
+# e o hash pode divergir mesmo com dois deploys saudáveis (25/11). O que
+# importa: o site responde, o asset referenciado existe e o proxy /api
+# devolve a nossa API.
+espera=5; limite=120
 while true; do
   sleep "$espera"
   published=$(curl -s "$site_url/" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1)
-  if [ "$published" = "$BUNDLE" ]; then
-    echo -e "  ${GREEN}✓${NC} no ar: $site_url ($published)"
+  site_ok=$(curl -s -o /dev/null -w "%{http_code}" -m 25 "$site_url/")
+  asset_ok=$(curl -s -o /dev/null -w "%{http_code}" -m 25 "$site_url/$published")
+  proxy_ok=$(curl -s -m 30 "$site_url/api/health" | grep -c '"ok"')
+  if [ "$site_ok" = "200" ] && [ "$asset_ok" = "200" ] && [ "$proxy_ok" -ge 1 ]; then
+    if [ "$published" != "$BUNDLE" ]; then
+      echo -e "  ${YELLOW}⚠${NC} no ar bundle '$published' (o nosso era '$BUNDLE') — a integração Git da Netlify publicou depois; conteúdo funcional, seguindo."
+    else
+      echo -e "  ${GREEN}✓${NC} no ar: $site_url ($published)"
+    fi
+    echo -e "  ${GREEN}✓${NC} proxy /api/health responde a nossa API"
     exit 0
   fi
   [ "$espera" -ge "$limite" ] && break
   espera=$((espera + 10))
 done
 
-echo -e "  ${YELLOW}⚠${NC} após ${limite}s o site ainda serve '$published' (esperado '$BUNDLE')."
-echo "    Se persistir, confira em: $site_url e em https://app.netlify.com"
+echo -e "  ${RED}✗${NC} após ${limite}s o site não passou na verificação funcional"
+echo "    site=$site_ok asset($published)=$asset_ok proxy=/api/health ok=$proxy_ok"
 exit 1

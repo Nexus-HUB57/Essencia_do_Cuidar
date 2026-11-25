@@ -90,6 +90,10 @@ jobs:
 
       - name: Build do frontend
         working-directory: frontend
+        env:
+          # Mesmo valor do netlify.toml (build.environment) — sem isso o
+          # bundle sai com hash diferente do da integração Git da Netlify.
+          VITE_API_URL: /api
         run: npm run build
 
       - name: Publicar e verificar ponta a ponta
