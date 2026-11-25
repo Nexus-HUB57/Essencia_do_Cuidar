@@ -376,6 +376,21 @@ API) e lendo o pipeline de deploy.
 > (Site configuration → Build & deploy → Git) — essa segunda opção faz a
 > Netlify construir e publicar a cada push, sem token no GitHub.
 
+### Corrigido — CSP (as fontes da marca estavam bloqueadas)
+
+A `Content-Security-Policy` do `netlify.toml` não liberava
+`fonts.googleapis.com` (o `<link>` das fontes) nem `fonts.gstatic.com` (os
+arquivos .woff2). O navegador bloqueava as duas coisas e o site renderizava
+na fonte do sistema — o console acusava "violates Content Security Policy"
+em todas as páginas.
+
+### Corrigido — Features novas quebravam o CI
+
+- `backend/src/app.js` usava `ragRouter` sem importar → `ReferenceError` na
+  hora de subir o backend (o CI inteiro caía).
+- `frontend/src/App.tsx` usava `<AssistenteRag />` sem importar → o
+  `tsc --noEmit` falhava (`TS2304: Cannot find name 'AssistenteRag'`).
+
 ### Corrigido — PWA, Web Push e realtime
 
 - **O Web Push nunca funcionou.** `src/main.tsx` registrava `/sw.js`, mas o

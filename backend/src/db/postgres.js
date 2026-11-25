@@ -532,6 +532,20 @@ export async function initSchema() {
     }
   }
 
+  // RAG — chave natural do documento (ver sqlite.js para o porquê).
+  try {
+    await pool.query('ALTER TABLE rag_documentos ADD COLUMN doc_key TEXT');
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+  try {
+    await pool.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_rag_documentos_doc_key ON rag_documentos(doc_key)'
+    );
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) throw e;
+  }
+
   // Permite 'cancelada' em candidaturas (profissional retira a candidatura).
   // Bancos criados antes da feature carregam o CHECK antigo com o nome
   // automático `candidaturas_status_candidatura_check` — troca por outro que

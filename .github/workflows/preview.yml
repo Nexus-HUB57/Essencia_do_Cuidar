@@ -1,0 +1,171 @@
+name: Preview (Netlify)
+
+# ============================================================================
+# Preview de pull request na Netlify.
+#
+# Publica um DEPLOY PREVIEW (não-produtivo) da branch do PR e comenta o
+# link no próprio PR, para revisar a mudança no navegador sem precisar
+# publicar em produção.
+#
+# O link tem a forma https://<hash>--<site>.netlify.app e é gerado pelo
+# netlify-cli quando o deploy roda SEM --prod.
+#
+# O deploy usa o guard (scripts/netlify-deploy-guard.sh), que resolve o site
+# alvo pela API — o siteId guardado no state.json já estava obsoleto.
+#
+# SECRET: secrets.TOKEN_NETFLY (Netlify → Personal access tokens)
+# ============================================================================
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch para gerar o preview"
+        required: true
+        default: main
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    name: Deploy preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependências
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        working-directory: frontend
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL || '/api' }}
+        run: npm run build
+
+      - name: Deploy preview na Netlify
+        id: preview
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.TOKEN_NETFLY }}
+        run: |
+          set -euo pipefail
+          npm install -g netlify-cli
+
+          cd frontend
+          # SEM --prod → deploy preview. O guard (postinstall) intercepta o
+          # `npx netlify`, resolve o site alvo pela API e roda o CLI global.
+          npx netlify deploy --dir dist \
+            --message "Preview ${{ github.event.pull_request.number || 'manual' }} — ${GITHUB_SHA::8}" \
+            > /tmp/preview.log 2>&1 || {
+              echo "--- log do deploy (falhou) ---"
+              tail -n 40 /tmp/preview.log
+              exit 1
+            }
+
+          tail -n 15 /tmp/preview.log
+
+          # O CLI imprime "Preview deploy URL: https://<hash>--<site>.netlify.app".
+          # O fallback pega qualquer URL .netlify.app caso o formato mude.
+          URL=$(grep -oE 'https://[a-z0-9-]+--[a-z0-9-]+\.netlify\.app' /tmp/preview.log | head -1 || true)
+          [ -n "$URL" ] || URL=$(grep -oE 'https://[a-z0-9-]+\.netlify\.app' /tmp/preview.log | head -1 || true)
+
+          if [ -z "$URL" ]; then
+            echo "::error::não consegui extrair a URL do preview do log"
+            cat /tmp/preview.log
+            exit 1
+          fi
+
+          # Confere que o preview realmente serve o app.
+          #
+          # A conta da Netlify tem proteção de acesso nos DEPLOY PREVIEWS
+          # (respondem 401 com redirect para app.netlify.com/edge-access),
+          # enquanto os sites de produção respondem 200. Quando isso
+          # acontece, tentamos o OUTRO site da conta — se ele não tiver a
+          # proteção, o preview fica público.
+          checar_publico() {
+            local u="$1" code
+            code=$(curl -s -o /tmp/preview.html -w '%{http_code}' -m 30 "$u/" || echo 000)
+            echo "$code"
+          }
+
+          sleep 8
+          CODE=$(checar_publico "$URL")
+          BUNDLE=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' /tmp/preview.html | head -1 || true)
+          ACESSO="público"
+
+          if [ "$CODE" != "200" ]; then
+            echo "::warning::preview principal respondeu HTTP $CODE — tentando o outro site da conta"
+            ALT_ID="${NETLIFY_SITE_ID_ALT:-783eee3d-6dcf-4859-b598-0ba30798f76b}"
+            ALT_URL=$(cd frontend && npx netlify deploy --dir dist --site "$ALT_ID" \
+              --message "Preview (site alternativo) ${{ github.event.pull_request.number || 'manual' }}" \
+              > /tmp/preview-alt.log 2>&1 || true)
+            ALT_URL=$(grep -oE 'https://[a-z0-9-]+--[a-z0-9-]+\.netlify\.app' /tmp/preview-alt.log | head -1 || true)
+            if [ -n "$ALT_URL" ]; then
+              ALT_CODE=$(checar_publico "$ALT_URL")
+              if [ "$ALT_CODE" = "200" ]; then
+                URL="$ALT_URL"
+                CODE="$ALT_CODE"
+                BUNDLE=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' /tmp/preview.html | head -1 || true)
+                ACESSO="público (site alternativo)"
+                echo "✓ preview público no site alternativo: $URL"
+              else
+                ACESSO="protegido (HTTP $CODE / HTTP $ALT_CODE)"
+              fi
+            else
+              ACESSO="protegido (HTTP $CODE)"
+            fi
+          fi
+
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "acesso=$ACESSO" >> "$GITHUB_OUTPUT"
+          echo "### Preview: $URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Acesso: $ACESSO" >> "$GITHUB_STEP_SUMMARY"
+          echo "http=$CODE bundle=${BUNDLE:-<nenhum>}" >> "$GITHUB_OUTPUT"
+
+          if [ "$CODE" != "200" ]; then
+            echo "::warning::o preview respondeu HTTP $CODE (proteção de acesso da conta Netlify ou propagação do CDN)"
+          fi
+
+      - name: Comentar o link do preview no PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          URL="${{ steps.preview.outputs.url }}"
+          BODY=$(cat <<EOF
+          ### 🌐 Preview do PR
+
+          [Abrir o preview]($URL)
+
+          Branch: \`${{ github.head_ref }}\` · Commit: \`${GITHUB_SHA::8}\`
+          Bundle: \`${{ steps.preview.outputs.bundle }}\` · Acesso: \`${{ steps.preview.outputs.acesso }}\`
+
+          ${{ steps.preview.outputs.acesso != 'público' && steps.preview.outputs.acesso != 'público (site alternativo)' && '> ⚠️ Este preview exige login na Netlify (a conta tem proteção de acesso em deploy previews). Para revisar sem login, use o site de produção ou desative a proteção em Netlify → Site configuration → Visitor access.' || '' }}
+          EOF
+          )
+          # Atualiza o comentário anterior em vez de empilhar um por commit.
+          EXISTING=$(gh pr view "${{ github.event.pull_request.number }}" \
+            --json comments --jq '[.comments[] | select(.body | contains("Preview do PR"))] | .[0].id' 2>/dev/null || true)
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$EXISTING" \
+              -f body="$BODY" > /dev/null
+          else
+            gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
+          fi

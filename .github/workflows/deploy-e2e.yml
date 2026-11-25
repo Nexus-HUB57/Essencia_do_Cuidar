@@ -1,0 +1,121 @@
+name: Deploy E2E
+
+# ============================================================================
+# Deploy E2E — backend (Render) + frontend (Netlify) + verificação real.
+#
+# POR QUE ESTE WORKFLOW
+#
+# O workflow anterior publicava SÓ o frontend. O resultado foi um site no ar
+# (HTTP 200) apontando para um backend inexistente: toda chamada de API
+# devolvia 404 e o app nasceu quebrado — sem nenhum passo vermelho.
+#
+# Aqui a ordem é invertida e verificada:
+#   1. backend no Render (configuração + deploy + /api/health);
+#   2. só então o frontend;
+#   3. verificação no site REAL: proxy /api, login e rota autenticada.
+#
+# SECRETS NECESSÁRIOS
+#   secrets.RENDER_API_KEY    — Render → Account Settings → API Keys
+#   secrets.NETLIFY_AUTH_TOKEN — Netlify → Personal access tokens (deploy)
+#
+# Sem o RENDER_API_KEY o job do backend falha com mensagem explícita, em vez
+# de publicar um frontend quebrado.
+# ============================================================================
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_backend:
+        description: "Não republicar o backend (assume que já está no ar)"
+        type: boolean
+        default: false
+      skip_frontend:
+        description: "Não republicar o frontend"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-e2e
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend no Render
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_backend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Conferir a chave da API do Render
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          if [ -z "$RENDER_API_KEY" ]; then
+            echo "::error::secret RENDER_API_KEY não configurado no repositório."
+            echo "::error::Render → Account Settings → API Keys → Create API Key →"
+            echo "::error::Settings → Secrets and variables → Actions → New repository secret."
+            exit 1
+          fi
+          curl -sS -m 30 https://api.render.com/v1/services \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            | head -c 200
+
+  deploy-e2e:
+    name: Deploy e verificação ponta a ponta
+    needs: backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependências (backend)
+        working-directory: backend
+        run: npm ci --no-audit --no-fund
+
+      - name: Instalar dependências (frontend)
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Build do frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Publicar e verificar ponta a ponta
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.TOKEN_NETFLY }}
+          FRONTEND_URL: https://essenciadocuidar.netlify.app
+          BACKEND_URL: https://essencia-backend.onrender.com
+        run: |
+          args=()
+          [ "${{ inputs.skip_backend }}" = "true" ] && args+=(--skip-backend)
+          [ "${{ inputs.skip_frontend }}" = "true" ] && args+=(--skip-frontend)
+          bash scripts/deploy-e2e.sh "${args[@]}"
+
+      - name: Relatório do deploy
+        if: always()
+        run: |
+          {
+            echo "### Deploy E2E"
+            echo ""
+            echo "- Frontend: https://essenciadocuidar.netlify.app"
+            echo "- Backend:  https://essencia-backend.onrender.com"
+            echo ""
+            echo "| Verificação | Resultado |"
+            echo "|---|---|"
+            echo "| Site (HTTP) | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essenciadocuidar.netlify.app/ || echo erro) |"
+            echo "| Proxy /api/health | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essenciadocuidar.netlify.app/api/health || echo erro) |"
+            echo "| Backend /api/health | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essencia-backend.onrender.com/api/health || echo erro) |"
+          } >> "$GITHUB_STEP_SUMMARY"
