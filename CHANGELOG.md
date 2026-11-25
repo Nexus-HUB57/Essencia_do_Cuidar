@@ -7,6 +7,23 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.6.3] — 2026-11-25 — Smoke Netfly contra destino real (`--netfly-url`)
+
+### Adicionado — Fase de entrega do smoke-test-netfly.py contra o endpoint real do parceiro
+
+- **`scripts/smoke-test-netfly.py` ganha `--netfly-url URL`**: a fase de
+  ENTREGA passa a mirar um destino real (ex.: o endpoint do parceiro em
+  produção) em vez do receptor local — a prova vira a auditoria
+  (`webhook_logs` com status do destino registrado e erro nulo). As fases de
+  **falha** e **retry** continuam no receptor local (200) para não mudar o
+  contrato de verificação delas.
+- **Validação contra o endpoint real (`https://netlify.ai`)**: jornada
+  completa com os 9 tipos de evento — `auditados=9/9 | status do destino:
+  [200, 404]`, nenhum erro; o modo padrão (receptor local) segue verde
+  (regressão preservada).
+
+---
+
 ## [1.6.2] — 2026-11-25 — DDL do RAG alcança a camada de serviço do PR #48 (coluna doc_key)
 
 ### Corrigido — Auto-index do assistente morria em banco novo com "no column named doc_key"
