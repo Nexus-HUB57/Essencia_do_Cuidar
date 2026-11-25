@@ -88,7 +88,7 @@ render_curl() {
 }
 
 step "Validando a chave da API do Render"
-services_json=$(render_curl GET "/services")
+services_json=$(render_curl GET "/services?limit=100")
 if echo "$services_json" | grep -q '"code":"unauthorized"\|"code":"invalid"\|"message":"Unauthorized"'; then
   die "a chave da API do Render foi recusada. Confira RENDER_API_KEY."
 fi
@@ -184,8 +184,9 @@ DESIRED_HEALTH=$(echo "$desired_json" | python3 -c "import json,sys; print(json.
 
 ok "serviço declarado: $SERVICE_NAME (rootDir=$DESIRED_ROOT, start=$DESIRED_START)"
 
-# ── 3. localizar o serviço ─────────────────────────────────────────────────
+# ── 3. localizar o serviço (ou criá-lo) ──────────────────────────────────────
 step "Localizando o serviço na Render"
+FRONTEND_URL="${FRONTEND_URL:-https://ecuidar.netlify.app,https://essenciadocuidar.netlify.app}"
 SERVICE_ID="${RENDER_SERVICE_ID:-}"
 if [[ -z "$SERVICE_ID" ]]; then
   SERVICE_ID=$(echo "$services_json" | python3 -c "
@@ -193,18 +194,87 @@ import json,sys
 nome='$SERVICE_NAME'
 try: d=json.load(sys.stdin)
 except Exception: sys.exit(0)
+if not isinstance(d,list): sys.exit(0)
 for s in d:
     if s.get('type')=='web' and (s.get('name')==nome or s.get('slug')==nome):
         print(s['id']); break
 ")
 fi
-[[ -n "$SERVICE_ID" ]] || die "serviço '$SERVICE_NAME' não encontrado (use RENDER_SERVICE_ID=<srv-xxx>)
-   Serviços visíveis: $(echo "$services_json" | python3 -c "
+
+# Fallback: casa por nome parcial + domínio *.onrender.com (o slug pode ter
+# sufixo quando o subdomínio exato pertence a outro serviço).
+if [[ -z "$SERVICE_ID" ]]; then
+  for sid in $(echo "$services_json" | python3 -c "
 import json,sys
 try: d=json.load(sys.stdin)
-except Exception: d=[]
-print(', '.join(f\"{s.get('name')}({s.get('type')})\" for s in d) or 'nenhum')
-")"
+except Exception: sys.exit(0)
+if not isinstance(d,list): sys.exit(0)
+for s in d:
+    if s.get('type')=='web' and 'essencia' in ((s.get('name') or '') + ' ' + (s.get('slug') or '')):
+        print(s['id'])
+" 2>/dev/null); do
+    if render_curl GET "/services/$sid/domains" | grep -q 'essencia'; then
+      SERVICE_ID="$sid"
+      break
+    fi
+  done
+fi
+
+# Nada encontrado: cria o serviço declarado no render.yaml, na conta da
+# chave. Era o buraco do incidente de 23/11 — a chave apontava para uma
+# conta sem o serviço (ou sem nenhum), e o script só sabia falhar.
+if [[ -z "$SERVICE_ID" ]]; then
+  if [[ $DRY_RUN -eq 1 ]]; then
+    die "serviço '$SERVICE_NAME' não existe na conta desta chave — sem --dry-run eu o criaria agora"
+  fi
+  warn "serviço '$SERVICE_NAME' não existe nesta conta Render — criando via API"
+  OWNER_ID=$(render_curl GET "/owners" | python3 -c "
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+lst = d if isinstance(d,list) else (d.get('data') or [])
+print(lst[0]['id'] if lst else '')" 2>/dev/null)
+  [[ -n "$OWNER_ID" ]] || die "não consegui resolver o workspace (GET /owners vazio ou inacessível)"
+  ok "workspace: $OWNER_ID"
+  JWT_NOVO=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+  payload=$(FRONTEND_URL_CFG="$FRONTEND_URL" JWT_NOVO="$JWT_NOVO" OWNER_ID="$OWNER_ID" \
+    BUILD_CMD="$DESIRED_BUILD" START_CMD="$DESIRED_START" ROOT_CMD="$DESIRED_ROOT" HEALTH_CMD="$DESIRED_HEALTH" \
+    python3 - <<'PY'
+import json, os
+env = [
+    {"key": "NODE_ENV", "value": "production"},
+    {"key": "JWT_SECRET", "value": os.environ["JWT_NOVO"]},
+    {"key": "FRONTEND_URL", "value": os.environ["FRONTEND_URL_CFG"]},
+    {"key": "STRIPE_MOCK", "value": "true"},
+    {"key": "SEED_ON_BOOT", "value": "true"},
+]
+print(json.dumps({
+    "type": "web_service",
+    "name": "essencia-backend",
+    "ownerId": os.environ["OWNER_ID"],
+    "repo": "https://github.com/Nexus-HUB57/Essencia_do_Cuidar",
+    "branch": "main",
+    "autoDeploy": "yes",
+    "rootDir": os.environ["ROOT_CMD"],
+    "serviceDetails": {
+        "plan": "free",
+        "runtime": "node",
+        "buildCommand": os.environ["BUILD_CMD"],
+        "startCommand": os.environ["START_CMD"],
+        "healthCheckPath": os.environ["HEALTH_CMD"] or "/api/health",
+    },
+    "envVars": env,
+}))
+PY
+)
+  criado=$(render_curl POST "/services" "$payload")
+  SERVICE_ID=$(echo "$criado" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+  if [[ -z "$SERVICE_ID" ]]; then
+    die "falha ao criar o serviço: $(echo "$criado" | head -c 300)"
+  fi
+  ok "serviço criado: $SERVICE_ID"
+  unset JWT_NOVO payload criado
+fi
 
 svc=$(render_curl GET "/services/$SERVICE_ID")
 echo "$svc" | grep -q '"id"' || die "não consegui ler o serviço $SERVICE_ID: $(echo "$svc" | head -c 200)"
@@ -217,7 +287,31 @@ CURRENT_START=$(echo "$svc"    | python3 -c "import json,sys; d=json.load(sys.st
 CURRENT_AUTO=$(echo "$svc"     | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('autoDeployTrigger') or d.get('autoDeploy') or '')")
 BUILD_SOURCE=$(echo "$svc"     | python3 -c "import json,sys; print(json.load(sys.stdin).get('buildSourceId') or '')")
 SERVICE_SLUG=$(echo "$svc"     | python3 -c "import json,sys; print(json.load(sys.stdin).get('slug') or '')")
-SERVICE_HOST="${RENDER_SERVICE_HOST:-${SERVICE_SLUG}.onrender.com}"
+
+# Host real do serviço: consulta os domínios (o slug pode ter sufixo quando
+# o subdomínio exato pertence a outro serviço — o antigo
+# essencia-backend.onrender.com é um serviço órfão em outra conta).
+HOST_RESOLVIDO=$(render_curl GET "/services/$SERVICE_ID/domains" | python3 -c "
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: d=[]
+lst = d if isinstance(d,list) else (d.get('data') or [])
+hosts = []
+for x in lst:
+    dom = x.get('domain') if isinstance(x, dict) else None
+    h = dom.get('domain') if isinstance(dom, dict) else (x.get('domain') if isinstance(x, dict) else '')
+    if h: hosts.append(h)
+h = [x for x in hosts if x.endswith('.onrender.com')]
+print(h[0] if h else '')" 2>/dev/null)
+if [[ -n "$HOST_RESOLVIDO" ]]; then
+  ok "host público: $HOST_RESOLVIDO"
+else
+  HOST_RESOLVIDO="${SERVICE_SLUG}.onrender.com"
+  warn "domínios ainda não listados pela API — usando o slug: $HOST_RESOLVIDO"
+fi
+SERVICE_HOST="${RENDER_SERVICE_HOST:-$HOST_RESOLVIDO}"
+# Marcador lido pelo deploy-e2e.sh para alinhar proxy/verificação ao host real:
+echo "RENDER_SERVICE_HOST=$SERVICE_HOST"
 
 echo "  id        : $SERVICE_ID"
 echo "  repo      : ${CURRENT_REPO:-<vazio>}"

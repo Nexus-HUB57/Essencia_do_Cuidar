@@ -82,9 +82,21 @@ if [[ $SKIP_BACKEND -eq 0 ]]; then
   step "1/3 Publicando o backend no Render"
   args=()
   [[ $DRY_RUN -eq 1 ]] && args+=(--dry-run)
-  bash scripts/render-deploy.sh "${args[@]+"${args[@]}"}" \
-    || die "o deploy do backend falhou (veja o diagnóstico acima)"
+  saida_backend=$(bash scripts/render-deploy.sh "${args[@]+"${args[@]}"}") \
+    || { echo "$saida_backend"; die "o deploy do backend falhou (veja o diagnóstico acima)"; }
+  echo "$saida_backend"
   ok "backend publicado"
+  # O render-deploy.sh imprime RENDER_SERVICE_HOST=<host> — o host REAL do
+  # serviço (o slug pode ter sufixo; essencia-backend.onrender.com era de um
+  # serviço órfão em outra conta). Se mudou, reescreve o proxy do
+  # netlify.toml neste workspace ANTES do deploy do frontend.
+  host_novo=$(echo "$saida_backend" | grep -oP 'RENDER_SERVICE_HOST=\K[a-z0-9.-]+\.onrender\.com' | head -1)
+  if [[ -n "$host_novo" && "https://$host_novo" != "$BACKEND_URL" ]]; then
+    BACKEND_URL="https://$host_novo"
+    warn "host real do backend: $BACKEND_URL — atualizando o proxy do netlify.toml neste deploy"
+    sed -i "s|essencia-backend\.onrender\.com|$host_novo|g" netlify.toml
+    grep -n "$host_novo" netlify.toml | head -3
+  fi
 else
   step "1/3 Pulando o backend (--skip-backend)"
 fi

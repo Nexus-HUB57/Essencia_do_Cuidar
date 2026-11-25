@@ -37,6 +37,25 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-trocar';
 
 const app = await createApp();
 
+// SEED_ON_BOOT: em deploys com banco efêmero (SQLite em instâncias free do
+// Render), o banco nasce vazio a cada deploy. Com a flag ativa, o boot popula
+// os dados de demonstração UMA vez e SÓ quando a tabela users está vazia —
+// nunca apaga dados reais (o seed.js por si só é destrutivo).
+if (process.env.SEED_ON_BOOT === 'true') {
+  try {
+    const vazio = await db.get('SELECT COUNT(*) AS n FROM users');
+    if (!vazio || Number(vazio.n) === 0) {
+      console.log('[seed] banco vazio + SEED_ON_BOOT=true — populando demo (maria@demo.com e vidaplus@demo.com, senha demo1234)');
+      await import('./db/seed.js');
+      console.log('[seed] dados de demonstração criados');
+    } else {
+      console.log(`[seed] SEED_ON_BOOT ignorado — banco já tem ${Number(vazio.n)} usuário(s)`);
+    }
+  } catch (e) {
+    console.error('[seed] falhou (seguindo sem seed):', e?.message || e);
+  }
+}
+
 const server = http.createServer(app);
 const io = new SocketServer(server, {
   cors: { origin: FRONTEND_URL.split(','), credentials: true }

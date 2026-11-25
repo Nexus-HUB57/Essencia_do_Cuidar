@@ -65,6 +65,8 @@ services:
         value: '72'  # CGPP: sistema tem 72h para liberar após checkout_completo
       - key: ENABLE_INTERNAL_CRON
         value: 'true'  # ativa cron interno (PPP + CGPP) para instâncias free
+      - key: SEED_ON_BOOT
+        value: 'true'  # banco efêmero (SQLite em free): popula demo quando users está vazio
       # Database (opcional — sem DATABASE_URL usa SQLite)
       # - key: DATABASE_URL
       #   sync: false  # configurar no painel: postgres://...

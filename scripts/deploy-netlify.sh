@@ -55,7 +55,13 @@ if [[ -z "${NETLIFY_AUTH_TOKEN:-}" ]]; then
    Gere um token em Netlify → Account settings → Personal access tokens e
    exporte antes de rodar este script."
 fi
-command -v netlify >/dev/null 2>&1 || fail "netlify-cli não instalado (npm install -g netlify-cli)"
+# netlify-cli pode não estar instalado (ex.: runner limpo do Actions) —
+# instala na hora em vez de falhar.
+command -v netlify >/dev/null 2>&1 || {
+  step "Instalando netlify-cli"
+  npm install -g netlify-cli --no-audit --no-fund >/dev/null 2>&1 \
+    || fail "não consegui instalar o netlify-cli (npm install -g netlify-cli)"
+}
 
 step "Validando o token e resolvendo o site alvo"
 user_json=$(curl -s -m 20 -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
