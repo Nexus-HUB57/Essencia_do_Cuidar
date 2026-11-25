@@ -33,11 +33,18 @@ Orquestração (o script é autocontido, não precisa de API externa):
    5. Volta o destino e executa o retry via API de admin
 
 Uso:
-    python3 scripts/smoke-test-netfly.py [--seed] [--keep]
+    python3 scripts/smoke-test-netfly.py [--seed] [--keep] [--netfly-url URL]
 
   --seed   roda `npm run seed` antes (estado determinístico; default:
            usa o banco que já estiver em backend/data/essencia.db)
   --keep   não derruba o backend do teste ao sair (debug)
+  --netfly-url URL
+           fase de ENTREGA contra um destino real (ex.: o endpoint do
+           parceiro em produção) em vez do receptor local. A auditoria
+           passa a exigir entrega alcançada (status registrado, erro
+           nulo) em vez de 200 do receptor; as fases de falha e de
+           retry continuam no receptor local (200) para não mudar o
+           contrato delas.
 
 Sai com código 1 se qualquer verificação falhar.
 """
@@ -300,34 +307,48 @@ def disparar_eventos(TC, TP, TA):
 
 # ─────────────────────────────── Fases ───────────────────────────────────
 
-def fase_entrega():
-    """[1] Entrega real: eventos → receptor → webhook_logs com status 200."""
+def fase_entrega(destino_real=False):
+    """[1] Entrega real: eventos → destino → webhook_logs auditados."""
     print("\n[1] Entrega — envelope do payload e auditoria")
-    ok = wait_for(lambda: INBOX.count("avaliacao_criada") >= 1, timeout=15)
-    check("webhooks chegaram ao receptor", ok,
-          f"{len(INBOX.all())} payload(s) recebido(s)")
+    if destino_real:
+        print("      destino real: os payloads NÃO passam pelo receptor local;")
+        print("      a prova aqui é a auditoria (webhook_logs com status do destino)")
+    else:
+        ok = wait_for(lambda: INBOX.count("avaliacao_criada") >= 1, timeout=15)
+        check("webhooks chegaram ao receptor", ok,
+              f"{len(INBOX.all())} payload(s) recebido(s)")
 
-    tipos_ok = []
-    for ev in EXPECTED_EVENTS:
-        hits = [p for _, p in INBOX.all() if p.get("event") == ev]
-        if hits:
-            tipos_ok.append(ev)
-        check(f"evento {ev} entregue", len(hits) >= 1)
-        if hits:
-            p = hits[0]
-            check(f"  envelope ok ({ev})",
-                  p.get("source") == "essencia-do-cuidar"
-                  and isinstance(p.get("data"), dict)
-                  and bool(p.get("timestamp"))
-                  and _iso(p.get("timestamp")),
-                  f"data={json.dumps(p.get('data'))[:90]}")
+        tipos_ok = []
+        for ev in EXPECTED_EVENTS:
+            hits = [p for _, p in INBOX.all() if p.get("event") == ev]
+            if hits:
+                tipos_ok.append(ev)
+            check(f"evento {ev} entregue", len(hits) >= 1)
+            if hits:
+                p = hits[0]
+                check(f"  envelope ok ({ev})",
+                      p.get("source") == "essencia-do-cuidar"
+                      and isinstance(p.get("data"), dict)
+                      and bool(p.get("timestamp"))
+                      and _iso(p.get("timestamp")),
+                      f"data={json.dumps(p.get('data'))[:90]}")
 
     st, rows = admin_webhooks(TA_global[0])
     check("GET /api/admin/webhooks lista os envios", st == 200 and len(rows) >= len(EXPECTED_EVENTS),
           f"{len(rows)} registro(s)")
-    entregues = {r["tipo"] for r in rows if r["tipo"] in EXPECTED_EVENTS and r["status_code"] == 200}
-    check("webhook_logs audita todos com status 200", entregues == set(EXPECTED_EVENTS),
-          f"auditados={len(entregues)}/9")
+    if destino_real:
+        entregues = {r["tipo"] for r in rows
+                     if r["tipo"] in EXPECTED_EVENTS
+                     and r["erro"] is None and r["status_code"] is not None}
+        status_vistos = sorted({r["status_code"] for r in rows
+                                if r["tipo"] in EXPECTED_EVENTS})
+        check("webhook_logs audita todos com entrega real (status registrado, erro nulo)",
+              entregues == set(EXPECTED_EVENTS),
+              f"auditados={len(entregues)}/9 | status do destino: {status_vistos}")
+    else:
+        entregues = {r["tipo"] for r in rows if r["tipo"] in EXPECTED_EVENTS and r["status_code"] == 200}
+        check("webhook_logs audita todos com status 200", entregues == set(EXPECTED_EVENTS),
+              f"auditados={len(entregues)}/9")
     return TA_global[0]
 
 
@@ -432,7 +453,9 @@ def main():
     global TA_global
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", action="store_true", help="roda npm run seed antes")
-    ap.add_argument("--keep", action="store_true", help="mantém o backend do teste")
+    ap.add_argument("--keep", action="store_true", help="mantém o backend do teste ao sair")
+    ap.add_argument("--netfly-url", default=None, metavar="URL",
+                    help="fase de entrega contra um destino real (default: receptor local)")
     args = ap.parse_args()
 
     print("═" * 64)
@@ -452,9 +475,11 @@ def main():
     log1 = "/tmp/netfly-backend-1.log"
     try:
         # ── Fase 1: entrega ──
-        print(f"\n  backend #1 em :{BACKEND_PORT} com NETLIFY_AI_URL → receptor")
+        destino1 = args.netfly_url or f"http://127.0.0.1:{RECEIVER_PORT}/"
+        destino_real = bool(args.netfly_url)
+        print(f"\n  backend #1 em :{BACKEND_PORT} com NETLIFY_AI_URL → {destino1}")
         open(log1, "wb").close()
-        backend = start_backend(f"http://127.0.0.1:{RECEIVER_PORT}/", log1)
+        backend = start_backend(destino1, log1)
         if not wait_health():
             print("FAIL  backend não subiu — veja /tmp/netfly-backend-1.log")
             sys.exit(1)
@@ -463,7 +488,7 @@ def main():
         TC, TP, TA = jornada()
         TA_global = [TA, TC]
         ctrl = disparar_eventos(TC, TP, TA)
-        fase_entrega()
+        fase_entrega(destino_real)
 
         # ── Fase 2: falha ──
         stop_backend(backend)
