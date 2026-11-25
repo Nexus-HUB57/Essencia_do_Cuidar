@@ -492,7 +492,7 @@ for e in d:
     k = v.get('key')
     if k is None: continue
     val = v.get('value')
-    linhas.append(f"{k}={val if val is not None else ''}")
+    linhas.append(f\"{k}={val if val is not None else ''}\")
 print('\n'.join(linhas))
 " 2>/dev/null)
 
@@ -564,11 +564,24 @@ for e in json.load(sys.stdin):
     print(f\"    {e['key']}={mostrar}\")
 "
 else
-  out=$(render_curl PUT "/services/$SERVICE_ID/env-vars" "$merged")
-  if echo "$out" | grep -q '"key"\|"envVar"\|\['; then
-    ok "variáveis de ambiente gravadas"
+  # O PUT dispara um deploy novo na Render mesmo sem mudanças — com isso
+  # cada execução empilhava 2+ deploys na fila (timeout 900s no run #14).
+  # Só grava quando o conteúdo mergeado difere do atual.
+  atual_ord=$(echo "$env_map" | grep -v '^$' | sort)
+  merged_ord=$(echo "$merged" | python3 -c "
+import json,sys
+for e in json.load(sys.stdin):
+    print(f\"{e['key']}={e['value']}\")
+" | sort)
+  if [ "$atual_ord" = "$merged_ord" ]; then
+    ok "variáveis de ambiente já estão corretas — sem gravação, sem deploy extra"
   else
-    bad "falha ao gravar env-vars: $(echo "$out" | head -c 300)"
+    out=$(render_curl PUT "/services/$SERVICE_ID/env-vars" "$merged")
+    if echo "$out" | grep -q '"key"\|"envVar"\|\['; then
+      ok "variáveis de ambiente gravadas"
+    else
+      bad "falha ao gravar env-vars: $(echo "$out" | head -c 300)"
+    fi
   fi
 fi
 
