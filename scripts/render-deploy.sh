@@ -286,7 +286,13 @@ print(json.dumps({
 PY
 )
   criado=$(render_curl POST "/services" "$payload")
-  SERVICE_ID=$(echo "$criado" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+  # A API responde {"deployId": "...", "service": {...}} — o id pode vir
+  # aninhado; aceitar nas duas formas evita "criou e morreu" (25/11).
+  SERVICE_ID=$(echo "$criado" | python3 -c "
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+print(d.get('id') or (d.get('service') or {}).get('id') or '')" 2>/dev/null)
   if [[ -z "$SERVICE_ID" ]]; then
     if echo "$criado" | grep -q 'insufficient_token_scope'; then
       die "a chave da API não tem permissão de ESCRITA ($(echo "$criado" | head -c 160)).
@@ -529,7 +535,11 @@ fi
 
 step "Disparando o deploy"
 deploy=$(render_curl POST "/services/$SERVICE_ID/deploys" '{"clearCache":"do_not_clear","deployMode":"build_and_deploy"}')
-DEPLOY_ID=$(echo "$deploy" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+DEPLOY_ID=$(echo "$deploy" | python3 -c "
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+print(d.get('id') or (d.get('deploy') or {}).get('id') or '')" 2>/dev/null)
 if [[ -z "$DEPLOY_ID" ]]; then
   die "não consegui disparar o deploy: $(echo "$deploy" | head -c 300)"
 fi
