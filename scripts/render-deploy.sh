@@ -65,6 +65,10 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+# --generate-jwt é lido dentro do Python via os.environ — sem o export o
+# flag era engolido e o JWT_SECRET nunca era gerado.
+export GENERATE_JWT
+
 cd "$REPO_ROOT"
 
 # ── 1. chave da API ────────────────────────────────────────────────────────
@@ -312,11 +316,28 @@ echo "$svc" | grep -q '"id"' || die "não consegui ler o serviço $SERVICE_ID: $
 CURRENT_REPO=$(echo "$svc"     | python3 -c "import json,sys; print(json.load(sys.stdin).get('repo') or '')")
 CURRENT_BRANCH=$(echo "$svc"   | python3 -c "import json,sys; print(json.load(sys.stdin).get('branch') or '')")
 CURRENT_ROOT=$(echo "$svc"     | python3 -c "import json,sys; print(json.load(sys.stdin).get('rootDir') or '')")
-CURRENT_BUILD=$(echo "$svc"    | python3 -c "import json,sys; d=json.load(sys.stdin); print((d.get('serviceDetails') or {}).get('buildCommand') or '')")
-CURRENT_START=$(echo "$svc"    | python3 -c "import json,sys; d=json.load(sys.stdin); print((d.get('serviceDetails') or {}).get('startCommand') or '')")
+# buildCommand/startCommand podem vir em serviceDetails OU em
+# serviceDetails.envSpecificDetails — ler os dois lugares.
+CURRENT_BUILD=$(echo "$svc"    | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+sd=d.get('serviceDetails') or {}
+print(sd.get('buildCommand') or (sd.get('envSpecificDetails') or {}).get('buildCommand') or '')" 2>/dev/null)
+CURRENT_START=$(echo "$svc"    | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+sd=d.get('serviceDetails') or {}
+print(sd.get('startCommand') or (sd.get('envSpecificDetails') or {}).get('startCommand') or '')" 2>/dev/null)
 CURRENT_AUTO=$(echo "$svc"     | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('autoDeployTrigger') or d.get('autoDeploy') or '')")
 BUILD_SOURCE=$(echo "$svc"     | python3 -c "import json,sys; print(json.load(sys.stdin).get('buildSourceId') or '')")
 SERVICE_SLUG=$(echo "$svc"     | python3 -c "import json,sys; print(json.load(sys.stdin).get('slug') or '')")
+# Diagnóstico cru: se um deploy morrer em update_failed, o log mostra aqui
+# como a Render realmente guardou os comandos (shape variou entre versões).
+echo "$svc" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+sd=d.get('serviceDetails') or {}
+print('  serviceDetails cru: ' + json.dumps({k: sd.get(k) for k in ('buildCommand','startCommand','envSpecificDetails','healthCheckPath','plan') if sd.get(k) is not None}, ensure_ascii=False))" 2>/dev/null
 
 # Host real do serviço: varredura profunda na resposta de /domains por
 # qualquer string *.onrender.com (o shape exato variou entre versões da API).
@@ -383,10 +404,13 @@ if not tem_bs:
         patch["rootDir"] = os.environ["DESIRED_ROOT"]
 
 sd = svc.get("serviceDetails") or {}
+esd = sd.get("envSpecificDetails") or {}
+build_atual = sd.get("buildCommand") or esd.get("buildCommand") or ""
+start_atual = sd.get("startCommand") or esd.get("startCommand") or ""
 novo_sd = {}
-if (sd.get("buildCommand") or "") != os.environ["DESIRED_BUILD"] and not tem_bs:
+if build_atual != os.environ["DESIRED_BUILD"] and not tem_bs:
     novo_sd["buildCommand"] = os.environ["DESIRED_BUILD"]
-if (sd.get("startCommand") or "") != os.environ["DESIRED_START"]:
+if start_atual != os.environ["DESIRED_START"]:
     novo_sd["startCommand"] = os.environ["DESIRED_START"]
 if novo_sd:
     patch["serviceDetails"] = novo_sd
@@ -452,12 +476,24 @@ fi
 # ── 5. variáveis de ambiente ───────────────────────────────────────────────
 step "Conferindo as variáveis de ambiente"
 env_json=$(render_curl GET "/services/$SERVICE_ID/env-vars")
+# A API lista como [{cursor, envVar:{key,value}}] — o par real vem aninhado
+# em .envVar; ler o nível raiz produzia "None=None" e o PUT subsequente
+# APAGAVA o JWT_SECRET gerado no create (deploy morria no boot, 25/11).
 env_map=$(echo "$env_json" | python3 -c "
 import json,sys
 try: d=json.load(sys.stdin)
 except Exception: d=[]
+if isinstance(d, dict):
+    d = d.get('envVars') or d.get('data') or []
+linhas=[]
 for e in d:
-    print(f\"{e.get('key')}={e.get('value')}\")
+    if not isinstance(e, dict): continue
+    v = e.get('envVar') if isinstance(e.get('envVar'), dict) else e
+    k = v.get('key')
+    if k is None: continue
+    val = v.get('value')
+    linhas.append(f"{k}={val if val is not None else ''}")
+print('\n'.join(linhas))
 " 2>/dev/null)
 
 current_env=$(echo "$env_map" | cut -d= -f1 | tr '\n' ' ')

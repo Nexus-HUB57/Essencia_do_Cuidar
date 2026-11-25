@@ -82,6 +82,9 @@ if [[ $SKIP_BACKEND -eq 0 ]]; then
   step "1/3 Publicando o backend no Render"
   args=()
   [[ $DRY_RUN -eq 1 ]] && args+=(--dry-run)
+  # Sem JWT_SECRET o backend aborta o startup em produção (app.js); se a
+  # variável ainda não existir no serviço, geramos uma forte na hora.
+  args+=(--generate-jwt)
   saida_backend=$(bash scripts/render-deploy.sh "${args[@]+"${args[@]}"}") \
     || { echo "$saida_backend"; die "o deploy do backend falhou (veja o diagnóstico acima)"; }
   echo "$saida_backend"
