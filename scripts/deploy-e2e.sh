@@ -143,8 +143,19 @@ site_code=$(curl -s -o /tmp/e2e_site.html -w "%{http_code}" -m 25 "$SITE_URL/" 2
 ok "site no ar (HTTP 200)"
 
 # 4b. o proxy /api do site aponta para a nossa API
-api_code=$(curl -s -o /tmp/e2e_api.txt -w "%{http_code}" -m 30 "${SITE_URL}/api/health" 2>/dev/null || echo 000)
-api_corpo=$(head -c 300 /tmp/e2e_api.txt 2>/dev/null || echo "")
+# Com autoDeploy=commit, o MESMO push que disparou este run também dispara
+# um deploy na Render — durante a troca de instância o proxy responde 502
+# por ~1 min (run #15). A verificação final precisa tolerar essa janela.
+api_code=000
+for tentativa in 1 2 3 4 5 6; do
+  api_code=$(curl -s -o /tmp/e2e_api.txt -w "%{http_code}" -m 30 "${SITE_URL}/api/health" 2>/dev/null || echo 000)
+  api_corpo=$(head -c 300 /tmp/e2e_api.txt 2>/dev/null || echo "")
+  if [[ "$api_code" == "200" ]] && echo "$api_corpo" | grep -q '{'; then
+    break
+  fi
+  echo -e "  ${DIM}proxy /api/health → HTTP $api_code (tentativa $tentativa/6, aguardando a troca de deploy terminar…)${NC}"
+  sleep 15
+done
 if [[ "$api_code" == "200" ]] && echo "$api_corpo" | grep -q '{'; then
   ok "proxy /api do site responde a nossa API"
 else
@@ -157,17 +168,29 @@ else
 fi
 
 # 4c. login de verdade contra a API de produção
-login_code=$(curl -s -o /tmp/e2e_login.txt -w "%{http_code}" -m 30 \
-  -X POST "${SITE_URL}/api/auth/login" \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"maria@demo.com","senha":"demo1234"}' 2>/dev/null || echo 000)
+login_code=000
+for tentativa in 1 2 3 4; do
+  login_code=$(curl -s -o /tmp/e2e_login.txt -w "%{http_code}" -m 30 \
+    -X POST "${SITE_URL}/api/auth/login" \
+    -H 'Content-Type: application/json' \
+    -d '{"email":"maria@demo.com","senha":"demo1234"}' 2>/dev/null || echo 000)
+  if [[ "$login_code" == "200" ]] && grep -q '"token"' /tmp/e2e_login.txt 2>/dev/null; then break; fi
+  echo -e "  ${DIM}login → HTTP $login_code (tentativa $tentativa/4…)${NC}"
+  sleep 15
+done
 if [[ "$login_code" == "200" ]] && grep -q '"token"' /tmp/e2e_login.txt 2>/dev/null; then
   token=$(python3 -c "import json;print(json.load(open('/tmp/e2e_login.txt')).get('token',''))" 2>/dev/null)
   ok "login de demonstração funciona (HTTP 200)"
   # 4d. rota autenticada — prova que o token e o banco funcionam
   if [[ -n "$token" ]]; then
-    p_code=$(curl -s -o /tmp/e2e_prof.txt -w "%{http_code}" -m 30 \
-      -H "Authorization: Bearer $token" "${SITE_URL}/api/protocolos" 2>/dev/null || echo 000)
+    p_code=000
+    for tentativa in 1 2 3 4; do
+      p_code=$(curl -s -o /tmp/e2e_prof.txt -w "%{http_code}" -m 30 \
+        -H "Authorization: Bearer $token" "${SITE_URL}/api/protocolos" 2>/dev/null || echo 000)
+      [[ "$p_code" == "200" ]] && break
+      echo -e "  ${DIM}GET /api/protocolos → HTTP $p_code (tentativa $tentativa/4…)${NC}"
+      sleep 12
+    done
     if [[ "$p_code" == "200" ]]; then
       n=$(python3 -c "
 import json
