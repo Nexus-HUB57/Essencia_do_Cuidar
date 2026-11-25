@@ -409,4 +409,11 @@ async function resetSequences() {
 }
 
 await seed();
-process.exit(0);
+
+// Sai APENAS quando executado como script (npm run seed). Quando importado
+// pelo boot do servidor (SEED_ON_BOOT=true no Render), process.exit() matava
+// o processo inteiro antes do listen() — a instância morria logo após o
+// seed e o deploy ia para update_failed (incidente de 25/11/2026).
+import { pathToFileURL } from 'url';
+const executadoDireto = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (executadoDireto) process.exit(0);

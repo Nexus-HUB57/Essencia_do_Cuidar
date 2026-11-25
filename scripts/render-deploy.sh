@@ -496,6 +496,21 @@ for e in d:
 print('\n'.join(linhas))
 " 2>/dev/null)
 
+# Se o parse não achou NENHUMA chave, mostra a estrutura crua (valores
+# mascarados) — o shape da resposta variou entre versões da API.
+if [[ -z "$env_map" ]]; then
+  echo "$env_json" | python3 -c "
+import json,sys
+def mask(o):
+    if isinstance(o, dict): return {k: ('***' if k == 'value' else mask(v)) for k, v in o.items()}
+    if isinstance(o, list): return [mask(x) for x in o[:3]]
+    return o
+try: d=json.load(sys.stdin)
+except Exception as e: d=f'(json invalido: {e})'
+print('  estrutura crua de env-vars: ' + json.dumps(mask(d), default=str)[:500])
+" 2>/dev/null
+fi
+
 current_env=$(echo "$env_map" | cut -d= -f1 | tr '\n' ' ')
 echo "  definidas: ${current_env:-<nenhuma>}"
 
@@ -598,6 +613,30 @@ while true; do
 import json,sys
 d=json.load(sys.stdin)
 print('  commit:', (d.get('commit') or {}).get('id','')[:8], '| trigger:', d.get('trigger'))
+" 2>/dev/null
+      # Busca os LOGS reais do deploy na API — sem eles o diagnóstico é
+      # chute (o boot do app pode quebrar por N motivos fora do código).
+      step "Buscando os logs do deploy na API do Render"
+      logs_raw=$(render_curl GET "/logs?service%5B%5D=$SERVICE_ID&deploy%5B%5D=$DEPLOY_ID&limit=60&order=descending")
+      echo "$logs_raw" | python3 -c "
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception:
+    print('  (logs indisponíveis na API)'); sys.exit(0)
+def mensagens(o, saco):
+    if isinstance(o, dict):
+        m = o.get('log') if isinstance(o.get('log'), dict) else o
+        msg = m.get('message') or m.get('msg')
+        if msg: saco.append(str(msg))
+        for v in o.values(): mensagens(v, saco)
+    elif isinstance(o, list):
+        for v in o: mensagens(v, saco)
+saco=[]
+mensagens(d, saco)
+if not saco:
+    print('  (nenhuma mensagem de log retornada)')
+for linha in saco[:60]:
+    print('  |', linha[:220])
 " 2>/dev/null
       echo "  Logs: https://dashboard.render.com/web/$SERVICE_ID"
       exit 1 ;;
