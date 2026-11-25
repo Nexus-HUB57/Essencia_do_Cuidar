@@ -288,6 +288,12 @@ PY
   criado=$(render_curl POST "/services" "$payload")
   SERVICE_ID=$(echo "$criado" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
   if [[ -z "$SERVICE_ID" ]]; then
+    if echo "$criado" | grep -q 'insufficient_token_scope'; then
+      die "a chave da API não tem permissão de ESCRITA ($(echo "$criado" | head -c 160)).
+   Recrie a chave com escopo de escrita (services.read_write, ou acesso total):
+   Render → Account Settings → API Keys → Create API Key — e atualize a
+   secret RENDER_API_KEY no GitHub antes de rodar de novo."
+    fi
     die "falha ao criar o serviço: $(echo "$criado" | head -c 300)"
   fi
   ok "serviço criado: $SERVICE_ID"
