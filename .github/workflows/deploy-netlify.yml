@@ -11,8 +11,11 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: netlify-deploy
-  cancel-in-progress: true
+  # MESMO grupo do deploy-e2e.yml: os dois publicam na Netlify e, se
+  # rodarem em paralelo (mesmo push), o netlify-cli recebe "JSONHTTPError:
+  # Forbidden" — só um deploy por vez.
+  group: deploy-producao
+  cancel-in-progress: false
 
 jobs:
   backend-test:

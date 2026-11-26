@@ -37,7 +37,10 @@ on:
         default: false
 
 concurrency:
-  group: deploy-e2e
+  # MESMO grupo do deploy-netlify.yml: os dois publicam na Netlify e, se
+  # rodarem em paralelo (mesmo push), o netlify-cli recebe "JSONHTTPError:
+  # Forbidden" — só um deploy por vez.
+  group: deploy-producao
   cancel-in-progress: false
 
 permissions:

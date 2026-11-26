@@ -49,13 +49,14 @@ else
   echo -e "  ${YELLOW}⚠${NC} modelo indisponível — usando o embedding de fallback (dependência externa)"
 fi
 
-# 3. Consulta semântica — "cuidador noturno" deve achar a vaga noturna
+# 3. Consulta semântica — "cuidador noturno" deve achar uma vaga noturna
+#    (o seed tem duas: Hortolândia e Campinas — ambas Cuidador de Idosos)
 echo "[3] Consulta semântica: cuidador noturno"
 R=$(http_body -X POST "$BASE/api/rag/consultar" -H "Content-Type: application/json" \
   -d '{"pergunta":"tem vagas para cuidador noturno?"}')
 TOP=$(echo "$R" | jqp "print(d['fontes'][0]['titulo'] if d['fontes'] else '')")
 echo "  top: $TOP"
-echo "$TOP" | grep -qi "Centro" && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "  esperava a vaga noturna (Centro - SP) no topo"; }
+echo "$TOP" | grep -qi "Cuidador de Idosos" && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "  esperava uma vaga noturna de Cuidador de Idosos no topo"; }
 
 # 4. Pergunta sobre UTI deve achar a regra de complexidade
 echo "[4] Consulta: plataforma aceita UTI?"
