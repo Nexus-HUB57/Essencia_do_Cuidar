@@ -1,0 +1,57 @@
+name: Diagnóstico Render
+
+# Lista os serviços da conta Render usando RENDER_API_KEY e mostra:
+# - quais serviços existem (nomes, ids, suspensos?)
+# - os últimos deploys do serviço principal e seus status
+# Serve para diagnosticar estados "no-deploy" / 502 instantâneo / suspensão
+# por limite de horas do plano free.
+on:
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consultar API do Render
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -e
+          AUTH="Authorization: Bearer $RENDER_API_KEY"
+          echo "== Serviços da conta =="
+          curl -s -m 30 -H "$AUTH" "https://api.render.com/v1/services?limit=20" \
+            | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+for item in data if isinstance(data, list) else data.get("services", []):
+    s = item.get("service", item)
+    print("- id:", s.get("id"))
+    print("  nome:", s.get("name"))
+    print("  tipo:", s.get("type") or s.get("serviceDetails", {}).get("type"))
+    print("  suspenso:", s.get("suspended"))
+    print("  suspendReason:", s.get("suspendReason"))
+    print("  slug/domínio:", s.get("slug"), s.get("serviceDetails", {}).get("url"))
+'
+          echo ""
+          echo "== Últimos 5 deploys de cada web service =="
+          curl -s -m 30 -H "$AUTH" "https://api.render.com/v1/services?limit=20" \
+            | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+ids = [(item.get("service", item).get("id"), item.get("service", item).get("name"))
+       for item in (data if isinstance(data, list) else data.get("services", []))]
+print("\n".join(i for i, _ in ids))
+' | while read -r SID; do
+            echo "--- $SID ---"
+            curl -s -m 30 -H "$AUTH" "https://api.render.com/v1/services/$SID/deploys?limit=5" \
+              | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+for item in data if isinstance(data, list) else data.get("deploys", []):
+    d = item.get("deploy", item)
+    print("  ", d.get("createdAt"), "|", d.get("status"), "|", d.get("commit", {}).get("message", "")[:60] if isinstance(d.get("commit"), dict) else "")
+'
+          done
