@@ -128,8 +128,19 @@ if [[ $SKIP_FRONTEND -eq 0 ]]; then
   step "3/3 Publicando o frontend na Netlify"
   # O deploy-netlify.sh resolve o site alvo pela API da Netlify (o siteId
   # guardado no state.json já estava obsoleto) e confere o bundle publicado.
-  bash scripts/deploy-netlify.sh || die "o deploy do frontend falhou"
-  ok "frontend publicado"
+  #
+  # Se a publicação CLI falhar por permissão (PAT do secret TOKEN_NETFLY
+  # respondendo "Forbidden"), o E2E NÃO morre: o site de produção continua
+  # sendo publicado pela integração Git da própria Netlify (rebuild a cada
+  # push em main), e as verificações do passo 4 abaixo continuam valendo —
+  # elas apontam para o site REAL. Um token válido é pré-requisito apenas
+  # para republicar manualmente pela CLI.
+  if ! bash scripts/deploy-netlify.sh; then
+    echo "::warning::publicação CLI na Netlify falhou (secret TOKEN_NETFLY Forbidden?) — a produção publica via integração Git da Netlify; seguindo com as verificações do site real"
+    warn "deploy CLI da Netlify falhou — usando a versão publicada pela integração Git (as verificações abaixo são no site REAL)"
+  else
+    ok "frontend publicado"
+  fi
 else
   step "3/3 Pulando o frontend (--skip-frontend)"
 fi
