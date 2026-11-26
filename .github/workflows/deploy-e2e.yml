@@ -34,7 +34,12 @@ on:
       skip_frontend:
         description: "Não republicar o frontend"
         type: boolean
-        default: false
+        default: true
+        # Padrão true ENQUANTO o secret TOKEN_NETFLY responde "Forbidden"
+        # (PAT sem permissão de deploy no site). O site de produção continua
+        # sendo publicado pela integração Git da própria Netlify (rebuild a
+        # cada push em main). Depois de renovar o PAT no painel da Netlify e
+        # atualizar o secret TOKEN_NETFLY, volte este default para false.
 
 concurrency:
   # MESMO grupo do deploy-netlify.yml: os dois publicam na Netlify e, se
