@@ -251,8 +251,8 @@ def jornada():
 def disparar_eventos(TC, TP, TA):
     """Percorre o negócio e devolve o payload de controle (ids)."""
     call("PUT", "/api/profissionais/me", TP, {
-        "profissao": "tecnico_enfermagem", "regiao": "São Paulo - SP",
-        "cidade": "São Paulo", "disponibilidade": ["manha"],
+        "profissao": "tecnico_enfermagem", "regiao": "Campinas",
+        "cidade": "Campinas", "disponibilidade": ["manha"],
         "especialidades": ["Pós-operatório"]})
 
     st, r = call("POST", "/api/vagas", TC, {
@@ -262,7 +262,7 @@ def disparar_eventos(TC, TP, TA):
         "profissional_desejado": "Técnico de Enfermagem",
         "jornada_horario": "08h às 12h", "jornada_escala": "Seg a Sex",
         "tipo_contrato": "PJ", "remuneracao_tipo": "hora", "remuneracao_valor": 150,
-        "regiao": "São Paulo - SP", "cidade": "São Paulo"})
+        "regiao": "Campinas", "cidade": "Campinas"})
     vaga = r.get("vaga", {})
     check("vaga criada (dispara vaga_criada)", st == 201 and bool(vaga.get("id")), f"id={vaga.get('id')}")
     vaga_id = vaga["id"]
@@ -365,7 +365,7 @@ def fase_falha(vaga_payload_ctrl, TC):
     print("\n[2] Resiliência — destino fora do ar (best-effort)")
     st, r = call("POST", "/api/vagas", TC, {
         "complexidade": "baixa", "servico_descricao": "Netfly falha proposital",
-        "profissional_desejado": "Cuidador", "regiao": "São Paulo - SP",
+        "profissional_desejado": "Cuidador", "regiao": "Campinas",
         "jornada_horario": "08h às 12h", "remuneracao_tipo": "hora", "remuneracao_valor": 100})
     vaga_id = r.get("vaga", {}).get("id")
     check("com webhook morto, a vaga AINDA é criada (best-effort)", st == 201, f"id={vaga_id}")

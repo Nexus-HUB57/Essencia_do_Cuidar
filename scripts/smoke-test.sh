@@ -86,7 +86,7 @@ echo "[4] Criar vaga válida"
 RESP=$(http_body -X POST "$BASE/api/vagas" \
   -H "Authorization: Bearer $CONT_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"complexidade\":\"baixa\",\"servico_descricao\":\"Smoke test vaga de baixa complexidade.\",\"profissional_desejado\":\"Cuidador de Idosos\",\"jornada_horario\":\"08h às 18h\",\"regiao\":\"Smoke Test\"}")
+  -d "{\"complexidade\":\"baixa\",\"servico_descricao\":\"Smoke test vaga de baixa complexidade.\",\"profissional_desejado\":\"Cuidador de Idosos\",\"jornada_horario\":\"08h às 18h\",\"regiao\":\"Campinas\",\"regiao_uf\":\"SP\"}")
 VAGA_ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['vaga']['id'])" 2>/dev/null || echo "")
 echo "  vaga_id: $VAGA_ID"
 [ -n "$VAGA_ID" ] && [ "$VAGA_ID" -gt 0 ] && PASS=$((PASS+1)) || { echo "  criar vaga falhou: $RESP"; FAIL=$((FAIL+1)); }
@@ -364,7 +364,7 @@ echo "[28] Retirada de candidatura"
 RESP=$(http_body -X POST "$BASE/api/vagas" \
   -H "Authorization: Bearer $CONT_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"complexidade\":\"baixa\",\"servico_descricao\":\"Smoke: vaga para teste de retirada de candidatura.\",\"profissional_desejado\":\"Cuidador de Idosos\",\"jornada_horario\":\"08h às 12h\",\"regiao\":\"Smoke Test\",\"remuneracao_valor\":90,\"remuneracao_tipo\":\"hora\"}")
+  -d "{\"complexidade\":\"baixa\",\"servico_descricao\":\"Smoke: vaga para teste de retirada de candidatura.\",\"profissional_desejado\":\"Cuidador de Idosos\",\"jornada_horario\":\"08h às 12h\",\"regiao\":\"Campinas\",\"regiao_uf\":\"SP\",\"remuneracao_valor\":90,\"remuneracao_tipo\":\"hora\"}")
 VAGA_RET=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['vaga']['id'])" 2>/dev/null || echo "")
 RESP=$(http_body -X POST "$BASE/api/candidaturas" \
   -H "Authorization: Bearer $PROF_TOKEN" \

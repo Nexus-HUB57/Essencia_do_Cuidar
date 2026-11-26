@@ -68,7 +68,7 @@ check("tokens de acesso obtidos", bool(TC and TP and TA))
 PROF_ID = jid(TP)
 
 st, _ = call("PUT", "/api/profissionais/me", TP, {
-    "profissao": "tecnico_enfermagem", "regiao": "São Paulo - SP", "cidade": "São Paulo",
+    "profissao": "tecnico_enfermagem", "regiao": "Campinas", "cidade": "Campinas",
     "disponibilidade": ["manha", "tarde"], "especialidades": ["Pós-operatório", "Geriatria"]})
 check("perfil do profissional salvo", st == 200)
 
@@ -79,7 +79,7 @@ st, r = call("POST", "/api/vagas", TC, {
     "profissional_desejado": "Técnico de Enfermagem",
     "jornada_horario": "08h às 12h", "jornada_escala": "Seg a Sex", "tipo_contrato": "PJ",
     "remuneracao_tipo": "hora", "remuneracao_valor": 150,
-    "regiao": "São Paulo - SP", "cidade": "São Paulo"})
+    "regiao": "Campinas", "cidade": "Campinas"})
 VAGA = r.get("vaga", {}).get("id")
 check("vaga criada", st == 201 and bool(VAGA), f"id={VAGA}")
 
@@ -174,7 +174,7 @@ st, r = call("POST", "/api/vagas", TC, {
     "complexidade": "baixa", "servico_descricao": "Cuidados geriátricos domiciliares",
     "profissional_desejado": "Técnico de Enfermagem", "jornada_horario": "08h às 12h",
     "jornada_escala": "Seg a Sex", "tipo_contrato": "PJ", "remuneracao_tipo": "hora",
-    "remuneracao_valor": 150, "regiao": "São Paulo - SP", "cidade": "São Paulo"})
+    "remuneracao_valor": 150, "regiao": "Campinas", "cidade": "Campinas"})
 VAGA2 = r.get("vaga", {}).get("id")
 st, r = call("GET", f"/api/vagas/{VAGA2}/recomendar", TC)
 recs = r.get("recomendacoes", [])

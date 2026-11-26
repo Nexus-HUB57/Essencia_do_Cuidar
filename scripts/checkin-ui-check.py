@@ -51,13 +51,13 @@ TC = r["token"]
 _, r = call("POST", "/api/auth/login", body={"email": f"ui-p-{SUF}@demo.com", "senha": "demo1234"})
 TP = r["token"]
 
-call("PUT", "/api/profissionais/me", TP, {"profissao": "tecnico_enfermagem", "regiao": "São Paulo - SP",
-     "cidade": "São Paulo", "disponibilidade": ["manha", "tarde"], "especialidades": ["Geriatria"]})
+call("PUT", "/api/profissionais/me", TP, {"profissao": "tecnico_enfermagem", "regiao": "Campinas",
+     "cidade": "Campinas", "disponibilidade": ["manha", "tarde"], "especialidades": ["Geriatria"]})
 _, r = call("POST", "/api/vagas", TC, {"paciente_sexo": "F", "paciente_idade": 80,
      "paciente_diagnostico": "Geriatria", "complexidade": "baixa",
      "servico_descricao": "Cuidados domiciliares", "profissional_desejado": "Técnico de Enfermagem",
      "jornada_horario": "08h às 12h", "jornada_escala": "Seg a Sex", "tipo_contrato": "PJ",
-     "remuneracao_tipo": "hora", "remuneracao_valor": 150, "regiao": "São Paulo - SP", "cidade": "São Paulo"})
+     "remuneracao_tipo": "hora", "remuneracao_valor": 150, "regiao": "Campinas", "cidade": "Campinas"})
 VAGA = r["vaga"]["id"]
 call("POST", "/api/candidaturas", TP, {"id_vaga": VAGA, "mensagem": "ok"})
 _, r = call("GET", f"/api/candidaturas/vaga/{VAGA}", TC)

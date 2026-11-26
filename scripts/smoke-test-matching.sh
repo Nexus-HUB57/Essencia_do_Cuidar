@@ -158,7 +158,7 @@ echo "[9] Profissional que já se candidatou não é recomendado"
 # controlado: criar uma vaga nova, candidatar e checar que ela some da lista.
 VAGA_NOVA=$(http_body -X POST "$BASE/api/vagas" \
   -H "Authorization: Bearer $TOKEN_C" -H "Content-Type: application/json" \
-  -d '{"complexidade":"baixa","servico_descricao":"Teste de smoke do matching automatico","profissional_desejado":"Fisioterapeuta","regiao":"Zona Oeste - SP","jornada_horario":"10h-12h","remuneracao_tipo":"hora","remuneracao_valor":100}')
+  -d '{"complexidade":"baixa","servico_descricao":"Teste de smoke do matching automatico","profissional_desejado":"Fisioterapeuta","regiao":"Campinas","jornada_horario":"10h-12h","remuneracao_tipo":"hora","remuneracao_valor":100}')
 VAGA_TESTE_ID=$(echo "$VAGA_NOVA" | json "d['vaga']['id']")
 assert_true "$([ -n "$VAGA_TESTE_ID" ] && echo 1 || echo 0)" "vaga de teste criada (id $VAGA_TESTE_ID)"
 
@@ -227,11 +227,11 @@ assert_true "$([ -n "$TOKEN_TESTE" ] && echo 1 || echo 0)" "profissional descart
 
 SAVE=$(http_body -X PUT "$BASE/api/profissionais/me" \
   -H "Authorization: Bearer $TOKEN_TESTE" -H "Content-Type: application/json" \
-  -d '{"profissao":"fisioterapeuta","regiao":"Zona Oeste - SP"}')
+  -d '{"profissao":"fisioterapeuta","regiao":"Campinas"}')
 PROF_SALVA=$(echo "$SAVE" | json "d['detalhes'].get('profissao','')")
 REG_SALVA=$(echo "$SAVE" | json "d['detalhes'].get('regiao','')")
 assert_eq "fisioterapeuta" "$PROF_SALVA" "profissão persistida"
-assert_eq "Zona Oeste - SP" "$REG_SALVA" "região persistida"
+assert_eq "Campinas" "$REG_SALVA" "região persistida"
 
 # O perfil público também expõe os campos
 PUB=$(http_body "$BASE/api/profissionais/$NOVO_ID")
