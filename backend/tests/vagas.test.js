@@ -241,3 +241,61 @@ describe('PATCH /api/vagas/:id/status', () => {
     expect(r.status).toBe(400);
   });
 });
+
+/**
+ * Restrição de cobertura — o sistema atende APENAS a RMC (Região
+ * Metropolitana de Campinas) e a UF é sempre SP (backend/src/utils/rmc.js).
+ *
+ * A validação vive no servidor: o select do frontend é só UX. Qualquer
+ * cliente que tente publicar vaga fora da RMC (ou com outra UF) recebe 422
+ * com a lista dos municípios aceitos.
+ */
+describe('POST /api/vagas — restrição de cobertura RMC/SP', () => {
+  beforeEach(async () => { await resetDb(); });
+
+  const base = {
+    complexidade: 'baixa',
+    servico_descricao: 'Cuidados domiciliares diurnos na região da RMC',
+    profissional_desejado: 'Cuidador de Idosos'
+  };
+
+  it('aceita município da RMC e grava UF SP mesmo sem regiao_uf', async () => {
+    const c = await createUser({ tipo_usuario: 'contratante' });
+    const r = await (await api()).post('/api/vagas').set(auth(c.token))
+      .send({ ...base, regiao: 'Campinas' });
+    expect(r.status).toBe(201);
+    expect(r.body.vaga.regiao_uf).toBe('SP');
+    expect(r.body.vaga.regiao).toBe('Campinas');
+  });
+
+  it('aceita grafia sem acento e UF minúscula ("sp")', async () => {
+    const c = await createUser({ tipo_usuario: 'contratante' });
+    const r = await (await api()).post('/api/vagas').set(auth(c.token))
+      .send({ ...base, regiao: "Santa Barbara d'Oeste", regiao_uf: 'sp' });
+    expect(r.status).toBe(201);
+    expect(r.body.vaga.regiao_uf).toBe('SP');
+  });
+
+  it('recusa UF fora de SP (422)', async () => {
+    const c = await createUser({ tipo_usuario: 'contratante' });
+    const r = await (await api()).post('/api/vagas').set(auth(c.token))
+      .send({ ...base, regiao: 'Campinas', regiao_uf: 'RJ' });
+    expect(r.status).toBe(422);
+    expect(r.body.error).toMatch(/SP/);
+  });
+
+  it('recusa município fora da RMC (422) e lista os aceitos', async () => {
+    const c = await createUser({ tipo_usuario: 'contratante' });
+    const r = await (await api()).post('/api/vagas').set(auth(c.token))
+      .send({ ...base, regiao: 'Santos', regiao_uf: 'SP' });
+    expect(r.status).toBe(422);
+    expect(r.body.error).toMatch(/RMC/);
+    expect(r.body.details[0].msg).toMatch(/Campinas/);
+  });
+
+  it('vaga sem região continua aceita (região é opcional)', async () => {
+    const c = await createUser({ tipo_usuario: 'contratante' });
+    const r = await (await api()).post('/api/vagas').set(auth(c.token)).send(base);
+    expect(r.status).toBe(201);
+  });
+});

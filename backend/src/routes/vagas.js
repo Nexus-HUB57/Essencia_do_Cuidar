@@ -9,6 +9,7 @@ import { recomendarParaVaga, resolverProfissao } from '../services/matching.js';
 import { notificarVagaStatus } from '../services/event-bus.js';
 import { buscarVagas, isFtsEnabled } from '../services/search-fts.js';
 import { PROFISSOES } from '../services/profissoes.js';
+import { RMC_MUNICIPIOS, UF_UNICA, regiaoPertenceRmc } from '../utils/rmc.js';
 
 /**
  * Grafias que devem casar com cada profissão canônica quando o usuário
@@ -261,6 +262,29 @@ router.get('/:id', async (req, res) => {
 router.post('/', authRequired, requireTipo('contratante'),
   validateBody(vagaSchema), async (req, res) => {
     const f = req.body;
+
+    // ── Restrição de cobertura: apenas RMC (SP) ──────────────────────
+    // O sistema atende EXCLUSIVAMENTE a Região Metropolitana de
+    // Campinas (ver utils/rmc.js). Regra em DUAS partes:
+    //   1) UF informada tem que ser SP — qualquer outro estado é recusado;
+    //   2) região informada tem que ser um dos 20 municípios oficiais
+    //      da RMC (comparação sem acento/caixa, então "campinas" ok).
+    // Quando a região é válida, a UF é gravada como SP mesmo que o
+    // cliente tenha omitido — o dado no banco fica sempre consistente.
+    if (f.regiao_uf && String(f.regiao_uf).toUpperCase() !== UF_UNICA) {
+      return res.status(422).json({
+        error: `O sistema atende apenas o estado de ${UF_UNICA} — Região Metropolitana de Campinas.`,
+        details: [{ field: 'regiao_uf', msg: `UF única atendida: ${UF_UNICA}` }]
+      });
+    }
+    if (f.regiao && !regiaoPertenceRmc(f.regiao)) {
+      return res.status(422).json({
+        error: 'Região fora da área de atendimento: apenas os 20 municípios da RMC (Região Metropolitana de Campinas) são aceitos.',
+        details: [{ field: 'regiao', msg: `Municípios aceitos: ${RMC_MUNICIPIOS.join(', ')}` }]
+      });
+    }
+    if (f.regiao) f.regiao_uf = UF_UNICA;
+
     const info = await db.run(
       `INSERT INTO vagas
         (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,

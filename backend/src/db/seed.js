@@ -111,29 +111,29 @@ async function resetSequences() {
   await insertProf(prof1.lastInsertRowid, [
     prof1.lastInsertRowid, '/uploads/diploma-demo-ana.pdf', 'diploma-ana.pdf', 1,
     'COREN-SP 123456', 'COREN', 1,
-    'cuidador', 'Zona Sul - SP',
+    'cuidador', 'Campinas',
     JSON.stringify(['Idosos', 'Alzheimer', 'Cuidados Paliativos']),
     JSON.stringify(['manha', 'tarde', '12h']),
     'Cuidadora de idosos há 8 anos, especializada em Alzheimer e cuidados paliativos.',
-    'São Paulo'
+    'Campinas'
   ]);
   await insertProf(prof2.lastInsertRowid, [
     prof2.lastInsertRowid, '/uploads/diploma-demo-joao.pdf', 'diploma-joao.pdf', 1,
     'CREFITO-12345-F', 'CREFITO', 1,
-    'fisioterapeuta', 'Zona Oeste - SP',
+    'fisioterapeuta', 'Sumaré',
     JSON.stringify(['Fisioterapia', 'Pós-operatório', 'Geriatria']),
     JSON.stringify(['manha', 'tarde']),
     'Fisioterapeuta com foco em reabilitação pós-cirúrgica e geriátrica.',
-    'São Paulo'
+    'Sumaré'
   ]);
   await insertProf(prof3.lastInsertRowid, [
     prof3.lastInsertRowid, '/uploads/diploma-demo-bia.pdf', 'diploma-bia.pdf', 0,
     '06/12345', 'CRP', 0,
-    'psicologo', 'Centro - SP',
+    'psicologo', 'Campinas',
     JSON.stringify(['Psicologia', 'Idosos', 'Acompanhamento Familiar']),
     JSON.stringify(['tarde', 'noite']),
     'Psicóloga clínica com 5 anos de experiência em saúde do idoso.',
-    'São Paulo'
+    'Campinas'
   ]);
 
   // Vagas — com cidade + carga_horaria (matching simplificado: 2 filtros)
@@ -151,20 +151,20 @@ async function resetSequences() {
   const vMaria1 = (await insertVaga([
     contratante.lastInsertRowid, 'F', 82, 'Alzheimer moderado',
     'media', 'Acompanhante diurno para idosa com Alzheimer. Auxílio em medicação, alimentação e mobilidade.',
-    'Cuidador de Idosos', '08h às 18h', 'Segunda a Sexta', 'CLT', 'hora', 35, 'Zona Sul - SP',
-    'São Paulo', '08h às 18h - Segunda a Sexta', 'ativa'
+    'Cuidador de Idosos', '08h às 18h', 'Segunda a Sexta', 'CLT', 'hora', 35, 'Campinas',
+    'Campinas', '08h às 18h - Segunda a Sexta', 'ativa'
   ])).lastInsertRowid;
   const vMaria2 = (await insertVaga([
     contratante.lastInsertRowid, 'M', 70, 'Pós-operatório de quadril',
     'media', 'Sessões de fisioterapia domiciliar, 3x por semana, foco em mobilidade.',
-    'Fisioterapeuta', '14h às 16h', 'Seg/Qua/Sex', 'PJ', 'hora', 80, 'Zona Oeste - SP',
-    'São Paulo', '14h às 16h - Seg/Qua/Sex', 'ativa'
+    'Fisioterapeuta', '14h às 16h', 'Seg/Qua/Sex', 'PJ', 'hora', 80, 'Sumaré',
+    'Sumaré', '14h às 16h - Seg/Qua/Sex', 'ativa'
   ])).lastInsertRowid;
   const vMaria3 = (await insertVaga([
     contratante.lastInsertRowid, 'F', 75, 'Hipertensão e mobilidade reduzida',
     'baixa', 'Cuidador noturno para idosa independente que precisa de companhia e supervisão.',
-    'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP',
-    'São Paulo', 'Plantão noturno 12x36', 'ativa'
+    'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Hortolândia',
+    'Hortolândia', 'Plantão noturno 12x36', 'ativa'
   ])).lastInsertRowid;
 
   // Vagas extras da Maria, usadas pelos protocolos de demonstracao.
@@ -176,14 +176,14 @@ async function resetSequences() {
   const vMaria4 = (await insertVaga([
     contratante.lastInsertRowid, 'F', 78, 'Demencia em evolucao',
     'media', 'Cuidador noturno para idosa com demencia. Acompanhamento noturno, medicacao e mobilidade.',
-    'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Centro - SP',
-    'São Paulo', 'Plantão noturno 12x36', 'ativa'
+    'Cuidador de Idosos', '20h às 08h', '12x36', 'CLT', 'plantao', 220, 'Campinas',
+    'Campinas', 'Plantão noturno 12x36', 'ativa'
   ])).lastInsertRowid;
   const vMaria5 = (await insertVaga([
     contratante.lastInsertRowid, 'F', 34, 'Ansiedade e luto',
     'baixa', 'Acompanhamento psicologico semanal para mulher em processo de luto.',
-    'Psicólogo', '17h às 18h', 'Quarta', 'PJ', 'hora', 120, 'Zona Sul - SP',
-    'São Paulo', 'Sessão semanal', 'ativa'
+    'Psicólogo', '17h às 18h', 'Quarta', 'PJ', 'hora', 120, 'Valinhos',
+    'Valinhos', 'Sessão semanal', 'ativa'
   ])).lastInsertRowid;
 
   // Avaliações demo (de "contratantes" fictícios para popular o perfil)
@@ -210,21 +210,21 @@ async function resetSequences() {
       complexidade, servico_descricao, profissional_desejado, jornada_horario,
       jornada_escala, tipo_contrato, remuneracao_tipo, remuneracao_valor, regiao, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [c2, 'M', 80, 'AVC', 'media', 'Fisioterapia pós-AVC.', 'Fisioterapeuta', '10h-12h', 'Seg a Sex', 'PJ', 'hora', 90, 'Zona Norte', 'fechada']
+    [c2, 'M', 80, 'AVC', 'media', 'Fisioterapia pós-AVC.', 'Fisioterapeuta', '10h-12h', 'Seg a Sex', 'PJ', 'hora', 90, 'Americana', 'fechada']
   )).lastInsertRowid;
   const vf2 = (await db.run(
     `INSERT INTO vagas (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
       complexidade, servico_descricao, profissional_desejado, jornada_horario,
       jornada_escala, tipo_contrato, remuneracao_tipo, remuneracao_valor, regiao, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [c3, 'F', 70, 'Diabetes', 'baixa', 'Acompanhante para idosa com diabetes controlada.', 'Cuidador de Idosos', '14h-18h', 'Segunda a Sexta', 'CLT', 'hora', 30, 'Zona Leste', 'fechada']
+    [c3, 'F', 70, 'Diabetes', 'baixa', 'Acompanhante para idosa com diabetes controlada.', 'Cuidador de Idosos', '14h-18h', 'Segunda a Sexta', 'CLT', 'hora', 30, 'Paulínia', 'fechada']
   )).lastInsertRowid;
   const vf3 = (await db.run(
     `INSERT INTO vagas (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
       complexidade, servico_descricao, profissional_desejado, jornada_horario,
       jornada_escala, tipo_contrato, remuneracao_tipo, remuneracao_valor, regiao, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [c4, 'M', 65, 'Pós-cirúrgico', 'media', 'Acompanhamento pós-cirurgia cardíaca.', 'Técnico de Enfermagem', '07h-19h', '12x36', 'CLT', 'plantao', 280, 'Zona Oeste', 'fechada']
+    [c4, 'M', 65, 'Pós-cirúrgico', 'media', 'Acompanhamento pós-cirurgia cardíaca.', 'Técnico de Enfermagem', '07h-19h', '12x36', 'CLT', 'plantao', 280, 'Nova Odessa', 'fechada']
   )).lastInsertRowid;
 
   // Candidaturas + aceite (1 por profissional nas vagas recém-criadas)
@@ -264,14 +264,14 @@ async function resetSequences() {
       complexidade, servico_descricao, profissional_desejado, jornada_horario,
       jornada_escala, tipo_contrato, remuneracao_tipo, remuneracao_valor, regiao, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [c5, 'F', 88, 'Alzheimer avançado', 'media', 'Cuidado integral a idosa acamada.', 'Cuidador de Idosos', '08h-20h', '12x36', 'CLT', 'plantao', 250, 'Zona Sul', 'fechada']
+    [c5, 'F', 88, 'Alzheimer avançado', 'media', 'Cuidado integral a idosa acamada.', 'Cuidador de Idosos', '08h-20h', '12x36', 'CLT', 'plantao', 250, "Santa Bárbara d'Oeste", 'fechada']
   )).lastInsertRowid;
   const v6 = (await db.run(
     `INSERT INTO vagas (id_contratante, paciente_sexo, paciente_idade, paciente_diagnostico,
       complexidade, servico_descricao, profissional_desejado, jornada_horario,
       jornada_escala, tipo_contrato, remuneracao_tipo, remuneracao_valor, regiao, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [c6, 'M', 72, 'Parkinson', 'media', 'Acompanhamento diurno.', 'Cuidador de Idosos', '09h-17h', 'Seg a Sex', 'PJ', 'hora', 45, 'Zona Oeste', 'fechada']
+    [c6, 'M', 72, 'Parkinson', 'media', 'Acompanhamento diurno.', 'Cuidador de Idosos', '09h-17h', 'Seg a Sex', 'PJ', 'hora', 45, 'Indaiatuba', 'fechada']
   )).lastInsertRowid;
   await db.run(
     `INSERT INTO candidaturas (id_vaga, id_profissional, mensagem, status_candidatura) VALUES (?, ?, ?, 'aceita')`,

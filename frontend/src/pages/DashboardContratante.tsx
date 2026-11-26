@@ -9,6 +9,7 @@ import Chat from '../components/Chat';
 import PaymentModal from '../components/PaymentModal';
 import ProtocolosPanel from '../components/ProtocolosPanel';
 import { EstadoVazio } from '../components/ilustracoes';
+import { RMC_MUNICIPIOS, UF_UNICA } from '../constants/rmc';
 
 interface Candidato {
   id: number;
@@ -97,18 +98,18 @@ export default function DashboardContratante() {
     tipo_contrato: '' as '' | 'PJ' | 'CLT',
     remuneracao_tipo: '' as '' | 'plantao' | 'hora',
     remuneracao_valor: '',
-    regiao: '',
-    regiao_uf: ''
+    regiao: 'Campinas',
+    regiao_uf: UF_UNICA
   });
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
 
-  // M2/M3 — Carrega UFs e profissões do backend
-  const [ufs, setUfs] = useState<string[]>([]);
+  // M2/M3 — Carrega profissões do backend. A UF é fixa (SP — o sistema
+  // atende apenas a RMC, ver constants/rmc.ts), então a lista de UFs do
+  // backend não é mais necessária neste formulário.
   const [profissoes, setProfissoes] = useState<{ id: string; label: string }[]>([]);
   useEffect(() => {
     api.get('/profissoes').then(({ data }) => {
-      if (data.ufs?.length) setUfs(data.ufs);
       if (data.profissoes?.length) setProfissoes(data.profissoes);
     }).catch(() => {/* fallback abaixo */});
   }, []);
@@ -183,7 +184,7 @@ export default function DashboardContratante() {
         paciente_sexo: '', paciente_idade: '', paciente_diagnostico: '',
         complexidade: 'baixa', servico_descricao: '', profissional_desejado: '',
         jornada_horario: '', jornada_escala: '', tipo_contrato: '',
-        remuneracao_tipo: '', remuneracao_valor: '', regiao: '', regiao_uf: ''
+        remuneracao_tipo: '', remuneracao_valor: '', regiao: 'Campinas', regiao_uf: UF_UNICA
       });
       await carregarVagas();
       setTab('vagas');
@@ -513,18 +514,23 @@ export default function DashboardContratante() {
             <div className="grid sm:grid-cols-3 gap-3">
               <div>
                 <label className="label">{t('contractor.regionText')}</label>
-                <input className="input" value={form.regiao}
-                  onChange={(e) => setForm({ ...form, regiao: e.target.value })}
-                  placeholder="Ex: Zona Sul - SP" />
+                {/* Restrição de cobertura: apenas os 20 municípios da RMC.
+                    A lista canônica vive no backend (utils/rmc.js), que
+                    revalida no POST — este select é só a UI. */}
+                <select className="input" value={form.regiao}
+                  onChange={(e) => setForm({ ...form, regiao: e.target.value })}>
+                  {RMC_MUNICIPIOS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
               <div>
                 <label className="label">UF</label>
-                <select className="input" value={form.regiao_uf}
-                  onChange={(e) => setForm({ ...form, regiao_uf: e.target.value })}>
-                  <option value="">—</option>
-                  {ufs.map((uf: string) => <option key={uf} value={uf}>{uf}</option>)}
-                </select>
+                {/* UF única: o sistema atende apenas o estado de SP. */}
+                <input className="input" value={UF_UNICA} readOnly aria-readonly="true"
+                  title="O sistema atende apenas o estado de SP" />
               </div>
+              <p className="text-xs text-slate-400 self-center">
+                Atendemos apenas a Região Metropolitana de Campinas (SP).
+              </p>
             </div>
 
             {erro && <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-sm">{erro}</div>}

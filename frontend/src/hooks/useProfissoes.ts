@@ -17,12 +17,13 @@ import type { Profissao, ProfissaoId } from '../types';
  * do backend como fallback.
  */
 
-/** UFs válidas — fallback local caso o backend não responda. */
-const UFS_FALLBACK = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
-  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
-  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
-];
+/**
+ * UFs válidas — fallback local caso o backend não responda.
+ * Restrição de cobertura: o sistema atende apenas SP (RMC — Região
+ * Metropolitana de Campinas). O backend devolve a mesma lista em
+ * GET /api/profissoes.
+ */
+const UFS_FALLBACK = ['SP'];
 
 export function useProfissoes() {
   const { t } = useTranslation();

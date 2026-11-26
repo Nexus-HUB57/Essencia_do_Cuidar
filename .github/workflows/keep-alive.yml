@@ -1,0 +1,38 @@
+name: Keep-alive (Render)
+
+# O plano free do Render hiberna o serviço após ~15 min sem tráfego.
+# O cold start (30-90s) estoura o timeout do proxy da Netlify e o usuário
+# vê 502 na primeira chamada após um período de inatividade. Este workflow
+# pinga o health check do backend a cada 10 minutos para manter a
+# instância aquecida — sem isso, o site parece "quebrado" mesmo estando
+# tudo no ar.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /api/health do backend (Render direto)
+        run: |
+          URL="https://essencia-backend-o2mw.onrender.com/api/health"
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 100 "$URL" || echo 000)
+            echo "tentativa ${i}: HTTP ${code}"
+            if [ "$code" = "200" ]; then
+              curl -s -m 20 "$URL" | head -c 200; echo
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::warning::backend nao respondeu 200 apos 3 tentativas — o site pode retornar 502 ate o servico acordar"
+          exit 0

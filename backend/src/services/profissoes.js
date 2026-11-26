@@ -121,13 +121,17 @@ export const ALIAS_PROFISSAO = {
 };
 
 /**
- * M3 — UFs válidas (27 estados brasileiros).
+ * M3 — UFs válidas.
+ *
+ * Restrição de cobertura (decisão de produto): o sistema atende APENAS o
+ * estado de SP — na prática, a RMC (Região Metropolitana de Campinas,
+ * ver utils/rmc.js). Esta lista alimenta:
+ *   - GET /api/profissoes → campo `ufs` dos selects de UF do frontend;
+ *   - validarUF() → validação da UF informada no perfil profissional.
+ * Ou seja: o seletor de UF mostra só SP e qualquer outra UF é rejeitada
+ * no servidor.
  */
-export const UFS_VALIDAS = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
-  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
-  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
-];
+export const UFS_VALIDAS = ['SP'];
 
 /**
  * Normaliza texto livre para um dos IDs canônicos.
