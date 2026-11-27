@@ -433,6 +433,8 @@
       "proximo": "Próximo slide"
     },
     "threeSteps": "3 passos",
+    "ctaCardContractor": "Agora é só Publicar a sua Vaga",
+    "ctaCardProfessional": "Agora é só se inscrever para as Vagas",
     "stepsContractor": [
       {
         "t": "Crie sua conta +Saúde",
@@ -450,15 +452,15 @@
     "stepsProfessional": [
       {
         "t": "Cadastre-se",
-        "d": "Se Apresente, Informe suas Qualidades Técnicas e Experiência Profissional."
+        "d": "Seus Dados, Qualidades Técnicas e Experiência Profissional."
       },
       {
-        "t": "Conecte sua conta Stripe",
-        "d": "Receba pagamentos via Pix com split."
+        "t": "Receba em até 72 horas",
+        "d": "Sistema Custódia de Plantão é a Garantia de Pagamento."
       },
       {
-        "t": "Candidate-se e ative push",
-        "d": "Notificações em tempo real no celular."
+        "t": "Candidate-se",
+        "d": "Agora é só Aguardar e Receber as Notificações."
       }
     ],
     "differentials": [

@@ -119,7 +119,7 @@ export default function Landing() {
                   </li>
                 ))}
               </ol>
-              <Link to="/cadastro?tipo=contratante" className="btn-primary w-full mt-6">{t('home.ctaContractor')}</Link>
+              <Link to="/cadastro?tipo=contratante" className="btn-primary w-full mt-6">{t('landing.ctaCardContractor')}</Link>
             </div>
             <div className="card border-t-4 border-emerald-500">
               <span className="badge-green mb-3">{t('landing.badgeProfessional')}</span>
@@ -132,7 +132,7 @@ export default function Landing() {
                   </li>
                 ))}
               </ol>
-              <Link to="/cadastro?tipo=profissional" className="btn-secondary w-full mt-6">{t('home.ctaProfessional')}</Link>
+              <Link to="/cadastro?tipo=profissional" className="btn-secondary w-full mt-6">{t('landing.ctaCardProfessional')}</Link>
             </div>
           </div>
         </div>

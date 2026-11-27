@@ -433,6 +433,8 @@
       "proximo": "Siguiente diapositiva"
     },
     "threeSteps": "3 pasos",
+    "ctaCardContractor": "Ahora solo publica tu Trabajo",
+    "ctaCardProfessional": "Ahora solo inscríbete para los Trabajos",
     "stepsContractor": [
       {
         "t": "Crea tu cuenta +Salud",
@@ -450,15 +452,15 @@
     "stepsProfessional": [
       {
         "t": "Regístrate",
-        "d": "Preséntate: informa tus Cualidades Técnicas y Experiencia Profesional."
+        "d": "Tus Datos, Cualidades Técnicas y Experiencia Profesional."
       },
       {
-        "t": "Conecta tu cuenta Stripe",
-        "d": "Recibe pagos vía Pix con reparto."
+        "t": "Recibe en hasta 72 horas",
+        "d": "El Sistema de Custodia de Turnos es la Garantía de Pago."
       },
       {
-        "t": "Postúlate y activa push",
-        "d": "Notificaciones en tiempo real en tu móvil."
+        "t": "Postúlate",
+        "d": "Ahora solo espera y recibe las Notificaciones."
       }
     ],
     "differentials": [

@@ -433,6 +433,8 @@
       "proximo": "Next slide"
     },
     "threeSteps": "3 steps",
+    "ctaCardContractor": "Now just publish your Job",
+    "ctaCardProfessional": "Now just sign up for the Jobs",
     "stepsContractor": [
       {
         "t": "Create your +Health account",
@@ -450,15 +452,15 @@
     "stepsProfessional": [
       {
         "t": "Sign up",
-        "d": "Introduce yourself: share your Technical Skills and Professional Experience."
+        "d": "Your Data, Technical Skills and Professional Experience."
       },
       {
-        "t": "Connect your Stripe account",
-        "d": "Receive payments via Pix with split."
+        "t": "Receive within 72 hours",
+        "d": "The Custodial Shift System is the Payment Guarantee."
       },
       {
-        "t": "Apply and enable push",
-        "d": "Real-time notifications on your phone."
+        "t": "Apply",
+        "d": "Now just wait and receive the Notifications."
       }
     ],
     "differentials": [
