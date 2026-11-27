@@ -143,15 +143,20 @@ jobs:
           import json
           try:
               sites = json.load(open('/tmp/sites.json'))
-              alvo = [s for s in sites if 'essenciadocuidar' in (s.get('name') or '') + (s.get('ssl_url') or '')]
-              print(alvo[0]['id'] if alvo else '')
+              def alvo(s):
+                  campos = ' '.join([s.get('name') or '', s.get('ssl_url') or '', s.get('custom_domain') or ''] + list(s.get('domain_aliases') or []))
+                  return ('essenciadocuidar' in campos) or ('ecuidar' in campos)
+              cand = [s for s in sites if alvo(s)]
+              if not cand and len(sites) == 1:
+                  cand = sites
+              print(cand[0]['id'] if cand else '')
           except Exception:
               pass")
               echo "Sites na conta: $(python3 -c "
           import json
           try:
               sites = json.load(open('/tmp/sites.json'))
-              print(', '.join((s.get('name') or '?') for s in sites[:20]) or '(vazio)')
+              print(' | '.join(f\"{s.get('name')} id={s.get('id')} dominios={s.get('domain_aliases')}\" for s in sites[:20]) or '(vazio)')
           except Exception:
               print('(erro ao ler)')")"
               echo "site-id selecionado: ${SITE_ID:-NAO_ENCONTRADO}"
