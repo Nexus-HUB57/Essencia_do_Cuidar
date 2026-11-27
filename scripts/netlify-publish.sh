@@ -24,21 +24,43 @@ TOKENS=("${NETLIFY_TOKEN_A:-}" "${NETLIFY_TOKEN_B:-}")
 USADO=""
 SITE_ID=""
 CONTA=""
+CONTAS=""
 
 extract_token() {
-  # remove quebras, tabs, espaços e aspas; extrai campo se vier em JSON
-  local t
-  t=$(printf '%s' "$1" | tr -d '\r\n\t "')
-  if [[ "$t" == \{* ]]; then
-    t=$(printf '%s' "$t" | python3 -c '
+  # Localiza o token mesmo se vier com texto em volta, em JSON ou base64.
+  local t r d raw
+  raw="$1"
+  # 1) JSON: avalia ANTES de remover aspas (senão o JSON quebra)
+  if [[ $(printf '%s' "$raw" | tr -d ' \r\n\t') == \{* ]]; then
+    t=$(printf '%s' "$raw" | python3 -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
     print(d.get("token") or d.get("api_token") or d.get("NETLIFY_AUTH_TOKEN") or "")
 except Exception:
     print("")')
+  else
+    t=$(printf '%s' "$raw" | tr -d '\r\n\t"')
   fi
-  printf '%s' "$t"
+  [ -z "$t" ] && t=$(printf '%s' "$raw" | tr -d '\r\n\t"')
+  # 2) Resgate: token colado com texto/base64 (formato atual: nfp + 37 = 40)
+  if [ ${#t} -gt 42 ]; then
+    r=$(printf '%s' "$t" | grep -oE 'nfp[A-Za-z0-9_-]+' | head -1)
+    if [ -n "$r" ] && [ ${#r} -gt 40 ]; then r="${r:0:40}"; fi
+    if [ -z "$r" ]; then
+      d=$(printf '%s' "$t" | tr -d ' \r\n\t"' | base64 -d 2>/dev/null)
+      [ -n "$d" ] && r=$(printf '%s' "$d" | grep -oE 'nfp[A-Za-z0-9_-]+' | head -1)
+      if [ -n "$r" ] && [ ${#r} -gt 40 ]; then r="${r:0:40}"; fi
+    fi
+    if [ -z "$r" ]; then
+      r=$(printf '%s' "$t" | grep -oE '\b[A-Za-z0-9]{40}\b' | head -1)
+    fi
+    if [ -n "$r" ]; then
+      echo "  (resgate: token de ${#r} caracteres extraído de conteúdo com ${#t})"
+      t="$r"
+    fi
+  fi
+  printf '%s' "$t" | tr -d ' \r\n\t"'
 }
 
 netlify_get() {
@@ -66,6 +88,7 @@ except Exception:
 PY
 )
   echo "Secret $i: GET /api/v1/user -> HTTP $WHO | conta: ${CONTA:-?}"
+  CONTAS="${CONTAS} [Secret $i: ${CONTA:-não autenticou}]"
 
   CODE=$(netlify_get "$TSAN" "sites" /tmp/netlify_sites.json)
   echo "Secret $i: GET /api/v1/sites -> HTTP $CODE"
@@ -114,7 +137,7 @@ PY
 done
 
 if [ -z "$USADO" ]; then
-  echo "::error::Nenhum secret Netlify válido. O token precisa ser CLÁSSICO (acesso total) e criado NA CONTA DONA do site essenciadocuidar.netlify.app (veja 'conta:' e 'Sites na conta' acima)."
+  echo "::error::Nenhum secret Netlify válido. O token precisa ser CLÁSSICO (acesso total) e criado NA CONTA DONA do site essenciadocuidar.netlify.app (veja 'conta:' e 'Sites na conta' acima). Contas vistas:${CONTAS} — nenhuma delas possui o site essenciadocuidar."
   exit 1
 fi
 if [ -z "$SITE_ID" ]; then
