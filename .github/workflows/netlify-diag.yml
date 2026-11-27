@@ -31,3 +31,54 @@ jobs:
           }
           dump "CREDENCIAIS_NETFLY" "$NETLIFY_A"
           dump "TOKEN_NETFLY" "$NETLIFY_B"
+
+      - name: Testa se os secrets contêm token Netlify utilizável
+        env:
+          NETLIFY_A: ${{ secrets.CREDENCIAIS_NETFLY }}
+          NETLIFY_B: ${{ secrets.TOKEN_NETFLY }}
+        run: |
+          tenta() {
+            local name="$1" val="$2" t r d who code conta sites
+            [ -n "$val" ] || { echo "$name: vazio"; return; }
+            t=$(printf '%s' "$val" | tr -d '\r\n\t"')
+            r=$(printf '%s' "$t" | grep -oE 'nfp[A-Za-z0-9_-]+' | head -1)
+            if [ -n "$r" ] && [ ${#r} -gt 40 ]; then r="${r:0:40}"; fi
+            if [ -z "$r" ]; then
+              d=$(printf '%s' "$t" | tr -d ' \r\n\t"' | base64 -d 2>/dev/null)
+              [ -n "$d" ] && r=$(printf '%s' "$d" | grep -oE 'nfp[A-Za-z0-9_-]+' | head -1)
+              [ -n "$r" ] && [ ${#r} -gt 40 ] && r="${r:0:40}"
+            fi
+            if [ -z "$r" ]; then
+              r=$(printf '%s' "$t" | grep -oE '\b[A-Za-z0-9]{40}\b' | head -1)
+            fi
+            if [ -z "$r" ]; then
+              echo "$name: nenhum token no conteúdo (nada a testar)"
+              return
+            fi
+            echo "$name: token candidato len=${#r} prefixo=$(printf '%s' "$r" | cut -c1-3)…"
+            who=$(curl -s -m 20 -o /tmp/u.json -w '%{http_code}' \
+              -H "Authorization: Bearer $r" https://api.netlify.com/api/v1/user)
+            conta=$(python3 - <<'PY'
+import json
+try:
+    print(json.load(open('/tmp/u.json')).get('email') or '?')
+except Exception:
+    print('?')
+PY
+)
+            echo "$name: GET /user -> HTTP $who | conta: $conta"
+            code=$(curl -s -m 20 -o /tmp/s.json -w '%{http_code}' \
+              -H "Authorization: Bearer $r" https://api.netlify.com/api/v1/sites)
+            sites=$(python3 - <<'PY'
+import json
+try:
+    s = json.load(open('/tmp/s.json'))
+    print(' | '.join(x.get('name','') for x in s[:20]) or '(vazio)')
+except Exception:
+    print('(erro)')
+PY
+)
+            echo "$name: GET /sites -> HTTP $code | sites: $sites"
+          }
+          tenta "CREDENCIAIS_NETFLY" "$NETLIFY_A"
+          tenta "TOKEN_NETFLY" "$NETLIFY_B"
