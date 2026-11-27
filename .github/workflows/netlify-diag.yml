@@ -1,0 +1,28 @@
+name: Diagnóstico Netlify
+
+# Run rápido (sem build): identifica qual e-mail/conta está nos secrets
+# Netlify, para o usuário saber em qual conta criar o Personal Access Token.
+# Imprime SOMENTE e-mails e tamanhos — senha/token nunca aparecem no log.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    name: E-mails nos secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extrai e-mails (sem expor credenciais)
+        env:
+          NETLIFY_A: ${{ secrets.CREDENCIAIS_NETFLY }}
+          NETLIFY_B: ${{ secrets.TOKEN_NETFLY }}
+        run: |
+          dump() {
+            local name="$1" val="$2" len e
+            if [ -z "$val" ]; then echo "$name: vazio"; return; fi
+            len=$(printf '%s' "$val" | wc -c)
+            e=$(printf '%s' "$val" | grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | sort -u | tr '\n' ' ')
+            echo "$name: len=$len | e-mail(s): ${e:-nenhum encontrado}"
+          }
+          dump "CREDENCIAIS_NETFLY" "$NETLIFY_A"
+          dump "TOKEN_NETFLY" "$NETLIFY_B"

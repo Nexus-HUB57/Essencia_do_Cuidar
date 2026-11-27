@@ -73,6 +73,10 @@ i=0
 for T in "${TOKENS[@]}"; do
   i=$((i + 1))
   [ -n "$T" ] || { echo "Secret $i: vazio"; continue; }
+  # Diagnóstico pedido pelo usuário: mostra APENAS o(s) e-mail(s) presente(s)
+  # no conteúdo do secret (senha/token jamais são impressos).
+  EMAILS=$(printf '%s' "$T" | grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | sort -u | tr '\n' ' ')
+  [ -n "$EMAILS" ] && echo "Secret $i: e-mail(s) no conteúdo: $EMAILS"
   TSAN=$(extract_token "$T")
   [ -n "$TSAN" ] || { echo "Secret $i: vazio após sanitização"; continue; }
   echo "Secret $i: len=${#TSAN} prefixo=$(printf '%s' "$TSAN" | cut -c1-3)…"
