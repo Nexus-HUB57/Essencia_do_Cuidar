@@ -115,20 +115,41 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL || '/api' }}
         run: bash scripts/netlify-pre-deploy-check.sh
 
-      # Deploy via Netlify CLI — tenta com token, fallback para anônimo (limpa env)
+      # Deploy via Netlify CLI — token de CREDENCIAIS_NETFLY (fallback TOKEN_NETFLY).
+      # Resolve o site-id pela API (o runner não tem site linkado) e publica --prod.
+      # Se o publish falhar, segue anônimo (não afeta produção, que também é
+      # publicada pela integração Git da Netlify).
       - name: Deploy na Netlify
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         id: netlify
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.TOKEN_NETFLY }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.CREDENCIAIS_NETFLY || secrets.TOKEN_NETFLY }}
         run: |
           npm install -g netlify-cli
 
           cd frontend
 
-          # Tenta deploy com token (NETLIFY_AUTH_TOKEN está no env)
-          echo "Tentando deploy com TOKEN_NETFLY..."
-          npx netlify deploy --prod --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
+          SITE_ID=""
+          if [ -n "$NETLIFY_AUTH_TOKEN" ]; then
+            echo "Resolvendo site-id pela API..."
+            SITE_ID=$(npx netlify api listSitesForUser 2>/dev/null | python3 -c "
+          import json, sys
+          try:
+              sites = json.load(sys.stdin)
+              alvo = [s for s in sites if 'essenciadocuidar' in (s.get('name') or '') + (s.get('ssl_url') or '')]
+              print(alvo[0]['id'] if alvo else '')
+          except Exception:
+              pass
+          " || true)
+            echo "site-id: ${SITE_ID:-não encontrado}"
+          fi
+
+          echo "Tentando deploy com token..."
+          if [ -n "$SITE_ID" ]; then
+            npx netlify deploy --prod --site "$SITE_ID" --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
+          else
+            npx netlify deploy --prod --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
+          fi
           DEPLOY_URL=$(grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
 
           # Se falhou, REMOVE o token do env e tenta anônimo
