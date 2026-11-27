@@ -116,8 +116,9 @@ jobs:
         run: bash scripts/netlify-pre-deploy-check.sh
 
       # Deploy via Netlify CLI — lógica completa em scripts/netlify-publish.sh
-      # (sanitiza secrets, identifica conta, exige o site essenciadocuidar na
-      # conta e publica --prod --site; falha ruidosamente se não publicar)
+      # (sanitiza secrets, identifica conta, escolhe o alvo: essenciadocuidar
+      # preferencial ou ecuidar como alternativa — mesmo app/repositório — e
+      # publica --prod --site; falha ruidosamente se não publicar)
       - name: Deploy na Netlify
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         id: netlify

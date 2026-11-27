@@ -108,7 +108,10 @@ jobs:
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.TOKEN_NETFLY }}
-          FRONTEND_URL: https://essenciadocuidar.netlify.app
+          # CORS do backend: os DOIS domínios Netlify servem o app (o site
+          # alternativo ecuidar é o canônico enquanto o PAT da conta dona de
+          # essenciadocuidar não estiver configurado). NÃO deixar só um.
+          FRONTEND_URL: "https://ecuidar.netlify.app,https://essenciadocuidar.netlify.app"
           BACKEND_URL: https://essencia-backend-o2mw.onrender.com
         run: |
           args=()
@@ -122,12 +125,14 @@ jobs:
           {
             echo "### Deploy E2E"
             echo ""
-            echo "- Frontend: https://essenciadocuidar.netlify.app"
+            echo "- Frontend (canônico): https://ecuidar.netlify.app"
+            echo "- Frontend (produção, pendente de PAT com permissão de deploy): https://essenciadocuidar.netlify.app"
             echo "- Backend:  https://essencia-backend-o2mw.onrender.com"
             echo ""
             echo "| Verificação | Resultado |"
             echo "|---|---|"
-            echo "| Site (HTTP) | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essenciadocuidar.netlify.app/ || echo erro) |"
-            echo "| Proxy /api/health | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essenciadocuidar.netlify.app/api/health || echo erro) |"
+            echo "| Site ecuidar (HTTP) | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://ecuidar.netlify.app/ || echo erro) |"
+            echo "| Proxy /api/health (ecuidar) | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://ecuidar.netlify.app/api/health || echo erro) |"
+            echo "| Site essenciadocuidar (HTTP) | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essenciadocuidar.netlify.app/ || echo erro) |"
             echo "| Backend /api/health | $(curl -s -o /dev/null -w '%{http_code}' -m 20 https://essencia-backend-o2mw.onrender.com/api/health || echo erro) |"
           } >> "$GITHUB_STEP_SUMMARY"

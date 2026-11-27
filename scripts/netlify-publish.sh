@@ -10,7 +10,10 @@
 # O que faz:
 #   1. Sanitiza os tokens (quebras de linha, aspas, JSON embrulhado);
 #   2. Identifica a conta de cada token (GET /user) e lista os sites;
-#   3. Seleciona o site essenciadocuidar (exige que a conta o possua);
+#   3. Seleciona o site alvo: preferencial essenciadocuidar; alternativa
+#      ecuidar (mesmo repositório/app, na conta do próprio token) — usada
+#      enquanto o PAT da conta dona de essenciadocuidar não estiver
+#      configurado;
 #   4. Publica --prod --site <id> via netlify-cli;
 #   5. Falha RUIDOSAMENTE com mensagem acionável se não publicar.
 #
@@ -118,30 +121,43 @@ PY
 import json
 try:
     sites = json.load(open('/tmp/netlify_sites.json'))
-    cand = [
-        s for s in sites
-        if 'essenciadocuidar' in ' '.join([
+    def blob(s):
+        return ' '.join([
             s.get('name') or '',
             s.get('ssl_url') or '',
             s.get('custom_domain') or '',
             ' '.join(s.get('domain_aliases') or []),
         ])
-    ]
-    print(cand[0]['id'] if cand else '')
+    # Prioridade: produção (essenciadocuidar); alternativa: ecuidar (mesmo app)
+    achado = ''
+    for pref in ('essenciadocuidar', 'ecuidar'):
+        for s in sites:
+            if pref in blob(s):
+                achado = s['id'] + '|' + pref
+                break
+        if achado:
+            break
+    print(achado)
 except Exception:
     print('')
 PY
 )
+  SITE_NOME="${SITE_ID#*|}"
+  SITE_ID="${SITE_ID%%|*}"
   if [ -n "$SITE_ID" ]; then
     USADO="$TSAN"
-    echo "site-id selecionado: $SITE_ID"
+    if [ "$SITE_NOME" = "ecuidar" ]; then
+      echo "site-id selecionado: $SITE_ID (ALTERNATIVO ecuidar — mesmo app/repositório; essenciadocuidar não está nesta conta)"
+    else
+      echo "site-id selecionado: $SITE_ID (produção essenciadocuidar)"
+    fi
     break
   fi
-  echo "Secret $i: autentica, mas a conta não tem o site essenciadocuidar — testando próximo secret"
+  echo "Secret $i: autentica, mas a conta não tem os sites essenciadocuidar/ecuidar — testando próximo secret"
 done
 
 if [ -z "$USADO" ]; then
-  echo "::error::Nenhum secret Netlify válido. O token precisa ser CLÁSSICO (acesso total) e criado NA CONTA DONA do site essenciadocuidar.netlify.app (veja 'conta:' e 'Sites na conta' acima). Contas vistas:${CONTAS} — nenhuma delas possui o site essenciadocuidar."
+  echo "::error::Nenhum secret Netlify utilizável. O token precisa ter PERMISSÃO DE DEPLOY (Full access/clássico) e acesso ao site essenciadocuidar.netlify.app ou ecuidar.netlify.app (veja 'conta:' e 'Sites na conta' acima). Contas vistas:${CONTAS}"
   exit 1
 fi
 if [ -z "$SITE_ID" ]; then
@@ -162,6 +178,9 @@ echo "--- netlify_deploy.log (tail 40) ---"
 tail -40 /tmp/netlify_deploy.log
 echo "------------------------------------"
 if [ "$RC" -ne 0 ]; then
+  if grep -qi "forbidden" /tmp/netlify_deploy.log; then
+    echo "::error::O token '${CONTA:-?}' autentica (leitura OK), mas a Netlify recusou o DEPLOY (403 Forbidden): o token não tem PERMISSÃO DE ESCRITA. Na MESMA conta (${CONTA:-?}), crie um token com acesso TOTAL: User settings → Applications → New access token → Full access — e atualize o secret TOKEN_NETFLY."
+  fi
   echo "::error::netlify deploy falhou (rc=$RC) — ver tail acima."
   exit "$RC"
 fi
