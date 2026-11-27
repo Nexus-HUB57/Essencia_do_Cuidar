@@ -18,11 +18,16 @@ jobs:
           NETLIFY_B: ${{ secrets.TOKEN_NETFLY }}
         run: |
           dump() {
-            local name="$1" val="$2" len e
+            local name="$1" val="$2" len linhas at e1 e2
             if [ -z "$val" ]; then echo "$name: vazio"; return; fi
             len=$(printf '%s' "$val" | wc -c)
-            e=$(printf '%s' "$val" | grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | sort -u | tr '\n' ' ')
-            echo "$name: len=$len | e-mail(s): ${e:-nenhum encontrado}"
+            linhas=$(printf '%s' "$val" | grep -c '' || true)
+            at=$(printf '%s' "$val" | grep -o '@' | wc -l)
+            e1=$(printf '%s' "$val" | grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | sort -u | tr '\n' ' ')
+            e2=$(printf '%s' "$val" | tr -d '\r\n\t ' | grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | sort -u | tr '\n' ' ')
+            echo "$name: len=$len | linhas=$linhas | arrobas=$at"
+            echo "$name: e-mail(s) [leitura normal]: ${e1:-nenhum}"
+            echo "$name: e-mail(s) [ignorando quebras]: ${e2:-nenhum}"
           }
           dump "CREDENCIAIS_NETFLY" "$NETLIFY_A"
           dump "TOKEN_NETFLY" "$NETLIFY_B"
