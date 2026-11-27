@@ -169,10 +169,10 @@ jobs:
 
           export NETLIFY_AUTH_TOKEN="$USADO"
           echo "Publicando em produção (site $SITE_ID)..."
-          npx netlify deploy --prod --site "$SITE_ID" --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1
-          RC=$?
-          echo "--- deploy.log (tail) ---"
-          tail -25 /tmp/deploy.log
+          RC=0
+          npx netlify deploy --prod --site "$SITE_ID" --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || RC=$?
+          echo "--- deploy.log (tail 40) ---"
+          tail -40 /tmp/deploy.log
           echo "--------------------------"
           if [ $RC -ne 0 ]; then
             echo "::error::netlify deploy falhou (rc=$RC) — ver tail acima."
