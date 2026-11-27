@@ -115,56 +115,69 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL || '/api' }}
         run: bash scripts/netlify-pre-deploy-check.sh
 
-      # Deploy via Netlify CLI — token de CREDENCIAIS_NETFLY (fallback TOKEN_NETFLY).
-      # Resolve o site-id pela API (o runner não tem site linkado) e publica --prod.
-      # Se o publish falhar, segue anônimo (não afeta produção, que também é
-      # publicada pela integração Git da Netlify).
+      # Deploy via Netlify CLI — testa os secrets via API, usa o que funcionar,
+      # resolve o site-id e publica --prod. Falha RUIDOSAMENTE se não publicar
+      # (a integração Git da Netlify está sem publicar os pushes novos).
       - name: Deploy na Netlify
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         id: netlify
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.CREDENCIAIS_NETFLY || secrets.TOKEN_NETFLY }}
+          NETLIFY_TOKEN_A: ${{ secrets.CREDENCIAIS_NETFLY }}
+          NETLIFY_TOKEN_B: ${{ secrets.TOKEN_NETFLY }}
         run: |
           npm install -g netlify-cli
 
           cd frontend
 
+          USADO=""
           SITE_ID=""
-          if [ -n "$NETLIFY_AUTH_TOKEN" ]; then
-            echo "Resolvendo site-id pela API..."
-            SITE_ID=$(npx netlify api listSitesForUser 2>/dev/null | python3 -c "
-          import json, sys
+          i=0
+          for T in "$NETLIFY_TOKEN_A" "$NETLIFY_TOKEN_B"; do
+            i=$((i+1))
+            [ -n "$T" ] || { echo "Secret $i: vazio"; continue; }
+            CODE=$(curl -s -o /tmp/sites.json -w "%{http_code}" -H "Authorization: Bearer $T" https://api.netlify.com/api/v1/sites || echo curl_erro)
+            echo "Secret $i: GET /api/v1/sites -> HTTP $CODE"
+            if [ "$CODE" = "200" ]; then
+              USADO="$T"
+              SITE_ID=$(python3 -c "
+          import json
           try:
-              sites = json.load(sys.stdin)
+              sites = json.load(open('/tmp/sites.json'))
               alvo = [s for s in sites if 'essenciadocuidar' in (s.get('name') or '') + (s.get('ssl_url') or '')]
               print(alvo[0]['id'] if alvo else '')
           except Exception:
-              pass
-          " || true)
-            echo "site-id: ${SITE_ID:-não encontrado}"
-          fi
+              pass")
+              echo "Sites na conta: $(python3 -c "
+          import json
+          try:
+              sites = json.load(open('/tmp/sites.json'))
+              print(', '.join((s.get('name') or '?') for s in sites[:20]) or '(vazio)')
+          except Exception:
+              print('(erro ao ler)')")"
+              echo "site-id selecionado: ${SITE_ID:-NAO_ENCONTRADO}"
+              break
+            fi
+          done
 
-          echo "Tentando deploy com token..."
-          if [ -n "$SITE_ID" ]; then
-            npx netlify deploy --prod --site "$SITE_ID" --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
-          else
-            npx netlify deploy --prod --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
-          fi
-          DEPLOY_URL=$(grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
+          [ -n "$USADO" ] || { echo "::error::Nenhum secret Netlify válido (HTTP != 200). Crie um Personal Access Token com permissão de deploy no site e atualize o secret CREDENCIAIS_NETFLY."; exit 1; }
+          [ -n "$SITE_ID" ] || { echo "::error::Token válido, mas o site essenciadocuidar não foi encontrado na conta."; exit 1; }
 
-          # Se falhou, REMOVE o token do env e tenta anônimo
-          if [ -z "$DEPLOY_URL" ]; then
-            echo "Token falhou. Removendo NETLIFY_AUTH_TOKEN do env..."
-            unset NETLIFY_AUTH_TOKEN
-            npx netlify deploy --prod --dir dist --allow-anonymous --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1 || true
-            # Busca URL no formato "Site URL: http://xxx.netlify.app" ou direto
-            DEPLOY_URL=$(grep -oP 'https?://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
+          export NETLIFY_AUTH_TOKEN="$USADO"
+          echo "Publicando em produção (site $SITE_ID)..."
+          npx netlify deploy --prod --site "$SITE_ID" --dir dist --message "Deploy ${{ github.sha }}" > /tmp/deploy.log 2>&1
+          RC=$?
+          echo "--- deploy.log (tail) ---"
+          tail -25 /tmp/deploy.log
+          echo "--------------------------"
+          if [ $RC -ne 0 ]; then
+            echo "::error::netlify deploy falhou (rc=$RC) — ver tail acima."
+            exit $RC
           fi
-
+          DEPLOY_URL=$(grep -oP 'Website URL:\s*\Khttps://\S+' /tmp/deploy.log | head -1)
+          [ -n "$DEPLOY_URL" ] || DEPLOY_URL=$(grep -oP 'https://[a-z0-9-]+\.netlify\.app' /tmp/deploy.log | head -1)
           echo "deploy-url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
           echo "Deploy URL: $DEPLOY_URL"
-          echo "---"
-          cat /tmp/deploy.log | tail -10
+          [ -n "$DEPLOY_URL" ] || { echo "::error::Deploy sem erro explícito, mas nenhuma URL de publicação foi detectada."; exit 1; }
 
       - name: Resumo
         if: always()
