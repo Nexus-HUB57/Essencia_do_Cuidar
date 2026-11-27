@@ -267,6 +267,49 @@ router.post('/me/verificar-registro', authRequired, requireTipo('profissional'),
 );
 
 /**
+ * GET /api/profissionais — listagem pública dos profissionais mais recentes.
+ *
+ * Alimenta o carrossel "Vagas e Profissionais recentes" da Home. Publica
+ * APENAS campos seguros de perfil público (id, nome, profissão, cidade,
+ * selo de verificação e data de cadastro) — e-mail, telefone, número de
+ * registro e diploma NUNCA são expostos em listagem aberta (mesma regra
+ * de privacidade do GET /:id).
+ *
+ * Query: `limite` (default 6, máx 20).
+ */
+router.get('/', async (req, res) => {
+  const limite = Math.max(1, Math.min(Number(req.query.limite) || 6, 20));
+  const rows = await db.all(
+    `SELECT u.id, u.nome, u.criado_em,
+            d.profissao, d.cidade, d.regiao, d.especialidades,
+            d.registro_verificado, d.tipo_registro
+       FROM users u
+       LEFT JOIN profissionais_detalhes d ON d.id_user = u.id
+      WHERE u.tipo_usuario = 'profissional'
+      ORDER BY u.criado_em DESC
+      LIMIT ?`,
+    [limite]
+  );
+  const profissionais = rows.map((r) => {
+    let especialidades = [];
+    try { especialidades = JSON.parse(r.especialidades || '[]'); } catch { /* mantém vazio */ }
+    if (!Array.isArray(especialidades)) especialidades = [];
+    return {
+      id: r.id,
+      nome: r.nome,
+      criado_em: r.criado_em,
+      profissao: r.profissao || null,
+      cidade: r.cidade || null,
+      regiao: r.regiao || null,
+      especialidades,
+      verificado: !!r.registro_verificado,
+      tipo_registro: r.tipo_registro || null
+    };
+  });
+  res.json({ profissionais, total: profissionais.length, limite });
+});
+
+/**
  * GET /api/profissionais/:id — perfil público
  * Inclui estatísticas de avaliação (média e total) do schema do main
  * (colunas id_profissional, id_contratante, id_vaga, nota).

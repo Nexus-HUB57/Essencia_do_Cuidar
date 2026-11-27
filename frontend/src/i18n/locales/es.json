@@ -36,11 +36,12 @@
     "assistant": "Asistente"
   },
   "home": {
-    "hero": "Cuidado de salud en el hogar con confianza y empatía",
-    "subtitle": "Conectamos familias con profesionales verificados para el cuidado de adultos mayores",
+    "heroLinha1": "La Esencia del Cuidar",
+    "heroLinha2": "de la Salud de nuestras Familias",
+    "subtitle": "Conectamos Familias con Profesionales Calificados",
     "ctaProfessional": "Soy Profesional",
     "ctaContractor": "Busco Profesional",
-    "howItWorks": "Cómo funciona"
+    "howItWorks": "Cómo Realizar tu Registro"
   },
   "auth": {
     "login": "Entrar",
@@ -408,34 +409,48 @@
     "title2": "Trabajos abiertos"
   },
   "landing": {
-    "quote": "Cuidar con amor es nuestra esencia. Cuidado, Acogida y Respeto en cada detalle.",
-    "about": "En la región de Campinas conectamos familias, clínicas e instituciones con profesionales de la salud cualificados para atención domiciliaria de complejidad baja y media.",
+    "storyP1": "La Esencia del Cuidar nació hace más de 20 años, sostenida por el Propósito de ofrecer Cuidado Humanizado, con Profesionalismo y Amor — para que las Familias puedan contar con apoyo de confianza en el cuidado de quienes aman y para que los Pacientes se sientan Acogidos y Asistidos, con Humanidad y Dignidad.",
+    "about": "Actuamos en Campinas y región (RMC), conectando Familias, Clínicas e Instituciones con un portafolio de Profesionales de la Salud Calificados para promover una Atención de Calidad, cuyo Objetivo Principal es generar Calidad de Vida.",
     "badges": [
-      "Cuidado humanizado",
-      "Profesionalismo",
-      "Atención cercana",
-      "Confianza"
+      "Cuidado +Humanizado",
+      "+Profesionalismo",
+      "Atención +Cercana",
+      "Baja y Media Complejidad"
     ],
-    "motto": "Cuidado • Acogida • Respeto",
+    "badgeContractor": "+Salud (Quiero Contratar)",
+    "badgeProfessional": "Profesional de la Salud (Quiero Cuidar)",
+    "carrossel": {
+      "titulo": "Trabajos y Profesionales recientes",
+      "vaga": "Trabajo",
+      "semDadosTitulo": "Novedades en breve",
+      "semDados": "En cuanto las Familias publiquen Trabajos y los Profesionales se registren, las novedades de la RMC aparecerán aquí.",
+      "verVaga": "Ver trabajo",
+      "verPerfil": "Ver perfil",
+      "complexidadeBaixa": "Baja complejidad",
+      "complexidadeMedia": "Media complejidad",
+      "cadastradoEm": "Registrado el",
+      "anterior": "Diapositiva anterior",
+      "proximo": "Siguiente diapositiva"
+    },
     "threeSteps": "3 pasos",
     "stepsContractor": [
       {
-        "t": "Crea tu cuenta +Saúde",
-        "d": "Registro rápido con nombre, correo y teléfono."
+        "t": "Crea tu cuenta +Salud",
+        "d": "Registro rápido y sencillo con nombre, correo y teléfono."
       },
       {
-        "t": "Publica el trabajo",
+        "t": "Publica tu Trabajo",
         "d": "Describe al paciente, la jornada y el profesional que necesitas."
       },
       {
-        "t": "Paga vía Pix",
-        "d": "Reparto automático: 90% profesional, 10% plataforma."
+        "t": "Sistema de Pago vía Custodia de Turno",
+        "d": "Garantía para quien Contrata y para quien es Contratado."
       }
     ],
     "stepsProfessional": [
       {
-        "t": "Regístrate + diploma",
-        "d": "Validamos tu registro (CRM/COREN/CREFITO)."
+        "t": "Regístrate",
+        "d": "Preséntate: informa tus Cualidades Técnicas y Experiencia Profesional."
       },
       {
         "t": "Conecta tu cuenta Stripe",
@@ -487,12 +502,6 @@
     "scheduleFree": "📲 Agendar una visita gratuita",
     "altCaregiver": "Cuidadora sosteniendo la mano de una anciana",
     "altFounder": "Jeane Silva, fundadora de Esencia del Cuidar",
-    "specialties": [
-      "Alzheimer",
-      "Cuidados paliativos",
-      "Ancianos"
-    ],
-    "viewProfile": "Ver perfil",
     "ourStory": "💚 Nuestra historia",
     "familyDeserves": "Tu familia merece tranquilidad.",
     "shortQuote": "\"Cuidar con amor es nuestra esencia\""

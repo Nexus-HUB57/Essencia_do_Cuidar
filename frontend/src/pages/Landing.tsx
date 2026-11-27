@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AvatarCuidadora, BeijaFlor, DivisorBotanico, VinhaCanto, CoracaoMaos } from '../components/ilustracoes';
+import { BeijaFlor, DivisorBotanico, VinhaCanto, CoracaoMaos } from '../components/ilustracoes';
+import CarrosselRecentes from '../components/CarrosselRecentes';
 
 const WHATSAPP_URL = 'https://wa.me/5519988322428';
 const WHATSAPP_DISPLAY = '(19) 98832-2428';
@@ -30,10 +31,9 @@ export default function Landing() {
           <div>
             <span className="badge-blue mb-4">🩺 {t('home.subtitle')}</span>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-slate-900">
-              {t('home.hero').split(',')[0]},
-              <span className="block text-serenity-500">{t('home.hero').split(',').slice(1).join(',')}</span>
+              {t('home.heroLinha1')}
+              <span className="block text-serenity-500">{t('home.heroLinha2')}</span>
             </h1>
-            <p className="mt-6 text-lg text-slate-600 max-w-xl">{t('home.subtitle')}</p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <Link to="/cadastro?tipo=contratante" className="btn-primary">🏠 {t('home.ctaContractor')}</Link>
               <Link to="/cadastro?tipo=profissional" className="btn-secondary">🩺 {t('home.ctaProfessional')}</Link>
@@ -44,37 +44,13 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Card ilustrativo com avatar da cuidadora + Jeane */}
+          {/* Carrossel — Vagas e Profissionais reais mais recentes do app */}
           <div className="relative">
             {/* beija-flor planando sobre o card */}
             <div className="hidden md:block absolute -top-10 -right-6 w-24 z-20 ilustracao-planar pointer-events-none">
               <BeijaFlor className="w-full h-auto" />
             </div>
-            <div className="card relative z-10 max-w-md mx-auto">
-              <div className="flex items-center gap-3 mb-4">
-                <AvatarCuidadora className="w-12 h-12 shrink-0 [&>svg]:w-full [&>svg]:h-full" titulo="Avatar ilustrado de cuidadora" />
-                <div>
-                  <h3 className="font-semibold text-slate-900">Cuidadora Ana C.</h3>
-                  <p className="text-xs text-slate-500">COREN-SP • {t('perfil.verified')}</p>
-                </div>
-                <span className="ml-auto badge-green">✓ {t('perfil.verified')}</span>
-              </div>
-              <p className="text-sm text-slate-600 italic mb-4">
-                {t('landing.quote')}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                <span className="badge-blue">Alzheimer</span>
-                <span className="badge-blue">{(t('landing.specialties', { returnObjects: true }) as unknown as string[])[1]}</span>
-                <span className="badge-blue">{(t('landing.specialties', { returnObjects: true }) as unknown as string[])[2]}</span>
-              </div>
-              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-slate-500">A partir de</p>
-                  <p className="text-lg font-bold text-serenity-600">R$ 35<span className="text-xs text-slate-400 font-normal">/hora</span></p>
-                </div>
-                <button className="btn-primary text-xs py-2">{t('landing.viewProfile')}</button>
-              </div>
-            </div>
+            <CarrosselRecentes />
             <div className="hidden md:block absolute -bottom-6 -left-6 card p-4 z-20 max-w-[200px]">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🔒</span>
@@ -103,9 +79,7 @@ export default function Landing() {
             <span className="badge-green mb-3">{t('landing.ourStory')}</span>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Nasceu a Essência do Cuidar</h2>
             <p className="text-slate-600 leading-relaxed mb-4">
-              A Essência do Cuidar nasceu do propósito de oferecer cuidado
-              humanizado, com profissionalismo e amor — para que famílias
-              possam contar com apoio de confiança no cuidado de quem amam.
+              {t('landing.storyP1')}
             </p>
             <p className="text-slate-600 leading-relaxed mb-6">
               {t('landing.about')}
@@ -123,9 +97,6 @@ export default function Landing() {
               className="rounded-3xl shadow-card w-full h-auto"
               loading="lazy"
             />
-            <div className="absolute -bottom-4 -right-4 bg-amber-500 text-white px-4 py-2 rounded-xl shadow-card text-sm font-semibold">
-              {t('landing.motto')}
-            </div>
           </div>
         </div>
       </section>
@@ -138,7 +109,7 @@ export default function Landing() {
           </div>
           <div className="grid md:grid-cols-2 gap-12">
             <div className="card border-t-4 border-serenity-500">
-              <span className="badge-blue mb-3">{t('auth.contractor')}</span>
+              <span className="badge-blue mb-3">{t('landing.badgeContractor')}</span>
               <h3 className="text-xl font-semibold mb-6">{t('landing.threeSteps')}</h3>
               <ol className="space-y-4">
                 {(t('landing.stepsContractor', { returnObjects: true }) as unknown as { t: string; d: string }[]).map((s, i) => (
@@ -151,7 +122,7 @@ export default function Landing() {
               <Link to="/cadastro?tipo=contratante" className="btn-primary w-full mt-6">{t('home.ctaContractor')}</Link>
             </div>
             <div className="card border-t-4 border-emerald-500">
-              <span className="badge-green mb-3">{t('auth.professional')}</span>
+              <span className="badge-green mb-3">{t('landing.badgeProfessional')}</span>
               <h3 className="text-xl font-semibold mb-6">{t('landing.threeSteps')}</h3>
               <ol className="space-y-4">
                 {(t('landing.stepsProfessional', { returnObjects: true }) as unknown as { t: string; d: string }[]).map((s, i) => (

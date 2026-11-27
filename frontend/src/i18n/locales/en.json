@@ -36,11 +36,12 @@
     "assistant": "Assistant"
   },
   "home": {
-    "hero": "Home health care with trust and empathy",
-    "subtitle": "We connect families with verified professionals for elderly and patient care",
+    "heroLinha1": "The Essence of Care",
+    "heroLinha2": "for our Families' Health",
+    "subtitle": "We connect Families with Qualified Professionals",
     "ctaProfessional": "I am a Professional",
     "ctaContractor": "I need a Professional",
-    "howItWorks": "How it works"
+    "howItWorks": "How to Create your Account"
   },
   "auth": {
     "login": "Sign in",
@@ -408,34 +409,48 @@
     "title2": "Open jobs"
   },
   "landing": {
-    "quote": "Caring with love is our essence. Care, Welcome and Respect in every detail.",
-    "about": "In the Campinas region, we connect families, clinics and institutions with qualified health professionals for low and medium complexity home care.",
+    "storyP1": "The Essence of Care was born over 20 years ago, sustained by the Purpose of offering Humanized Care, with Professionalism and Love — so that Families can count on trustworthy support in caring for those they love, and so that Patients feel Welcomed and Assisted, with Humanity and Dignity.",
+    "about": "We operate in Campinas and region (RMC), connecting Families, Clinics and Institutions with a portfolio of Qualified Health Professionals to deliver Quality Care, whose Main Goal is to generate Quality of Life.",
     "badges": [
-      "Humanized care",
-      "Professionalism",
-      "Close attention",
-      "Trust"
+      "+Humanized Care",
+      "+Professionalism",
+      "+Close Care",
+      "Low and Medium Complexity"
     ],
-    "motto": "Care • Welcome • Respect",
+    "badgeContractor": "+Health (I want to Hire)",
+    "badgeProfessional": "Health Professional (I want to Care)",
+    "carrossel": {
+      "titulo": "Recent Jobs & Professionals",
+      "vaga": "Job",
+      "semDadosTitulo": "News coming soon",
+      "semDados": "As soon as Families post Jobs and Professionals join, the latest from the RMC region will appear here.",
+      "verVaga": "View job",
+      "verPerfil": "View profile",
+      "complexidadeBaixa": "Low complexity",
+      "complexidadeMedia": "Medium complexity",
+      "cadastradoEm": "Joined on",
+      "anterior": "Previous slide",
+      "proximo": "Next slide"
+    },
     "threeSteps": "3 steps",
     "stepsContractor": [
       {
-        "t": "Create your +Saúde account",
-        "d": "Quick signup with name, e-mail and phone."
+        "t": "Create your +Health account",
+        "d": "Quick and simple signup with name, e-mail and phone."
       },
       {
-        "t": "Post the job",
+        "t": "Post your Job",
         "d": "Describe the patient, the schedule and the professional you need."
       },
       {
-        "t": "Pay via Pix",
-        "d": "Automatic split: 90% professional, 10% platform."
+        "t": "Custodial Shift Payment System",
+        "d": "Protection for those who Hire and for those who are Hired."
       }
     ],
     "stepsProfessional": [
       {
-        "t": "Sign up + diploma",
-        "d": "We validate your registration (CRM/COREN/CREFITO)."
+        "t": "Sign up",
+        "d": "Introduce yourself: share your Technical Skills and Professional Experience."
       },
       {
         "t": "Connect your Stripe account",
@@ -487,12 +502,6 @@
     "scheduleFree": "📲 Schedule a free visit",
     "altCaregiver": "Caregiver holding an elderly woman's hand",
     "altFounder": "Jeane Silva, founder of Essence of Care",
-    "specialties": [
-      "Alzheimer",
-      "Palliative care",
-      "Elderly"
-    ],
-    "viewProfile": "View profile",
     "ourStory": "💚 Our story",
     "familyDeserves": "Your family deserves peace of mind.",
     "shortQuote": "\"Caring with love is our essence\""

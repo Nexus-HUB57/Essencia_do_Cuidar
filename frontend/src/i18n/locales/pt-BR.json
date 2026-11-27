@@ -36,11 +36,12 @@
     "assistant": "Assistente"
   },
   "home": {
-    "hero": "Cuidado de saúde domiciliar com confiança e empatia",
-    "subtitle": "Conectamos famílias a profissionais verificados para cuidado de idosos e pacientes",
+    "heroLinha1": "A Essência do Cuidar",
+    "heroLinha2": "da Saúde das nossas Famílias",
+    "subtitle": "Conectamos Famílias a Profissionais Qualificados",
     "ctaProfessional": "Sou Profissional",
     "ctaContractor": "Busco Profissional",
-    "howItWorks": "Como funciona"
+    "howItWorks": "Como Realizar o seu Cadastro"
   },
   "auth": {
     "login": "Entrar",
@@ -408,34 +409,48 @@
     "title2": "Vagas abertas"
   },
   "landing": {
-    "quote": "Cuidar com amor é a nossa essência. Cuidado, Acolhimento e Respeito em cada detalhe.",
-    "about": "Em Campinas e região, conectamos famílias, clínicas e instituições a profissionais de saúde qualificados para atendimento domiciliar de baixa e média complexidade.",
+    "storyP1": "A Essência do Cuidar nasceu há mais de 20 anos, sustentada pelo Propósito de oferecer Cuidado Humanizado, com Profissionalismo e Amor — para que Famílias possam contar com apoio de confiança no cuidado de quem amam e para que os Pacientes se sintam Acolhidos e Assistidos, com Humanidade e Dignidade.",
+    "about": "Atuamos em Campinas e região (RMC), conectando Famílias, Clínicas e Instituições a um portfólio de Profissionais de Saúde Qualificados para promover um Atendimento de Qualidade, onde o Objetivo Principal é gerar Qualidade de Vida.",
     "badges": [
-      "Cuidado humanizado",
-      "Profissionalismo",
-      "Atendimento próximo",
-      "Confiança"
+      "Cuidado +Humanizado",
+      "+Profissionalismo",
+      "Atendimento +Próximo",
+      "Baixa e Média Complexidade"
     ],
-    "motto": "Cuidado • Acolhimento • Respeito",
+    "badgeContractor": "+Saúde (Quero Contratar)",
+    "badgeProfessional": "Profissional da Saúde (Quero Cuidar)",
+    "carrossel": {
+      "titulo": "Vagas e Profissionais recentes",
+      "vaga": "Vaga",
+      "semDadosTitulo": "Em breve, novidades por aqui",
+      "semDados": "Assim que Famílias publicarem Vagas e Profissionais se cadastrarem, as novidades da RMC aparecem aqui.",
+      "verVaga": "Ver vaga",
+      "verPerfil": "Ver perfil",
+      "complexidadeBaixa": "Baixa complexidade",
+      "complexidadeMedia": "Média complexidade",
+      "cadastradoEm": "Cadastrado em",
+      "anterior": "Slide anterior",
+      "proximo": "Próximo slide"
+    },
     "threeSteps": "3 passos",
     "stepsContractor": [
       {
         "t": "Crie sua conta +Saúde",
-        "d": "Cadastro rápido com nome, e-mail e telefone."
+        "d": "Cadastro rápido e simples com nome, e-mail e telefone."
       },
       {
-        "t": "Publique a vaga",
+        "t": "Publique a sua Vaga",
         "d": "Descreva o paciente, a jornada e o profissional desejado."
       },
       {
-        "t": "Pague via Pix",
-        "d": "Split automático: 90% profissional, 10% plataforma."
+        "t": "Sistema de Pagamento via Custódia de Plantão",
+        "d": "Garantia para quem Contrata e para quem é Contratado."
       }
     ],
     "stepsProfessional": [
       {
-        "t": "Cadastre-se + diploma",
-        "d": "Validação do seu registro (CRM/COREN/CREFITO)."
+        "t": "Cadastre-se",
+        "d": "Se Apresente, Informe suas Qualidades Técnicas e Experiência Profissional."
       },
       {
         "t": "Conecte sua conta Stripe",
@@ -487,18 +502,12 @@
     "scheduleFree": "📲 Agendar visita gratuita",
     "altCaregiver": "Cuidadora segurando a mão de uma idosa",
     "altFounder": "Jeane Silva, fundadora da Essência do Cuidar",
-    "specialties": [
-      "Alzheimer",
-      "Cuidados Paliativos",
-      "Idosos"
-    ],
-    "viewProfile": "Ver perfil",
     "ourStory": "💚 Nossa história",
     "familyDeserves": "Sua família merece tranquilidade.",
     "shortQuote": "\"Cuidar com amor é a nossa essência\""
   },
   "comoFunciona": {
-    "title": "Como funciona",
+    "title": "Como Realizar o seu Cadastro",
     "subtitle": "Dois caminhos simples, uma plataforma segura.",
     "forFamilies": "🏠 Para quem busca profissional",
     "families": [
