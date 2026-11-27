@@ -135,20 +135,42 @@ jobs:
           for T in "$NETLIFY_TOKEN_A" "$NETLIFY_TOKEN_B"; do
             i=$((i+1))
             [ -n "$T" ] || { echo "Secret $i: vazio"; continue; }
-            CODE=$(curl -s -o /tmp/sites.json -w "%{http_code}" -H "Authorization: Bearer $T" https://api.netlify.com/api/v1/sites || echo curl_erro)
+            # sanitiza: remove quebras de linha, espaços e aspas (segredos
+            # colados com JSON/quebras quebram o header do curl -> HTTP 000)
+            TSAN=$(printf '%s' "$T" | tr -d '\r\n\t "')
+            if [ "$TSAN" != "$T" ]; then echo "Secret $i: valor sanitizado (continha quebras/aspas/espaços)"; fi
+            # se veio embrulhado em JSON, extrai o campo token
+            case "$TSAN" in
+              \{*) TSAN=$(printf '%s' "$TSAN" | python3 -c "
+          import json, sys
+          try:
+              d = json.load(sys.stdin)
+              print(d.get('token') or d.get('api_token') or d.get('NETLIFY_AUTH_TOKEN') or '')
+          except Exception:
+              pass")" ;;
+            esac
+            [ -n "$TSAN" ] || { echo "Secret $i: vazio após sanitização"; continue; }
+            echo "Secret $i: len=${#TSAN} prefixo=$(printf '%s' "$TSAN" | cut -c1-3)…"
+            WHO=$(curl -s -m 20 -o /tmp/user.json -w "%{http_code}" -H "Authorization: Bearer $TSAN" https://api.netlify.com/api/v1/user || echo curl_erro)
+            echo "Secret $i: GET /api/v1/user -> HTTP $WHO | conta: $(python3 -c "
+          import json
+          try:
+              u = json.load(open('/tmp/user.json'))
+              print((u.get('email') or u.get('full_name') or '?'))
+          except Exception:
+              print('?')" 2>/dev/null || echo '?')"
+            CODE=$(curl -s -m 20 -o /tmp/sites.json -w "%{http_code}" -H "Authorization: Bearer $TSAN" https://api.netlify.com/api/v1/sites || echo curl_erro)
             echo "Secret $i: GET /api/v1/sites -> HTTP $CODE"
             if [ "$CODE" = "200" ]; then
-              USADO="$T"
+              USADO="$TSAN"
               SITE_ID=$(python3 -c "
           import json
           try:
               sites = json.load(open('/tmp/sites.json'))
               def alvo(s):
                   campos = ' '.join([s.get('name') or '', s.get('ssl_url') or '', s.get('custom_domain') or ''] + list(s.get('domain_aliases') or []))
-                  return ('essenciadocuidar' in campos) or ('ecuidar' in campos)
+                  return 'essenciadocuidar' in campos
               cand = [s for s in sites if alvo(s)]
-              if not cand and len(sites) == 1:
-                  cand = sites
               print(cand[0]['id'] if cand else '')
           except Exception:
               pass")
@@ -160,12 +182,12 @@ jobs:
           except Exception:
               print('(erro ao ler)')")"
               echo "site-id selecionado: ${SITE_ID:-NAO_ENCONTRADO}"
-              break
+              if [ -n "$SITE_ID" ]; then break; fi
             fi
           done
 
-          [ -n "$USADO" ] || { echo "::error::Nenhum secret Netlify válido (HTTP != 200). Crie um Personal Access Token com permissão de deploy no site e atualize o secret CREDENCIAIS_NETFLY."; exit 1; }
-          [ -n "$SITE_ID" ] || { echo "::error::Token válido, mas o site essenciadocuidar não foi encontrado na conta."; exit 1; }
+          [ -n "$USADO" ] || { echo "::error::Nenhum secret Netlify válido (HTTP != 200). O token precisa ser CLÁSSICO e de acesso total, criado na conta dona do site essenciadocuidar."; exit 1; }
+          [ -n "$SITE_ID" ] || { echo "::error::O token autentica numa conta que NÃO possui o site essenciadocuidar (veja 'Sites na conta' acima). Crie o Personal Access Token NA CONTA DONA do site (app.netlify.com → selecione o site essenciadocuidar) e atualize o secret TOKEN_NETFLY."; exit 1; }
 
           export NETLIFY_AUTH_TOKEN="$USADO"
           echo "Publicando em produção (site $SITE_ID)..."
